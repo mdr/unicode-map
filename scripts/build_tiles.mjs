@@ -30,7 +30,10 @@ const appUrl = server.resolvedUrls.local[0];
 const profile = mkdtempSync(join(tmpdir(), "umap-tiles-"));
 const chrome = spawn(CHROME, [
   "--headless=new", `--remote-debugging-port=${DEBUG_PORT}`, `--user-data-dir=${profile}`,
-  "--no-first-run", "--window-size=800,600", "about:blank",
+  "--no-first-run", "--window-size=800,600",
+  // CI runners (Ubuntu 24.04) don't allow Chrome's sandbox; it's only drawing our own page.
+  ...(process.env.CI ? ["--no-sandbox"] : []),
+  "about:blank",
 ], { stdio: "ignore" });
 
 let page;

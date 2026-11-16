@@ -1,0 +1,54 @@
+# Builds the site and publishes it to GitHub Pages on every push to main.
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time; let a running one finish rather than cancelling it.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: DeterminateSystems/nix-installer-action@v23
+      # Caches what Nix builds (the font set, Kaiyuan Small Seal) between runs.
+      - uses: DeterminateSystems/magic-nix-cache-action@v15
+
+      - name: Install dependencies
+        run: nix develop -c pnpm install --frozen-lockfile
+      - name: Compile the Unicode data
+        run: nix develop -c pnpm data
+      - name: Pre-build glyph tiles
+        # With the runner's Google Chrome; tiles drawn on Linux differ from macOS only in
+        # fine anti-aliasing detail.
+        env:
+          CHROME: /usr/bin/google-chrome
+        run: nix develop -c pnpm tiles
+      - name: Build
+        run: nix develop -c pnpm build
+
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

@@ -3,6 +3,8 @@
 An interactive, zoomable map of the whole Unicode code space: all 1,114,112 code points,
 from the 17 planes down to individual characters.
 
+**Live site:** https://mdr.github.io/unicode-map/
+
 ## Running it
 
 Everything comes from the Nix flake: Node, pnpm, Python with fontTools, the Unicode data
@@ -93,3 +95,13 @@ pure view draws them in the browser instead, which is slower to fill in.
    `--unpack` for `confusables.txt`.
 3. Run `pnpm data`. It warns about any new scripts that need a region in
    `SCRIPT_REGION`.
+
+## Publishing
+
+`.github/workflows/pages.yml` builds the site (data, tiles, then Vite) on every push to
+`main` and publishes it to GitHub Pages.
+
+## Licence
+
+The code is MIT licensed (see `LICENSE`). The site also includes Unicode data, fonts and
+Wikipedia text under their own licences; see `THIRD_PARTY_NOTICES.md`.
