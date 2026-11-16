@@ -116,6 +116,10 @@
               ''
                 python3 ${./nix/build-fonts.py} "$out" $fontDirs
                 # Interface fonts (not part of the glyph coverage set)
+                # Noto Color Emoji's vector (COLRv1) build, from the same source: Firefox and
+                # Chrome draw it, while the CBDT bitmaps above don't render in Firefox on macOS.
+                mkdir -p $out/emoji
+                cp ${pkgs.noto-fonts-color-emoji.src}/fonts/Noto-COLRv1.ttf $out/emoji/
                 mkdir -p $out/ui
                 cp ${pkgs.inter}/share/fonts/truetype/InterVariable.ttf $out/ui/Inter.ttf
                 cp "${pkgs.jetbrains-mono}/share/fonts/truetype/JetBrainsMono[wght].ttf" $out/ui/JetBrainsMono.ttf
