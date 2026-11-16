@@ -1,0 +1,40 @@
+import { ModeId, MODES } from "./map/colorModes";
+import type { Camera } from "./map/MapView";
+
+export interface UrlState {
+  cp?: number;
+  mode?: ModeId;
+  view?: Camera;
+}
+
+// Hash format: #U+2603&mode=gc&view=1234.5,567.25,40
+export function readHash(): UrlState {
+  const h = decodeURIComponent(location.hash.slice(1));
+  const out: UrlState = {};
+  for (const part of h.split("&")) {
+    const cpm = part.match(/^U\+([0-9A-Fa-f]{1,6})$/);
+    if (cpm) {
+      const cp = parseInt(cpm[1], 16);
+      if (cp <= 0x10ffff) out.cp = cp;
+      continue;
+    }
+    const [k, v] = part.split("=");
+    if (k === "mode" && MODES.some((m) => m.id === v)) out.mode = v as ModeId;
+    if (k === "view") {
+      const [cx, cy, z] = (v ?? "").split(",").map(Number);
+      if ([cx, cy, z].every(Number.isFinite) && z > 0) out.view = { cx, cy, k: z };
+    }
+  }
+  return out;
+}
+
+export function writeHash(s: UrlState, push: boolean) {
+  const parts: string[] = [];
+  if (s.cp !== undefined) parts.push("U+" + s.cp.toString(16).toUpperCase().padStart(4, "0"));
+  if (s.mode && s.mode !== "region") parts.push(`mode=${s.mode}`);
+  if (s.view) parts.push(`view=${s.view.cx.toFixed(1)},${s.view.cy.toFixed(1)},${+s.view.k.toPrecision(3)}`);
+  const hash = "#" + parts.join("&");
+  if (hash === location.hash) return;
+  if (push) history.pushState(null, "", hash);
+  else history.replaceState(null, "", hash);
+}

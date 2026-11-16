@@ -1,0 +1,89 @@
+import { useState } from "react";
+import { ColorMode, ModeId, MODES } from "../map/colorModes";
+
+export function Legend({
+  mode,
+  modeId,
+  onMode,
+  pinned,
+  onTogglePin,
+  onClearPins,
+  onPreview,
+}: {
+  mode: ColorMode;
+  modeId: ModeId;
+  onMode: (m: ModeId) => void;
+  pinned: string[];
+  onTogglePin: (key: string) => void;
+  onClearPins: () => void;
+  onPreview: (key: string | null) => void;
+}) {
+  const [filter, setFilter] = useState("");
+  const [collapsed, setCollapsed] = useState(false);
+  const total = mode.legend.reduce((n, g) => n + g.items.length, 0);
+  const f = filter.trim().toLowerCase();
+
+  return (
+    <div className={`legend panel ${collapsed ? "collapsed" : ""}`}>
+      <div className="mode-tabs" role="tablist">
+        {MODES.map((m, i) => (
+          <button
+            key={m.id}
+            role="tab"
+            className={m.id === modeId ? "active" : ""}
+            title={`${m.description} (${i + 1})`}
+            onClick={() => onMode(m.id)}
+          >
+            {m.label}
+          </button>
+        ))}
+      </div>
+      <div className="legend-head">
+        <span className="legend-desc">{mode.description}</span>
+        <button className="link" onClick={() => setCollapsed((c) => !c)}>
+          {collapsed ? "Show" : "Hide"}
+        </button>
+      </div>
+      {!collapsed && (
+        <>
+          {total > 16 && (
+            <input className="legend-filter" placeholder={`Filter ${total} items…`} value={filter} onChange={(e) => setFilter(e.target.value)} />
+          )}
+          {pinned.length > 0 && (
+            <div className="legend-pins">
+              Highlighting {pinned.length} {pinned.length === 1 ? "item" : "items"}
+              <button className="link" onClick={onClearPins}>Clear</button>
+            </div>
+          )}
+          <div className="legend-body" onMouseLeave={() => onPreview(null)}>
+            {mode.legend.map((g, gi) => {
+              const items = g.items.filter((it) => !f || it.label.toLowerCase().includes(f) || it.sublabel?.toLowerCase().includes(f));
+              if (!items.length) return null;
+              return (
+                <div key={gi} className="legend-group">
+                  {g.label && <div className="legend-group-label">{g.label}</div>}
+                  {items.map((it) => (
+                    <button
+                      key={it.key}
+                      className={`legend-item ${pinned.includes(it.key) ? "pinned" : ""}`}
+                      onMouseEnter={() => onPreview(it.key)}
+                      onClick={() => onTogglePin(it.key)}
+                      title="Hover to highlight, click to pin"
+                    >
+                      <span className="swatch" style={{ background: it.color }} />
+                      <span className="legend-label">
+                        {it.label}
+                        {it.sublabel && <span className="legend-sub">{it.sublabel}</span>}
+                      </span>
+                      <span className="legend-count">{it.count.toLocaleString()}</span>
+                    </button>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}

@@ -1,0 +1,16 @@
+import { displayString, UnicodeData } from "../data/unicode";
+
+/** A code point drawn with the font chosen for it, or its abbreviation for invisible characters. */
+export function Glyph({ data, cp, className }: { data: UnicodeData; cp: number; className?: string }) {
+  const str = displayString(data, cp);
+  if (str) {
+    return (
+      <span className={className} style={{ fontFamily: data.glyphFamily(cp) }}>
+        {str}
+      </span>
+    );
+  }
+  const gc = data.gc(cp).code;
+  const abbr = data.abbr(cp) ?? (gc === "Co" ? "PUA" : gc === "Cs" ? "SUR" : "");
+  return <span className={`${className ?? ""} glyph-abbr`}>{abbr}</span>;
+}
