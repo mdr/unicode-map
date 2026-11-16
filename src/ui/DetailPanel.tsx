@@ -2,18 +2,21 @@ import { ReactNode, useEffect, useMemo, useState } from "react";
 import { Detail, displayString, hex, MAX_CP, planeName, uplus, UnicodeData, VERSION_YEARS } from "../data/unicode";
 import { ColorMode, cpColor } from "../map/colorModes";
 import { Glyph } from "./Glyph";
-import { cellToCp } from "../map/layout";
-import type { Camera } from "../map/MapView";
+import type { Here } from "../map/MapView";
 
 interface Props {
   data: UnicodeData;
   mode: ColorMode;
   cp: number | null;
-  camera: Camera | null;
+  here: Here | null;
   onSelect: (cp: number) => void;
   onBlock: (i: number) => void;
   onPlane: (p: number) => void;
   onClose: () => void;
+  /** Point a range out on the map while hovering it (null to stop). */
+  onPreview: (r: { s: number; e: number; name: string } | null) => void;
+  /** Fly to a code point range (a chart section). */
+  onRange: (s: number, e: number) => void;
 }
 
 export function DetailPanel(props: Props) {
@@ -27,7 +30,7 @@ export function DetailPanel(props: Props) {
 // ---------------------------------------------------------------------------
 // Nothing selected: overview of the code space and the plane in view
 
-function Overview({ data, camera, onPlane, onBlock }: Props) {
+function Overview({ data, here, onPlane, onBlock, onPreview, onRange }: Props) {
   const planeStats = useMemo(
     () =>
       Array.from({ length: 17 }, (_, p) => {
@@ -38,8 +41,22 @@ function Overview({ data, camera, onPlane, onBlock }: Props) {
     [data],
   );
   const total = planeStats.reduce((a, b) => a + b, 0);
-  const centre = camera ? cellToCp(camera.cx, camera.cy) : -1;
-  const plane = centre >= 0 && camera && camera.k > 1.6 ? centre >> 16 : null;
+  // Don't leave the map dimmed if this panel goes away under the pointer (e.g. on selecting).
+  useEffect(() => () => onPreview(null), [onPreview]);
+  const plane = here && here.cp >= 0 && here.k > 1.6 ? here.cp >> 16 : null;
+  const currentBlock = plane !== null && here!.k > 2.5 ? data.blockIdx[here!.cp] : -1;
+  const currentSection = currentBlock >= 0 && here!.k > 10 ? data.sectionRange(here!.cp) : undefined;
+  /** Chart sections per block, for the current block's row to expand into. */
+  const sectionsByBlock = useMemo(() => {
+    const m = new Map<number, [number, number, string][]>();
+    for (const sec of data.meta.sections) {
+      const b = data.blockIdx[sec[0]];
+      if (b < 0) continue;
+      if (!m.has(b)) m.set(b, []);
+      m.get(b)!.push(sec);
+    }
+    return m;
+  }, [data]);
   return (
     <div className="detail-scroll">
       <div className="ov-hero">
@@ -54,7 +71,16 @@ function Overview({ data, camera, onPlane, onBlock }: Props) {
       <Section title="Planes">
         <div className="plane-list">
           {planeStats.map((n, p) => (
-            <button key={p} className={`plane-row ${plane === p ? "current" : ""}`} onClick={() => onPlane(p)}>
+            <button
+              key={p}
+              className={`plane-row ${plane === p ? "current" : ""}`}
+              onClick={() => {
+                onPreview(null);
+                onPlane(p);
+              }}
+              onMouseEnter={() => onPreview({ s: p << 16, e: (p << 16) | 0xffff, name: `Plane ${p} · ${planeName(p)[0]}` })}
+              onMouseLeave={() => onPreview(null)}
+            >
               <span className="plane-num">{p}</span>
               <span className="plane-name">
                 {planeName(p)[0]}
@@ -73,13 +99,47 @@ function Overview({ data, camera, onPlane, onBlock }: Props) {
           <div className="block-list">
             {data.meta.blocks.map((b, i) =>
               b.s >> 16 === plane ? (
-                <button key={i} className="block-row" onClick={() => onBlock(i)}>
+                <button
+                  key={i}
+                  className={`block-row ${currentBlock === i ? "current" : ""}`}
+                  onClick={() => {
+                    onPreview(null);
+                    onBlock(i);
+                  }}
+                  onMouseEnter={() => onPreview({ s: b.s, e: b.e, name: b.name })}
+                  onMouseLeave={() => onPreview(null)}
+                >
                   <span className="swatch" style={{ background: data.meta.regions[b.region].color }} />
                   <span className="block-name">{b.name}</span>
                   <span className="muted small mono">{hex(b.s)}</span>
                 </button>
               ) : null,
-            )}
+            ).flatMap((row, i) => {
+              // The block you're in opens up into its chart sections.
+              const secs = i === currentBlock ? sectionsByBlock.get(i) : undefined;
+              if (!row || !secs) return row ? [row] : [];
+              return [
+                row,
+                <div key={`s${i}`} className="section-list" style={{ borderColor: data.meta.regions[data.meta.blocks[i].region].color }}>
+                  {secs.map(([a, e, title]) => (
+                    <button
+                      key={a}
+                      className={`section-row ${currentSection?.[0] === a ? "current" : ""}`}
+                      title={title}
+                      onClick={() => {
+                        onPreview(null);
+                        onRange(a, e);
+                      }}
+                      onMouseEnter={() => onPreview({ s: a, e, name: title })}
+                      onMouseLeave={() => onPreview(null)}
+                    >
+                      <span className="block-name">{title}</span>
+                      <span className="muted small mono">{hex(a)}</span>
+                    </button>
+                  ))}
+                </div>,
+              ];
+            })}
           </div>
         </Section>
       )}

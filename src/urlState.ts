@@ -9,6 +9,8 @@ export interface UrlState {
   prop?: string;
   /** Timeline version, e.g. "6.0". */
   asOf?: string;
+  /** Pure view (no interface or colouring). */
+  pure?: boolean;
 }
 
 // Hash format: #U+2603&mode=gc&view=1234.5,567.25,40
@@ -20,6 +22,10 @@ export function readHash(): UrlState {
     if (cpm) {
       const cp = parseInt(cpm[1], 16);
       if (cp <= 0x10ffff) out.cp = cp;
+      continue;
+    }
+    if (part === "pure") {
+      out.pure = true;
       continue;
     }
     const [k, v] = part.split("=");
@@ -40,6 +46,7 @@ export function writeHash(s: UrlState, push: boolean) {
   if (s.mode && s.mode !== "region") parts.push(`mode=${s.mode}`);
   if (s.prop) parts.push(`prop=${s.prop}`);
   if (s.asOf) parts.push(`asof=${s.asOf}`);
+  if (s.pure) parts.push("pure");
   if (s.view) parts.push(`view=${s.view.cx.toFixed(1)},${s.view.cy.toFixed(1)},${+s.view.k.toPrecision(3)}`);
   const hash = "#" + parts.join("&");
   if (hash === location.hash) return;

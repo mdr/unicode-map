@@ -400,12 +400,16 @@ code { font-family: var(--mono); }
 .plane-list, .block-list { display: flex; flex-direction: column; gap: 1px; margin: 0 -8px 10px; }
 .plane-row, .block-row { display: flex; align-items: center; gap: 10px; padding: 5px 8px; border-radius: 6px; text-align: left; }
 .plane-row:hover, .block-row:hover { background: var(--hover); }
-.plane-row.current { background: rgba(124, 180, 255, 0.12); }
+.plane-row.current, .block-row.current { background: rgba(124, 180, 255, 0.12); }
 .plane-num { width: 20px; font: 600 12px var(--mono); color: var(--muted); text-align: right; }
 .plane-name { flex: 1; min-width: 0; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .plane-bar { width: 60px; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.06); overflow: hidden; }
 .plane-bar span { display: block; height: 100%; background: linear-gradient(90deg, #5b8def, #b58ad6); }
 .plane-count { width: 56px; text-align: right; font: 11px var(--mono); color: var(--muted); }
+.section-list { display: flex; flex-direction: column; gap: 1px; margin: 2px 0 6px 14px; padding-left: 8px; border-left: 2px solid; }
+.section-row { display: flex; align-items: center; gap: 10px; padding: 3px 8px; border-radius: 6px; text-align: left; font-size: 12px; color: var(--muted); }
+.section-row:hover { background: var(--hover); color: var(--text); }
+.section-row.current { background: rgba(124, 180, 255, 0.12); color: var(--text); }
 .block-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 @media (max-width: 1100px) {
@@ -413,3 +417,19 @@ code { font-family: var(--mono); }
   .search { width: 280px; }
   .breadcrumb { display: none; }
 }
+
+/* Pure view ----------------------------------------------------------------- */
+.app.pure .top-bar,
+.app.pure .legend,
+.app.pure .map-controls,
+.app.pure .minimap,
+.app.pure .timeline,
+.app.pure .detail { display: none; }
+.pure-hint {
+  position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%);
+  padding: 8px 14px; border-radius: 999px;
+  background: rgba(11, 14, 20, 0.85); border: 1px solid var(--panel-border);
+  color: var(--muted); font-size: 12px; white-space: nowrap;
+  opacity: 0; pointer-events: none; transition: opacity 0.4s;
+}
+.pure-hint.show { opacity: 1; pointer-events: auto; }

@@ -13,6 +13,7 @@ const KEYS: [string, string][] = [
   ["1 – 5", "Switch colour mode"],
   ["t", "Timeline: Unicode version by version"],
   ["p", "Highlight characters with a property"],
+  ["z", "Pure view: just the characters"],
   ["/", "Search"],
   ["Esc", "Clear selection"],
 ];
@@ -30,6 +31,10 @@ export function HelpOverlay({ onClose }: { onClose: () => void }) {
             </div>
           ))}
         </dl>
+        <p className="muted">
+          Zoomed in, <b>white labels are blocks</b> and <b>dark labels are sections</b> within them, as named in the
+          Unicode code charts. Hover over a label for its full name and extent; click it to zoom there.
+        </p>
         <p className="muted">
           The map lays out all 1,114,112 code points: 17 planes of 65,536, each a 256 × 256 grid with 256 code points per row.
         </p>

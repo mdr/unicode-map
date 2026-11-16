@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { UnicodeData } from "./data/unicode";
 import { getMode, ModeId, MODES } from "./map/colorModes";
-import { Camera, MapView } from "./map/MapView";
-import { cellToCp, planeRect, rangeRect } from "./map/layout";
+import { Camera, Here, MapView } from "./map/MapView";
+import { planeRect, rangeRect } from "./map/layout";
 import { SearchBox } from "./ui/SearchBox";
 import { Legend } from "./ui/Legend";
 import { DetailPanel } from "./ui/DetailPanel";
@@ -50,8 +50,13 @@ function Explorer({ data }: { data: UnicodeData }) {
   const [preview, setPreview] = useState<string | null>(null);
   const [hover, setHover] = useState<{ cp: number; x: number; y: number } | null>(null);
   const [camera, setCamera] = useState<Camera | null>(null);
+  /** Where the view is (centre of the visible area), updated once the camera settles. */
+  const [here, setHere] = useState<Here | null>(null);
   const [help, setHelp] = useState(false);
   const [prop, setProp] = useState<PropOption | null>(null);
+  /** Pure view: just the map, no interface or colouring. */
+  const [pure, setPure] = useState(initial.pure ?? false);
+  const [pureHint, setPureHint] = useState(false);
   /** Timeline position (index into meta.ages), or null when the timeline is closed. */
   const [asOf, setAsOf] = useState<number | null>(() => {
     const i = initial.asOf ? data.meta.ages.indexOf(initial.asOf) : -1;
@@ -72,6 +77,8 @@ function Explorer({ data }: { data: UnicodeData }) {
         camTimer = window.setTimeout(() => {
           camTimer = 0;
           setCamera(view.camera);
+          // Not mid-flight: a fly-to can pass over other planes or zoom out on the way.
+          if (!view.animating) setHere({ cp: view.centreCp(), k: view.camera.k });
         }, 80);
       },
     });
@@ -117,6 +124,27 @@ function Explorer({ data }: { data: UnicodeData }) {
     viewRef.current?.setMask(prop ? maskOf(prop) : null);
   }, [prop]);
 
+  // Pure view. A hint on how to leave shows on entering and whenever the mouse moves.
+  useEffect(() => {
+    viewRef.current?.setPure(pure);
+    if (!pure) return;
+    setHelp(false);
+    setHover(null);
+    let timer = 0;
+    const show = () => {
+      setPureHint(true);
+      clearTimeout(timer);
+      timer = window.setTimeout(() => setPureHint(false), 1800);
+    };
+    show();
+    window.addEventListener("mousemove", show);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("mousemove", show);
+      setPureHint(false);
+    };
+  }, [pure]);
+
   // Timeline
   useEffect(() => {
     viewRef.current?.setAsOf(asOf);
@@ -138,11 +166,11 @@ function Explorer({ data }: { data: UnicodeData }) {
   }, []);
 
   // URL state
-  const extras = () => ({ prop: prop?.key, asOf: asOf !== null ? data.meta.ages[asOf] : undefined });
+  const extras = () => ({ prop: prop?.key, asOf: asOf !== null ? data.meta.ages[asOf] : undefined, pure });
   useEffect(() => {
     writeHash({ cp: selected ?? undefined, mode: modeId, view: camera ?? undefined, ...extras() }, false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [camera, modeId, prop, asOf]);
+  }, [camera, modeId, prop, asOf, pure]);
   const lastPushed = useRef<number | null | undefined>(initial.cp);
   useEffect(() => {
     if (lastPushed.current === selected) return;
@@ -171,6 +199,8 @@ function Explorer({ data }: { data: UnicodeData }) {
     },
     [data],
   );
+  const flyToRange = useCallback((a: number, b: number) => viewRef.current?.flyToRect(rangeRect(a, b), { pad: 1.6, maxK: 90 }), []);
+  const previewRange = useCallback((r: { s: number; e: number; name: string } | null) => viewRef.current?.setPreview(r), []);
   const flyToPlane = useCallback((p: number) => viewRef.current?.flyToRect(planeRect(p), { pad: 1.08 }), []);
 
   // Keyboard navigation
@@ -179,12 +209,21 @@ function Explorer({ data }: { data: UnicodeData }) {
       const t = e.target as HTMLElement;
       if (t.tagName === "INPUT" || t.tagName === "TEXTAREA") return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (pure) {
+        // Only zooming and leaving work in pure view.
+        if (e.key === "z" || e.key === "Escape") setPure(false);
+        else if (e.key === "+" || e.key === "=") viewRef.current?.zoomBy(2);
+        else if (e.key === "-" || e.key === "_") viewRef.current?.zoomBy(0.5);
+        else if (e.key === "0") viewRef.current?.overview();
+        else return;
+        e.preventDefault();
+        return;
+      }
       const view = viewRef.current;
       if (!view) return;
       const cur = selectedRef.current;
       const centre = () => {
-        const c = view.camera;
-        const cp = cellToCp(c.cx, c.cy);
+        const cp = view.centreCp();
         return cp >= 0 ? cp : 0;
       };
       const move = (delta: number, assignedOnly = false) => {
@@ -234,6 +273,7 @@ function Explorer({ data }: { data: UnicodeData }) {
         case "0": view.overview(); break;
         case "?": setHelp((h) => !h); break;
         case "t": toggleTimeline(); break;
+        case "z": setPure(true); break;
         case "p": (document.querySelector(".pf-open") as HTMLButtonElement | null)?.click(); break;
         case "/":
           e.preventDefault();
@@ -249,10 +289,10 @@ function Explorer({ data }: { data: UnicodeData }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [data, select, flyToBlock, flyToPlane, help, toggleTimeline, changeMode]);
+  }, [data, select, flyToBlock, flyToPlane, help, toggleTimeline, changeMode, pure]);
 
   return (
-    <div className="app">
+    <div className={`app ${pure ? "pure" : ""}`}>
       <div className="map-area">
         <canvas ref={canvasRef} className="map-canvas" />
         <div className="top-bar">
@@ -265,7 +305,7 @@ function Explorer({ data }: { data: UnicodeData }) {
           </div>
           <SearchBox data={data} onPickCp={(cp) => select(cp, { zoom: true })} onPickBlock={(i) => flyToBlock(i)} />
           <PropertyFilter value={prop} onChange={setProp} />
-          <Breadcrumb data={data} camera={camera} selected={selected} onPlane={flyToPlane} onBlock={flyToBlock} onOverview={() => viewRef.current?.overview()} onRange={(a, b) => viewRef.current?.flyToRect(rangeRect(a, b), { pad: 1.6, maxK: 90 })} />
+          <Breadcrumb data={data} here={here} selected={selected} onPlane={flyToPlane} onBlock={flyToBlock} onOverview={() => viewRef.current?.overview()} onRange={flyToRange} onPreview={previewRange} />
         </div>
         <Legend
           mode={mode}
@@ -286,21 +326,33 @@ function Explorer({ data }: { data: UnicodeData }) {
               <path d="M8 4.6V8l2.4 1.6" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
           </button>
+          <button title="Pure view: just the characters (z)" onClick={() => setPure(true)}>
+            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
+              <path d="M2 5.5V2h3.5M10.5 2H14v3.5M14 10.5V14h-3.5M5.5 14H2v-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
           <button title="Keyboard shortcuts (?)" onClick={() => setHelp(true)}>?</button>
         </div>
         <Minimap view={viewRef} canvasRef={minimapRef} />
         {asOf !== null && <Timeline data={data} value={asOf} onChange={setAsOf} onClose={() => setAsOf(null)} />}
-        {hover && <Tooltip data={data} mode={mode} cp={hover.cp} x={hover.x} y={hover.y} />}
+        {pure && (
+          <button className={`pure-hint ${pureHint ? "show" : ""}`} onClick={() => setPure(false)}>
+            Pure view · press <kbd>Z</kbd> or <kbd>Esc</kbd> to leave
+          </button>
+        )}
+        {hover && !pure && <Tooltip data={data} mode={mode} cp={hover.cp} x={hover.x} y={hover.y} />}
         {help && <HelpOverlay onClose={() => setHelp(false)} />}
       </div>
       <DetailPanel
         data={data}
         mode={mode}
         cp={selected}
-        camera={camera}
+        here={here}
+        onPreview={previewRange}
         onSelect={(cp) => select(cp, { zoom: true })}
         onBlock={flyToBlock}
         onPlane={flyToPlane}
+        onRange={flyToRange}
         onClose={() => select(null)}
       />
     </div>

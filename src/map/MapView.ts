@@ -1,5 +1,5 @@
 import { interpolateZoom } from "d3-interpolate";
-import { displayString, hex, planeName, UnicodeData } from "../data/unicode";
+import { displayString, hex, planeName, UnicodeData, uplus } from "../data/unicode";
 import { ColorMode, PLANE_BG, RGB } from "./colorModes";
 import {
   cellToCp,
@@ -13,6 +13,12 @@ import {
   Rect,
   WORLD,
 } from "./layout";
+
+/** Where the view is: the code point at the centre of the visible area (-1 if none), and zoom. */
+export interface Here {
+  cp: number;
+  k: number;
+}
 
 export interface Camera {
   cx: number;
@@ -45,6 +51,8 @@ const TILE = 4;
 const V_NONCHAR = 1;
 /** Highlights with at most this many matches are ringed at low zoom. */
 const SPARSE_MAX = 400;
+/** Cell colour of assigned code points in pure view. */
+const PURE_CELL: RGB = [52, 58, 71];
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 const smooth = (a: number, b: number, v: number) => {
@@ -70,6 +78,13 @@ export class MapView {
   private tileBitmaps: HTMLCanvasElement[] = [];
   private tilesOn = false;
   private sparseLit: number[] = [];
+  private preview: Preview | null = null;
+  /** Headers drawn in the last frame (screen rects), for hover and click. */
+  private headerHits: { r: Rect; s: number; e: number; name: string }[] = [];
+  /** Whether the current preview comes from hovering a header on the map (not the sidebar). */
+  private headerHover = false;
+  /** Pure view: no colour, labels or chrome; just the cells and their glyphs. */
+  private pure = false;
   private blockLit: Uint8Array | null = null;
   private asOf: number | null = null;
   private blockFirstAge: number[];
@@ -165,6 +180,17 @@ export class MapView {
   get camera(): Camera {
     return { ...this.cam };
   }
+  get animating() {
+    return this.anim !== null;
+  }
+  /**
+   * The code point at the centre of the visible map area (clear of the floating top bar), or -1
+   * if that's between planes. Fitted views centre their target here, not on the canvas centre.
+   */
+  centreCp(): number {
+    const { cx, cy, k } = this.cam;
+    return cellToCp(cx + (this.insets.l - this.insets.r) / 2 / k, cy + (this.insets.t - this.insets.b) / 2 / k);
+  }
   get size() {
     return { w: this.w, h: this.h };
   }
@@ -177,6 +203,41 @@ export class MapView {
   setHighlight(values: Set<number> | null) {
     this.highlight = values;
     this.rebuildBitmaps();
+  }
+
+  setPure(on: boolean) {
+    if (on === this.pure) return;
+    this.pure = on;
+    // Without the floating top bar, fitted views can use the whole canvas.
+    this.insets = on ? { l: 16, t: 16, r: 16, b: 16 } : { l: 16, t: 92, r: 16, b: 16 };
+    this.preview = null;
+    this.headerHits = [];
+    this.headerHover = false;
+    this.hovered = -1;
+    this.canvas.style.cursor = "";
+    this.rebuildBitmaps();
+  }
+
+  /** Point out a range (a plane or block hovered in the sidebar): dim the rest and outline it. */
+  setPreview(range: { s: number; e: number; name: string; labelAt?: { x: number; y: number }; soft?: boolean } | null) {
+    this.headerHover = false;
+    if (range && this.preview && range.s === this.preview.s && range.e === this.preview.e) {
+      this.preview.labelAt = range.labelAt;
+      this.invalidate();
+      return;
+    }
+    if (!range) {
+      if (!this.preview) return;
+      this.preview = null;
+    } else {
+      const path = new Path2D();
+      const pts = rangeOutline(range.s, range.e);
+      path.moveTo(pts[0][0], pts[0][1]);
+      for (const [x, y] of pts.slice(1)) path.lineTo(x, y);
+      path.closePath();
+      this.preview = { ...range, path, rect: rangeRect(range.s, range.e) };
+    }
+    this.invalidate();
   }
 
   /** Dim everything outside a per-code-point mask (property highlight). */
@@ -309,11 +370,12 @@ export class MapView {
   private rebuildBitmaps() {
     if (!this.mode) return;
     const { valueOf } = this.mode;
-    let colors = this.mode.colors;
+    // Pure view: every assigned code point the same neutral grey, reserved ones background.
+    let colors = this.pure ? this.mode.colors.map((_, v): RGB => (v <= V_NONCHAR ? PLANE_BG : PURE_CELL)) : this.mode.colors;
     const data = this.data;
-    const hl = this.highlight;
-    const mask = this.mask;
-    const asOf = this.asOf;
+    const hl = this.pure ? null : this.highlight;
+    const mask = this.pure ? null : this.mask;
+    const asOf = this.pure ? null : this.asOf;
     const dim = (c: RGB): RGB => [
       Math.round(PLANE_BG[0] + (c[0] - PLANE_BG[0]) * 0.16),
       Math.round(PLANE_BG[1] + (c[1] - PLANE_BG[1]) * 0.16),
@@ -400,12 +462,13 @@ export class MapView {
 
   /** Whether a code point is dimmed by the legend highlight or the property mask. */
   private isDim(cp: number, v: number) {
+    if (this.pure) return false;
     return !this.valueOn[v] || (this.mask !== null && !this.mask[cp]);
   }
 
   /** Whether a code point exists in the version being shown. */
   private exists(cp: number) {
-    return this.data.isAssigned(cp) && (this.asOf === null || this.data.ageIdx[cp] <= this.asOf);
+    return this.data.isAssigned(cp) && (this.pure || this.asOf === null || this.data.ageIdx[cp] <= this.asOf);
   }
 
   private visibleWorld(): Rect {
@@ -444,6 +507,15 @@ export class MapView {
       ctx.drawImage(this.planeBitmaps[p], this.sx(o.x), this.sy(o.y), PLANE_SIZE * k, PLANE_SIZE * k);
     }
 
+    if (this.pure) {
+      const cardT = smooth(CARD_START, CARD_FULL, k);
+      if (cardT > 0) this.renderCells(planes, vis, cardT);
+      const gridA = smooth(GRID_START, GRID_START * 3, k) * (1 - cardT);
+      if (gridA > 0.01) this.renderGrid(planes, vis, gridA);
+      this.renderMinimap();
+      return;
+    }
+
     // Highlight tiles at low zoom
     const tileA = this.tilesOn ? 1 - smooth(1.6, 4, k) : 0;
     if (tileA > 0.01) {
@@ -480,6 +552,9 @@ export class MapView {
 
     // 8. Block and section headers on the row edges, placed without overlapping
     this.renderHeaders(planes, vis, sectionA, axisA);
+
+    // Sidebar hover preview, over everything but the axes
+    if (this.preview) this.renderPreview(vis);
 
     // 9. Sticky axes
     if (axisA > 0.01) this.renderAxes(planes, vis, axisA);
@@ -540,11 +615,11 @@ export class MapView {
     const data = this.data;
     const k = this.cam.k;
     const { valueOf } = this.mode;
-    const hexA = smooth(HEX_START, HEX_START * 1.3, k);
+    const hexA = this.pure ? 0 : smooth(HEX_START, HEX_START * 1.3, k);
     // Once headers sit inside the top of rows (with the code points), glyphs shrink a little and
     // move down to leave them room.
     const glyphPx = k * (0.5 - 0.06 * hexA);
-    const nameA = smooth(NAME_START, NAME_START * 1.3, k);
+    const nameA = this.pure ? 0 : smooth(NAME_START, NAME_START * 1.3, k);
     const gap = Math.max(1, k * 0.04);
     let lastFont = "";
     ctx.textAlign = "center";
@@ -572,7 +647,7 @@ export class MapView {
           const v = valueOf[cp];
           const sx = this.sx(o.x + lx);
           if (!this.exists(cp)) {
-            if (this.highlight && this.valueOn[v] && !data.isAssigned(cp) && (!this.mask || this.mask[cp])) {
+            if (!this.pure && this.highlight && this.valueOn[v] && !data.isAssigned(cp) && (!this.mask || this.mask[cp])) {
               // Highlighted reserved code point / noncharacter: shown lit, like its cell colour.
               ctx.globalAlpha = 1;
               ctx.fillStyle = this.fullColors[v];
@@ -958,6 +1033,7 @@ export class MapView {
     const drop = smooth(HEX_START * 0.85, HEX_START * 1.15, k) * (h / 2 + Math.max(1, k * 0.04));
     const valueOf = this.mode.valueOf;
     const placed: Rect[] = [];
+    this.headerHits = [];
     const free = (r: Rect) =>
       !placed.some((q) => r.x < q.x + q.w + 3 && r.x + r.w + 3 > q.x && r.y < q.y + q.h + 2 && r.y + r.h + 2 > q.y);
     /** Right edge of the block header drawn at each block's start, for its first section to follow. */
@@ -987,6 +1063,7 @@ export class MapView {
       const r = { x: at.x + 2, y: at.y + drop - h / 2, w, h };
       if (!free(r)) continue;
       placed.push(r);
+      if (a > 0.5) this.headerHits.push({ r, s: b.s, e: b.e, name: `Block: ${b.name} · ${uplus(b.s)}–${uplus(b.e)}` });
       ctx.globalAlpha = a * (this.blockLit && !this.blockLit[i] ? 0.45 : 1);
       this.pill(b.name, r.x, at.y + drop, at.room - 2, style);
       blockHeaderEnd.set(i, { x: r.x + w, y: at.y });
@@ -1015,6 +1092,10 @@ export class MapView {
         const r = { x, y: at.y + drop - h / 2, w, h };
         if (!free(r)) continue;
         placed.push(r);
+        if (sectionA > 0.5) {
+          const range = sec.s === sec.e ? uplus(sec.s) : `${uplus(sec.s)}–${uplus(sec.e)}`;
+          this.headerHits.push({ r, s: sec.s, e: sec.e, name: `Section: ${sec.title} · in ${blocks[sec.block]?.name ?? "no block"} · ${range}` });
+        }
         ctx.globalAlpha = sectionA * (this.blockLit && !this.blockLit[sec.block] ? 0.45 : 1);
         this.pill(sec.title, x, at.y + drop, room, style);
       }
@@ -1102,6 +1183,47 @@ export class MapView {
     ctx.globalAlpha = 1;
   }
 
+  private renderPreview(vis: Rect) {
+    const ctx = this.ctx;
+    const pv = this.preview!;
+    const { k, cx, cy } = this.cam;
+    const dpr = this.dpr;
+    ctx.save();
+    ctx.setTransform(dpr * k, 0, 0, dpr * k, dpr * (this.w / 2 - cx * k), dpr * (this.h / 2 - cy * k));
+    // Dim everything outside the range.
+    const outside = new Path2D();
+    outside.rect(vis.x - 1, vis.y - 1, vis.w + 2, vis.h + 2);
+    outside.addPath(pv.path);
+    ctx.fillStyle = `rgba(8, 10, 14, ${pv.soft ? 0.4 : 0.62})`;
+    ctx.fill(outside, "evenodd");
+    // A glowing outline, at least a few pixels across even when the range is tiny on screen.
+    ctx.shadowColor = "rgba(120, 180, 255, 0.95)";
+    ctx.shadowBlur = 14;
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineJoin = "round";
+    ctx.lineWidth = 2.5 / k;
+    ctx.stroke(pv.path);
+    ctx.restore();
+    if (pv.rect.w * k < 10 && pv.rect.h * k < 10) {
+      // Too small to see: ring it.
+      ctx.beginPath();
+      ctx.arc(this.sx(pv.rect.x + pv.rect.w / 2), this.sy(pv.rect.y + pv.rect.h / 2), 12, 0, Math.PI * 2);
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+    // Its full name: over the hovered header, or just above the range's top-left corner.
+    const x = pv.labelAt ? pv.labelAt.x : clamp(this.sx(pv.rect.x), 8, this.w - 40);
+    const y = pv.labelAt ? pv.labelAt.y : clamp(this.sy(pv.rect.y) - 14, 14, this.h - 14);
+    this.pill(pv.name, x, y, this.w - x - 8, {
+      size: 12.5,
+      bold: true,
+      fill: "rgba(240, 243, 248, 0.97)",
+      ink: "#0d1017",
+      border: "rgba(8, 10, 14, 0.55)",
+    });
+  }
+
   private renderMinimap() {
     const mm = this.minimap;
     if (!mm) return;
@@ -1129,6 +1251,14 @@ export class MapView {
     c.strokeStyle = "#ffffff";
     c.lineWidth = 1.5;
     c.strokeRect(vx, vy, vw, vh);
+    if (this.preview) {
+      const pr = this.preview.rect;
+      const w = Math.max(4, pr.w * s), h = Math.max(4, pr.h * s);
+      const x = ox + (pr.x + pr.w / 2) * s - w / 2, y = oy + (pr.y + pr.h / 2) * s - h / 2;
+      c.strokeStyle = "#8ab4ff";
+      c.lineWidth = 2;
+      c.strokeRect(x - 1, y - 1, w + 2, h + 2);
+    }
     (mm as HTMLCanvasElement & { _map?: { s: number; ox: number; oy: number } })._map = { s, ox, oy };
   }
 
@@ -1197,17 +1327,26 @@ export class MapView {
       pointers.delete(e.pointerId);
       if (pointers.size < 2) pinch = null;
       if (drag && drag.id === e.pointerId) {
-        if (!drag.moved) {
+        if (!drag.moved && !this.pure) {
           const p = local(e);
-          const w = this.toWorld(p.x, p.y);
-          const cp = cellToCp(w.x, w.y);
-          this.cb.onSelect(cp >= 0 ? cp : null);
+          const hit = this.headerAt(p.x, p.y);
+          if (hit) {
+            // Clicking a block or section header zooms to it.
+            this.setPreview(null);
+            this.flyToRect(rangeRect(hit.s, hit.e), { pad: 1.6, maxK: 90 });
+          } else {
+            const w = this.toWorld(p.x, p.y);
+            const cp = cellToCp(w.x, w.y);
+            this.cb.onSelect(cp >= 0 ? cp : null);
+          }
         }
         drag = null;
         el.style.cursor = "";
       }
     };
     const onLeave = () => {
+      if (this.headerHover) this.setPreview(null);
+      el.style.cursor = "";
       if (this.hovered !== -1) {
         this.hovered = -1;
         this.invalidate();
@@ -1257,7 +1396,33 @@ export class MapView {
     });
   }
 
+  private headerAt(x: number, y: number) {
+    for (let i = this.headerHits.length - 1; i >= 0; i--) {
+      const { r } = this.headerHits[i];
+      if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) return this.headerHits[i];
+    }
+    return null;
+  }
+
   private updateHover(x: number, y: number, clientX: number, clientY: number) {
+    if (this.pure) return;
+    // Over a block or section header: show its full name and point out its extent.
+    const hit = this.headerAt(x, y);
+    if (hit) {
+      this.setPreview({ s: hit.s, e: hit.e, name: hit.name, labelAt: { x: hit.r.x, y: hit.r.y + hit.r.h / 2 }, soft: true });
+      this.headerHover = true;
+      this.canvas.style.cursor = "pointer";
+      if (this.hovered !== -1) {
+        this.hovered = -1;
+        this.invalidate();
+      }
+      this.cb.onHover(-1, 0, 0);
+      return;
+    }
+    if (this.headerHover) {
+      this.setPreview(null);
+      this.canvas.style.cursor = "";
+    }
     const w = this.toWorld(x, y);
     const cp = cellToCp(w.x, w.y);
     if (cp !== this.hovered) {
@@ -1270,6 +1435,18 @@ export class MapView {
 
 
 export { rangeRect };
+
+interface Preview {
+  s: number;
+  e: number;
+  name: string;
+  path: Path2D;
+  rect: Rect;
+  /** Where to put the name label (screen), if not above the range. */
+  labelAt?: { x: number; y: number };
+  /** Lighter dimming, for previews from hovering the map itself. */
+  soft?: boolean;
+}
 
 interface PillStyle {
   size: number;
