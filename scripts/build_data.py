@@ -385,7 +385,7 @@ def tier(family):
         return 4
     if family.startswith("Unifont"):
         return PIXEL_TIER
-    return 5  # non-Noto gap fillers: Jigmo, Kreative Square, Kaiyuan Small Seal
+    return 5  # non-Noto gap fillers: Jigmo, Kreative Square, Kaiyuan Small Seal, UniHieroglyphica
 
 
 EMOJI_TIER = 6
@@ -469,6 +469,11 @@ for fid in sorted(cps_by_font):
     )
 css.append(
     f'@font-face {{ font-family: "UMap Last Resort"; src: url("../fonts/{LAST_RESORT["file"]}") format("truetype"); font-display: block; }}'
+)
+# Fallback for interface text Inter can't draw (e.g. Egyptological ꜣ ꞽ in NamesList notes).
+NOTO_SANS = next(f for f in fonts if f["family"] == "Noto Sans")
+css.append(
+    f'@font-face {{ font-family: "UMap Text"; src: url("../fonts/{NOTO_SANS["file"]}") format("truetype"); font-weight: 100 900; font-display: swap; }}'
 )
 css.append('@font-face { font-family: "Inter"; src: url("../fonts/ui/Inter.ttf") format("truetype"); font-weight: 100 900; font-display: swap; }')
 css.append('@font-face { font-family: "JetBrains Mono"; src: url("../fonts/ui/JetBrainsMono.ttf") format("truetype"); font-weight: 100 800; font-display: swap; }')

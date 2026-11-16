@@ -15,8 +15,9 @@ what each code point is, and which plane, block, region and category it belongs 
   grid of planes. Zooming goes smoothly from planes, to blocks, to rows, to single code
   points.
 - **Glyphs:** Noto fonts via Nix. Gaps are filled by Jigmo (CJK extensions), Kreative
-  Square (Legacy Computing), Kaiyuan Small Seal (Seal) and Unifont (pixel fallback), with
-  Last Resort for anything left. A coverage report lists what remains.
+  Square (Legacy Computing), Kaiyuan Small Seal (Seal), UniHieroglyphica (Egyptian
+  Hieroglyphs Extended-A) and Unifont (pixel fallback), with Last Resort for anything left.
+  A coverage report lists what remains.
 - **Colour modes:**
   - Region (the default)
   - General category
@@ -52,7 +53,7 @@ what each code point is, and which plane, block, region and category it belongs 
 - A Hilbert-curve layout as an alternative.
 - Multiple Unicode versions, and the differences between them.
 - Favourites, or a tray for collecting characters.
-- Fonts for the remaining gaps: Egyptian Hieroglyphs Extended-A, Jurchen, Archaic
-  Cuneiform Numerals, the Tangut supplements and the last 348 Seal characters. None was in
-  nixpkgs or freely available as of Unicode 18.
+- Fonts for the remaining gaps: Jurchen, Archaic Cuneiform Numerals, the Tangut supplements
+  and the last 348 Seal characters. None was in nixpkgs or freely available as of
+  Unicode 18.
 - Publishing (GitHub Pages), which means caring about size and mobile.

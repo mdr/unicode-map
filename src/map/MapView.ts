@@ -37,9 +37,14 @@ const CARD_FULL = 36;
 const HEX_START = 58;
 const NAME_START = 120;
 const AXIS_START = 13;
-const SECTION_START = 5.5;
+/** Zoom at which chart sections appear (as headers) and blocks with sections switch to headers. */
+const SECTION_START = 16;
 /** Code points per side of a highlight tile at low zoom. */
 const TILE = 4;
+/** Value index of noncharacters in every colour mode (see colorModes). */
+const V_NONCHAR = 1;
+/** Highlights with at most this many matches are ringed at low zoom. */
+const SPARSE_MAX = 400;
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 const smooth = (a: number, b: number, v: number) => {
@@ -56,19 +61,20 @@ export class MapView {
   private mode!: ColorMode;
   private highlight: Set<number> | null = null;
   private planeBitmaps: HTMLCanvasElement[] = [];
-  private cardColors: string[] = [];
-  private dimCardColors: string[] = [];
   private fullColors: string[] = [];
   private dimColors: string[] = [];
   private valueOn = new Uint8Array(0);
+  /** Per value: whether text on a card of that colour should be dark (the colour is light). */
+  private inkDark: boolean[] = [];
   private mask: Uint8Array | null = null;
   private tileBitmaps: HTMLCanvasElement[] = [];
   private tilesOn = false;
+  private sparseLit: number[] = [];
   private blockLit: Uint8Array | null = null;
   private asOf: number | null = null;
   private blockFirstAge: number[];
   private sections: { s: number; e: number; title: string; path: Path2D; plane: number; block: number; bbox: Rect }[];
-  private blockLabelRows: number[];
+  private blockBBox: Rect[];
   private sectionFirstAge: number[];
   private blockHasSections: boolean[];
   private blockPaths: Path2D[];
@@ -118,7 +124,7 @@ export class MapView {
     };
     this.sectionFirstAge = this.sections.map((sec) => firstAge(sec.s, sec.e));
     this.blockHasSections = data.meta.blocks.map(() => false);
-    this.blockLabelRows = data.meta.blocks.map((b) => labelRect(b.s, b.e).h);
+    this.blockBBox = data.meta.blocks.map((b) => rangeRect(b.s, b.e));
     for (const sec of this.sections) {
       const bi = data.blockIdx[sec.s];
       if (bi >= 0) this.blockHasSections[bi] = true;
@@ -302,7 +308,8 @@ export class MapView {
 
   private rebuildBitmaps() {
     if (!this.mode) return;
-    const { valueOf, colors } = this.mode;
+    const { valueOf } = this.mode;
+    let colors = this.mode.colors;
     const data = this.data;
     const hl = this.highlight;
     const mask = this.mask;
@@ -312,13 +319,19 @@ export class MapView {
       Math.round(PLANE_BG[1] + (c[1] - PLANE_BG[1]) * 0.16),
       Math.round(PLANE_BG[2] + (c[2] - PLANE_BG[2]) * 0.16),
     ];
-    const card = (c: RGB, f: number) =>
-      `rgb(${Math.round(PAGE_BG_RGB[0] + (c[0] - PAGE_BG_RGB[0]) * f)},${Math.round(PAGE_BG_RGB[1] + (c[1] - PAGE_BG_RGB[1]) * f)},${Math.round(PAGE_BG_RGB[2] + (c[2] - PAGE_BG_RGB[2]) * f)})`;
     const dimmed = colors.map(dim);
+    // Highlighted values that are normally drawn near-black (reserved code points, noncharacters,
+    // dark legend entries) light up while highlighted, or highlighting them would show nothing.
+    const lum = (c: RGB) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+    const shown = colors.map((c, v): RGB => {
+      if (!hl?.has(v) || lum(c) >= 70) return c;
+      if (v === V_NONCHAR) return [226, 92, 128];
+      return c.map((x) => Math.round(x + (255 - x) * 0.55)) as RGB;
+    });
+    colors = shown;
     this.fullColors = colors.map((c) => `rgb(${c[0]},${c[1]},${c[2]})`);
     this.dimColors = dimmed.map((c) => `rgb(${c[0]},${c[1]},${c[2]})`);
-    this.cardColors = colors.map((c) => card(c, 0.2));
-    this.dimCardColors = colors.map((c) => card(c, 0.05));
+    this.inkDark = colors.map((c) => lum(c) > 150);
     // Per value: is it highlighted by the legend?
     this.valueOn = new Uint8Array(colors.length).fill(1);
     if (hl) this.valueOn.fill(0).forEach((_, v) => (this.valueOn[v] = hl.has(v) ? 1 : 0));
@@ -327,6 +340,7 @@ export class MapView {
     // for 256 cells), so also build coarse tiles that light up if any cell in them matches.
     const filtering = hl !== null || mask !== null;
     this.blockLit = filtering ? new Uint8Array(data.meta.blocks.length) : null;
+    const sparse: number[] = [];
 
     for (let p = 0; p < PLANE_COUNT; p++) {
       let tile: ImageData | null = null;
@@ -357,7 +371,8 @@ export class MapView {
           const v = valueOf[cp];
           const lit = this.valueOn[v] && (!mask || mask[cp]);
           col = lit ? colors[v] : dimmed[v];
-          if (tile && lit && data.isAssigned(cp)) {
+          if (lit && filtering && sparse.length <= SPARSE_MAX) sparse.push(cp);
+          if (tile && lit) {
             const t = (((i >> 8) / TILE) | 0) * (PLANE_SIZE / TILE) + (((i & 255) / TILE) | 0);
             const to = t * 4;
             tile.data[to] = col[0];
@@ -378,6 +393,8 @@ export class MapView {
       if (tile) this.tileBitmaps[p].getContext("2d")!.putImageData(tile, 0, 0);
     }
     this.tilesOn = filtering;
+    // A handful of matches (noncharacters, a rare property…) get rings so they can be found.
+    this.sparseLit = filtering && sparse.length <= SPARSE_MAX ? sparse : [];
     this.invalidate();
   }
 
@@ -446,23 +463,25 @@ export class MapView {
     const gridA = smooth(GRID_START, GRID_START * 3, k) * (1 - cardT);
     if (gridA > 0.01) this.renderGrid(planes, vis, gridA);
 
-    // 4. Block outlines
-    this.renderBlockOutlines(planes);
+    // 4. Section dividers and block outlines
+    const sectionA = smooth(SECTION_START, SECTION_START * 1.15, k);
+    if (sectionA > 0.01) this.renderSectionDividers(planes, vis, sectionA, cardT);
+    this.renderBlockOutlines(planes, cardT);
 
     // 5. Plane frames and titles
     for (const p of planes) this.renderPlaneFrame(p);
 
-    // 6. Chart sections, then block labels
-    const labelA = 1 - smooth(CARD_START * 0.75, CARD_START * 1.05, k);
-    const sectionA = smooth(SECTION_START, SECTION_START * 1.5, k);
+    // 6. Block names, centred in the block, until the block switches to headers
     const axisA = smooth(AXIS_START, AXIS_START * 1.6, k);
-    if (sectionA * labelA > 0.01) this.renderSections(planes, vis, labelA, sectionA);
-    if (labelA > 0.01) this.renderBlockLabels(planes, vis, labelA, sectionA, axisA);
+    this.renderBlockLabels(planes, vis);
 
     // 7. Hover / selection
     this.renderMarkers();
 
-    // 8. Sticky axes
+    // 8. Block and section headers on the row edges, placed without overlapping
+    this.renderHeaders(planes, vis, sectionA, axisA);
+
+    // 9. Sticky axes
     if (axisA > 0.01) this.renderAxes(planes, vis, axisA);
 
     this.renderMinimap();
@@ -521,11 +540,12 @@ export class MapView {
     const data = this.data;
     const k = this.cam.k;
     const { valueOf } = this.mode;
-    const glyphPx = k * 0.5;
     const hexA = smooth(HEX_START, HEX_START * 1.3, k);
+    // Once headers sit inside the top of rows (with the code points), glyphs shrink a little and
+    // move down to leave them room.
+    const glyphPx = k * (0.5 - 0.06 * hexA);
     const nameA = smooth(NAME_START, NAME_START * 1.3, k);
     const gap = Math.max(1, k * 0.04);
-    const bar = Math.max(2, k * 0.05);
     let lastFont = "";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
@@ -538,7 +558,7 @@ export class MapView {
       const y1 = Math.min(PLANE_SIZE - 1, Math.floor(vis.y + vis.h - o.y));
       if (x0 > x1 || y0 > y1) continue;
 
-      // Cover the bitmap with a dark backdrop, faded in.
+      // Cover the bitmap with a dark backdrop, faded in: it shows as the gaps between cards.
       ctx.globalAlpha = t;
       ctx.fillStyle = PAGE_BG;
       ctx.fillRect(this.sx(o.x + x0), this.sy(o.y + y0), (x1 - x0 + 1) * k, (y1 - y0 + 1) * k);
@@ -551,41 +571,50 @@ export class MapView {
           const cp = rowCp | lx;
           const v = valueOf[cp];
           const sx = this.sx(o.x + lx);
-          ctx.globalAlpha = t;
           if (!this.exists(cp)) {
+            if (this.highlight && this.valueOn[v] && !data.isAssigned(cp) && (!this.mask || this.mask[cp])) {
+              // Highlighted reserved code point / noncharacter: shown lit, like its cell colour.
+              ctx.globalAlpha = 1;
+              ctx.fillStyle = this.fullColors[v];
+              ctx.fillRect(sx + gap, sy + gap, k - 2 * gap, k - 2 * gap);
+              continue;
+            }
+            ctx.globalAlpha = t;
             ctx.fillStyle = data.nonchar[cp] ? "#2a1820" : "#12161e";
             ctx.fillRect(sx + gap, sy + gap, k - 2 * gap, k - 2 * gap);
             continue;
           }
+          ctx.globalAlpha = 1;
           const dim = this.isDim(cp, v);
-          ctx.fillStyle = dim ? this.dimCardColors[v] : this.cardColors[v];
-          ctx.fillRect(sx + gap, sy + gap, k - 2 * gap, k - 2 * gap);
+          // Cards keep their cell's colour at every zoom; the ink is fixed per colour.
           ctx.fillStyle = dim ? this.dimColors[v] : this.fullColors[v];
-          ctx.fillRect(sx + gap, sy + gap, k - 2 * gap, bar);
+          ctx.fillRect(sx + gap, sy + gap, k - 2 * gap, k - 2 * gap);
+          const dark = !dim && this.inkDark[v];
+          const glyphColor = dark ? "#0d1017" : "#eef1f6";
 
-          const glyphY = sy + k * (nameA > 0 ? 0.42 : hexA > 0 ? 0.47 : 0.53);
+          const glyphY = sy + k * (nameA > 0 ? 0.45 : 0.53);
           const str = displayString(data, cp);
           if (str) {
             if (rowReady) {
               ctx.globalAlpha = t * (dim ? 0.25 : 1);
-              ctx.fillStyle = "#eef1f6";
+              ctx.fillStyle = glyphColor;
               const font = `${glyphPx}px ${data.glyphFamily(cp)}`;
               if (font !== lastFont) ctx.font = lastFont = font;
               ctx.fillText(str, sx + k / 2, glyphY);
             }
           } else {
-            this.drawSpecial(cp, sx, k, glyphY, t * (dim ? 0.3 : 1));
+            this.drawSpecial(cp, sx, k, glyphY, t * (dim ? 0.3 : 1), dark);
             lastFont = "";
           }
           if (hexA > 0) {
-            ctx.globalAlpha = t * hexA * (dim ? 0.3 : 0.75);
-            ctx.fillStyle = "#aab3c3";
+            ctx.globalAlpha = t * hexA * (dim ? 0.3 : 0.7);
+            ctx.fillStyle = dark ? "#0d1017" : "#c4cad6";
             ctx.font = lastFont = `500 ${Math.min(14, k * 0.12)}px ${MONO_FONT}`;
             ctx.fillText(hex(cp), sx + k / 2, sy + k * 0.88);
           }
           if (nameA > 0) {
             ctx.globalAlpha = t * nameA * (dim ? 0.3 : 0.85);
-            ctx.fillStyle = "#c4cad6";
+            ctx.fillStyle = dark ? "#0d1017" : "#dde2ea";
             const fs = Math.min(12, k * 0.075);
             ctx.font = lastFont = `500 ${fs}px ${UI_FONT}`;
             this.wrapText(data.name(cp), sx + k / 2, sy + k * 0.72, k * 0.88, fs * 1.15, 2);
@@ -596,7 +625,7 @@ export class MapView {
     ctx.globalAlpha = 1;
   }
 
-  private drawSpecial(cp: number, sx: number, k: number, cy: number, alpha: number) {
+  private drawSpecial(cp: number, sx: number, k: number, cy: number, alpha: number, dark: boolean) {
     const ctx = this.ctx;
     const gc = this.data.gc(cp).code;
     let label: string | undefined;
@@ -607,12 +636,12 @@ export class MapView {
     const bw = k * 0.62;
     const bh = k * 0.36;
     ctx.globalAlpha = alpha * 0.8;
-    ctx.strokeStyle = "#8b95a8";
+    ctx.strokeStyle = dark ? "rgba(13,16,23,0.7)" : "#8b95a8";
     ctx.lineWidth = Math.max(1, k * 0.012);
     ctx.setLineDash([Math.max(2, k * 0.03), Math.max(2, k * 0.03)]);
     ctx.strokeRect(sx + (k - bw) / 2, cy - bh / 2, bw, bh);
     ctx.setLineDash([]);
-    ctx.fillStyle = "#c9d0dc";
+    ctx.fillStyle = dark ? "#0d1017" : "#c9d0dc";
     ctx.font = `600 ${Math.min(bh * 0.55, (bw / label.length) * 1.5)}px ${MONO_FONT}`;
     ctx.fillText(label, sx + k / 2, cy + 1);
   }
@@ -663,7 +692,7 @@ export class MapView {
     return false;
   }
 
-  private renderBlockOutlines(planes: number[]) {
+  private renderBlockOutlines(planes: number[], cardT: number) {
     const ctx = this.ctx;
     const { k, cx, cy } = this.cam;
     const dpr = this.dpr;
@@ -678,6 +707,14 @@ export class MapView {
     blocks.forEach((b, i) => {
       if (planeSet.has(b.s >> 16) && this.blockExists(i)) ctx.stroke(this.blockPaths[i]);
     });
+    if (cardT > 0.01) {
+      // Among the cards the gaps are dark, so block boundaries become light lines.
+      ctx.strokeStyle = `rgba(214, 222, 236, ${0.62 * cardT})`;
+      ctx.lineWidth = Math.max(2, k * 0.06) / k;
+      blocks.forEach((b, i) => {
+        if (planeSet.has(b.s >> 16) && this.blockExists(i)) ctx.stroke(this.blockPaths[i]);
+      });
+    }
     // Hovered block, at low zoom
     const hb = this.hovered >= 0 ? this.data.blockIdx[this.hovered] : -1;
     if (hb >= 0 && k < CARD_START) {
@@ -725,12 +762,15 @@ export class MapView {
     ctx.fillText(text, x + tw + fs * 0.5, ty);
   }
 
-  /** How far a block has switched from its own label to its sections' labels (0–1). */
-  private blockSectionAlpha(i: number, sectionA: number) {
-    if (!this.blockHasSections[i] || sectionA <= 0) return 0;
-    // Only once the block is tall enough on screen to hold a tab plus section labels.
-    // Single-row blocks keep their own name: there's no room for both.
-    return sectionA * smooth(34, 40, this.blockLabelRows[i] * this.cam.k);
+  /**
+   * How far a block has switched from its centred name to a header on its top edge (0–1).
+   * Blocks with chart sections switch when the sections appear; others when cards appear.
+   */
+  private blockHeaderA(i: number) {
+    const k = this.cam.k;
+    return this.blockHasSections[i]
+      ? smooth(SECTION_START, SECTION_START * 1.15, k)
+      : smooth(CARD_START * 0.8, CARD_START, k);
   }
 
   private blockExists(i: number) {
@@ -771,96 +811,213 @@ export class MapView {
    * Block names. Zoomed out they sit large in the middle of the block; once the block's chart
    * sections are labelled instead, the block name moves to a small tab in its top-left corner.
    */
-  private renderBlockLabels(planes: number[], vis: Rect, alpha: number, sectionA: number, axisA: number) {
+  private renderBlockLabels(planes: number[], vis: Rect) {
     const ctx = this.ctx;
     const planeSet = new Set(planes);
     ctx.lineJoin = "round";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
     const blocks = this.data.meta.blocks;
     for (let i = 0; i < blocks.length; i++) {
       const b = blocks[i];
       if (!planeSet.has(b.s >> 16) || !this.blockExists(i)) continue;
+      const a = (1 - this.blockHeaderA(i)) * (this.blockLit && !this.blockLit[i] ? 0.3 : 1);
+      if (a <= 0.01) continue;
       const lr = labelRect(b.s, b.e);
-      const secA = this.blockSectionAlpha(i, sectionA);
-      const litA = this.blockLit && !this.blockLit[i] ? 0.3 : 1;
-      const centreA = alpha * litA * (1 - secA);
-      if (centreA > 0.01) {
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        const fit = lr.h === 1 ? this.fitLabel(b.name, lr, vis, 600, 15, 0.62) : this.fitLabel(b.name, lr, vis, 600, 30, 0.42);
-        if (fit) {
-          ctx.globalAlpha = centreA * clamp((fit.fs - 8) / 3, 0, 1);
-          this.haloText(b.name, fit.cx, fit.cy, fit.fs, "#ffffff");
-        }
+      const fit = lr.h === 1 ? this.fitLabel(b.name, lr, vis, 600, 15, 0.62) : this.fitLabel(b.name, lr, vis, 600, 30, 0.42);
+      if (fit) {
+        ctx.globalAlpha = a * clamp((fit.fs - 8) / 3, 0, 1);
+        this.haloText(b.name, fit.cx, fit.cy, fit.fs, "#ffffff");
       }
-      const tabA = alpha * litA * secA;
-      if (tabA > 0.01) this.renderBlockTab(b.name, lr, vis, tabA, axisA);
     }
     ctx.globalAlpha = 1;
   }
 
-  private renderBlockTab(name: string, lr: Rect, vis: Rect, alpha: number, axisA: number) {
-    const ctx = this.ctx;
-    // Keep the tab on screen (and clear of the sticky axes) while any of the block is visible.
-    const minX = vis.x + (axisA > 0.01 ? 62 / this.cam.k : 0);
-    const minY = vis.y + (axisA > 0.01 ? 24 / this.cam.k : 0);
-    const x = this.sx(Math.max(lr.x, minX)) + 4;
-    const y = this.sy(Math.max(lr.y, minY)) + 4;
-    const right = this.sx(lr.x + lr.w), bottom = this.sy(lr.y + lr.h);
-    ctx.font = `600 12px ${UI_FONT}`;
-    const tw = ctx.measureText(name).width;
-    const w = tw + 14, h = 20;
-    if (x + w > right - 2 || y + h > bottom - 2) return;
-    ctx.globalAlpha = alpha;
-    ctx.fillStyle = "rgba(11,14,20,0.88)";
-    ctx.beginPath();
-    ctx.roundRect(x, y, w, h, 5);
-    ctx.fill();
-    ctx.strokeStyle = "rgba(255,255,255,0.18)";
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    ctx.fillStyle = "#ffffff";
-    ctx.textAlign = "left";
-    ctx.textBaseline = "middle";
-    ctx.fillText(name, x + 7, y + h / 2 + 0.5);
-  }
-
-  /** Chart sections ("Weather and astrological symbols" …): faint outlines and labels at mid zoom. */
-  private renderSections(planes: number[], vis: Rect, alpha: number, sectionA: number) {
+  /** Thin dividers between chart sections, among the cards. */
+  private renderSectionDividers(planes: number[], vis: Rect, alpha: number, cardT: number) {
     const ctx = this.ctx;
     const { k, cx, cy } = this.cam;
     const dpr = this.dpr;
+    ctx.save();
+    ctx.setTransform(dpr * k, 0, 0, dpr * k, dpr * (this.w / 2 - cx * k), dpr * (this.h / 2 - cy * k));
+    // Dark lines on the coloured cells; light ones once cards have dark gaps between them.
+    const secs = this.visibleSections(planes, vis);
+    ctx.lineWidth = Math.max(2, k * 0.05) / k;
+    if (cardT < 0.99) {
+      ctx.strokeStyle = `rgba(8, 10, 14, ${0.75 * alpha * (1 - cardT)})`;
+      for (const sec of secs) ctx.stroke(sec.path);
+    }
+    if (cardT > 0.01) {
+      ctx.strokeStyle = `rgba(214, 222, 236, ${0.4 * alpha * cardT})`;
+      for (const sec of secs) ctx.stroke(sec.path);
+    }
+    ctx.restore();
+  }
+
+  private visibleSections(planes: number[], vis: Rect) {
     const planeSet = new Set(planes);
-    const visible = this.sections.filter(
+    return this.sections.filter(
       (sec, i) =>
         planeSet.has(sec.plane) &&
         (this.asOf === null || this.sectionFirstAge[i] <= this.asOf) &&
         sec.bbox.x < vis.x + vis.w && sec.bbox.x + sec.bbox.w > vis.x &&
         sec.bbox.y < vis.y + vis.h && sec.bbox.y + sec.bbox.h > vis.y,
     );
-    ctx.save();
-    ctx.setTransform(dpr * k, 0, 0, dpr * k, dpr * (this.w / 2 - cx * k), dpr * (this.h / 2 - cy * k));
-    ctx.strokeStyle = `rgba(255,255,255,${0.28 * alpha})`; // further scaled per block below
-    ctx.lineWidth = 1 / k;
-    ctx.setLineDash([3 / k, 3 / k]);
-    for (const sec of visible) {
-      const a = this.blockSectionAlpha(sec.block, sectionA);
-      if (a <= 0.01) continue;
-      ctx.globalAlpha = a;
-      ctx.stroke(sec.path);
-    }
-    ctx.restore();
+  }
 
-    ctx.textAlign = "center";
+  /**
+   * Where a header for code points s..e goes: on the top edge of the range's first row that's
+   * on screen, at its first visible cell, sliding along (sticky) while the range is in view.
+   * Returns screen coordinates and the room available to the right, or null.
+   */
+  private headerAnchor(s: number, e: number, top: number, left: number) {
+    const k = this.cam.k;
+    const o = planeOrigin(s >> 16);
+    const r0 = (s >> 8) & 255, r1 = (e >> 8) & 255;
+    let y = this.sy(o.y + r0);
+    if (y < top) {
+      // Scrolled past the start: stick to the top while the range continues, then get pushed up.
+      const bottom = this.sy(o.y + r1 + 1);
+      y = Math.min(top, bottom - k * 0.5);
+      if (y < top - k * 0.5) return null;
+    }
+    const row = clamp(Math.floor((y - this.sy(o.y)) / k + 0.001), r0, r1);
+    if (y > this.h) return null;
+    const c0 = row === r0 ? s & 255 : 0;
+    const c1 = row === r1 ? (e & 255) + 1 : 256;
+    const x0 = this.sx(o.x + c0), x1 = this.sx(o.x + c1);
+    const x = Math.max(x0, left);
+    if (x1 - x < 30 || x > this.w) return null;
+    return { x, y, room: x1 - x };
+  }
+
+  /** Width a pill would take (0 if it doesn't fit in `room`), without drawing it. */
+  private measurePill(text: string, room: number, opts: PillStyle) {
+    const ctx = this.ctx;
+    const { size } = opts;
+    ctx.font = `${opts.bold ? 650 : 500} ${size}px ${UI_FONT}`;
+    const padX = size * 0.6, dotW = opts.dot ? size * 0.85 : 0;
+    const maxText = room - 2 * padX - dotW - 4;
+    if (maxText < size * 2) return 0;
+    const label = ellipsize(ctx, text, maxText);
+    if (label !== text && label.length - 1 < Math.min(opts.minChars ?? 7, text.length)) return 0;
+    return ctx.measureText(label).width + 2 * padX + dotW;
+  }
+
+  private pill(text: string, x: number, y: number, room: number, opts: PillStyle) {
+    const ctx = this.ctx;
+    const { size, bold } = opts;
+    ctx.font = `${bold ? 650 : 500} ${size}px ${UI_FONT}`;
+    const padX = size * 0.6, dotW = opts.dot ? size * 0.85 : 0;
+    const h = Math.round(size * 1.6);
+    const maxText = room - 2 * padX - dotW - 4;
+    if (maxText < size * 2) return 0;
+    const label = ellipsize(ctx, text, maxText);
+    // A stub like "Co…" says nothing: leave just the divider.
+    if (label !== text && label.length - 1 < Math.min(opts.minChars ?? 7, text.length)) return 0;
+    const w = ctx.measureText(label).width + 2 * padX + dotW;
+    const top = Math.round(y - h / 2);
+    ctx.fillStyle = opts.fill;
+    ctx.beginPath();
+    ctx.roundRect(Math.round(x), top, w, h, h / 2);
+    ctx.fill();
+    if (opts.border) {
+      ctx.strokeStyle = opts.border;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+    if (opts.dot) {
+      ctx.fillStyle = opts.dot;
+      ctx.beginPath();
+      ctx.arc(x + padX + size * 0.3, y, size * 0.3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = opts.ink;
+    ctx.textAlign = "left";
     ctx.textBaseline = "middle";
-    ctx.lineJoin = "round";
-    for (const sec of visible) {
-      const a = alpha * this.blockSectionAlpha(sec.block, sectionA);
+    ctx.fillText(label, x + padX + dotW, y + 0.5);
+    return w;
+  }
+
+  /**
+   * Block and section headers that sit on the top edge of where each starts, like the headings
+   * in the code charts, and stay on screen while you pan through the block or section.
+   * Headers are placed in priority order (blocks, then longer sections first) and any that would
+   * overlap one already placed are skipped, so busy areas thin out instead of piling up.
+   */
+  private renderHeaders(planes: number[], vis: Rect, sectionA: number, axisA: number) {
+    const ctx = this.ctx;
+    const data = this.data;
+    const k = this.cam.k;
+    const top = axisA > 0.01 ? 26 : 4;
+    const left = axisA > 0.01 ? 64 : 4;
+    const planeSet = new Set(planes);
+    const size = clamp(9.5 + (k - 14) * 0.05, 10, 12.5);
+    const h = Math.round(size * 1.6);
+    // Straddle the row edge until code points appear at the bottom of cards, then sit just inside.
+    const drop = smooth(HEX_START * 0.85, HEX_START * 1.15, k) * (h / 2 + Math.max(1, k * 0.04));
+    const valueOf = this.mode.valueOf;
+    const placed: Rect[] = [];
+    const free = (r: Rect) =>
+      !placed.some((q) => r.x < q.x + q.w + 3 && r.x + r.w + 3 > q.x && r.y < q.y + q.h + 2 && r.y + r.h + 2 > q.y);
+    /** Right edge of the block header drawn at each block's start, for its first section to follow. */
+    const blockHeaderEnd = new Map<number, { x: number; y: number }>();
+
+    const blocks = data.meta.blocks;
+    for (let i = 0; i < blocks.length; i++) {
+      const b = blocks[i];
+      if (!planeSet.has(b.s >> 16) || !this.blockExists(i)) continue;
+      const a = this.blockHeaderA(i);
       if (a <= 0.01) continue;
-      const lr = labelRect(sec.s, sec.e);
-      const fit = this.fitLabel(sec.title, lr, vis, 500, 16, lr.h === 1 ? 0.62 : 0.4);
-      if (!fit) continue;
-      ctx.globalAlpha = a * clamp((fit.fs - 8) / 2, 0, 1);
-      this.haloText(sec.title, fit.cx, fit.cy, fit.fs, "rgba(255,255,255,0.95)");
+      const bb = this.blockBBox[i];
+      if (bb.x > vis.x + vis.w || bb.x + bb.w < vis.x || bb.y > vis.y + vis.h || bb.y + bb.h < vis.y) continue;
+      const at = this.headerAnchor(b.s, b.e, top, left);
+      if (!at) continue;
+      const style = {
+        size: size + 0.5,
+        bold: true,
+        minChars: 10,
+        fill: "rgba(240, 243, 248, 0.97)",
+        ink: "#0d1017",
+        dot: data.meta.regions[b.region].color,
+        border: "rgba(8, 10, 14, 0.55)",
+      };
+      const w = this.measurePill(b.name, at.room - 2, style);
+      if (!w) continue;
+      const r = { x: at.x + 2, y: at.y + drop - h / 2, w, h };
+      if (!free(r)) continue;
+      placed.push(r);
+      ctx.globalAlpha = a * (this.blockLit && !this.blockLit[i] ? 0.45 : 1);
+      this.pill(b.name, r.x, at.y + drop, at.room - 2, style);
+      blockHeaderEnd.set(i, { x: r.x + w, y: at.y });
+    }
+
+    if (sectionA > 0.01) {
+      const secs = this.visibleSections(planes, vis).sort((p, q) => q.e - q.s - (p.e - p.s));
+      for (const sec of secs) {
+        const at = this.headerAnchor(sec.s, sec.e, top, left);
+        if (!at) continue;
+        let x = at.x + 2;
+        // A section starting where its block starts follows the block's header.
+        const bh = blockHeaderEnd.get(sec.block);
+        if (bh && Math.abs(bh.y - at.y) < 1 && blocks[sec.block].s === sec.s) x = bh.x + 4;
+        const style = {
+          size,
+          bold: false,
+          fill: "rgba(13, 16, 23, 0.92)",
+          ink: "rgba(238, 241, 246, 0.95)",
+          border: "rgba(255, 255, 255, 0.18)",
+          dot: this.fullColors[valueOf[sec.s]],
+        };
+        const room = at.x + at.room - x;
+        const w = this.measurePill(sec.title, room, style);
+        if (!w) continue;
+        const r = { x, y: at.y + drop - h / 2, w, h };
+        if (!free(r)) continue;
+        placed.push(r);
+        ctx.globalAlpha = sectionA * (this.blockLit && !this.blockLit[sec.block] ? 0.45 : 1);
+        this.pill(sec.title, x, at.y + drop, room, style);
+      }
     }
     ctx.globalAlpha = 1;
   }
@@ -888,6 +1045,17 @@ export class MapView {
       ctx.lineWidth = width;
       ctx.strokeRect(x + width / 2, y + width / 2, k - width, k - width);
     };
+    const ringA = 1 - smooth(4, 8, k);
+    if (this.sparseLit.length && ringA > 0.01) {
+      const vis = this.visibleWorld();
+      ctx.globalAlpha = ringA;
+      for (const cp of this.sparseLit) {
+        const c = cpToCell(cp);
+        if (c.x < vis.x - 1 || c.x > vis.x + vis.w + 1 || c.y < vis.y - 1 || c.y > vis.y + vis.h + 1) continue;
+        mark(cp, this.fullColors[this.mode.valueOf[cp]], 1.5, false);
+      }
+      ctx.globalAlpha = 1;
+    }
     if (this.hovered >= 0 && this.hovered !== this.selected && k >= 6) mark(this.hovered, "rgba(255,255,255,0.6)", 1.5, false);
     if (this.selected !== null) {
       this.ctx.save();
@@ -1100,6 +1268,27 @@ export class MapView {
   }
 }
 
-const PAGE_BG_RGB: RGB = [11, 14, 20];
 
 export { rangeRect };
+
+interface PillStyle {
+  size: number;
+  bold: boolean;
+  fill: string;
+  ink: string;
+  dot?: string;
+  border?: string;
+  minChars?: number;
+}
+
+/** Truncate text with an ellipsis to fit a width in the current font. */
+function ellipsize(ctx: CanvasRenderingContext2D, text: string, maxW: number) {
+  if (ctx.measureText(text).width <= maxW) return text;
+  let lo = 0, hi = text.length;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (ctx.measureText(text.slice(0, mid).trimEnd() + "…").width <= maxW) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo ? text.slice(0, lo).trimEnd() + "…" : "";
+}

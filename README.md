@@ -27,9 +27,12 @@ Re-run `pnpm data` after changing `scripts/build_data.py` or bumping the Unicode
   - Kreative Square, for Legacy Computing.
   - Kaiyuan Small Seal, for Seal. It isn't released yet, so it's built from its glyph
     sources at a pinned commit.
+  - UniHieroglyphica, for Egyptian Hieroglyphs Extended-A. It isn't in nixpkgs, so it's
+    fetched from its GitHub repository at a pinned commit.
   - Unifont, a pixel font, for the few things nothing else covers.
 
-  Last Resort is the final placeholder. Inter and JetBrains Mono are the interface fonts.
+  Last Resort is the final placeholder. Inter and JetBrains Mono are the interface fonts,
+  with Noto Sans as a fallback for interface text Inter can't draw.
   The package also writes a `manifest.json` recording each font's coverage. The dev shell exports the paths as `UCD_DIR`, `UNIHAN_DIR`, `CONFUSABLES` and
   `FONTS_DIR`.
 - **`scripts/build_data.py`** (stdlib only) turns those into:
@@ -44,10 +47,13 @@ Re-run `pnpm data` after changing `scripts/build_data.py` or bumping the Unicode
   - `coverage.json`: assigned characters that no Noto font covers.
 - **`src/map/MapView.ts`** is the canvas renderer. Each plane is a 256×256 bitmap, scaled
   up, at low zoom. Grid lines fade in as you zoom, then cards with glyphs, code points and
-  names. Block outlines and labels sit on top, with sticky row and column axes. At mid zoom,
-  blocks split into their code chart sections (the `@` subheadings in `NamesList.txt`). It
-  also dims everything outside a property highlight and hides characters newer than the
-  timeline's version.
+  names. Cards keep their cell's colour at every zoom, with dark or light text to suit it.
+  Block outlines and labels sit on top, with sticky row and column axes. From mid zoom,
+  blocks split into their code chart sections (the `@` subheadings in `NamesList.txt`): block
+  and section headers sit on the row edges where each starts and stay on screen while you pan.
+  They're placed in priority order and skipped if they would overlap, so busy areas thin out.
+  The renderer also dims everything outside a highlight (rare matches get rings when zoomed
+  out) and hides characters newer than the timeline's version.
 - **`src/map/colorModes.ts`** defines the colour modes: region, general category, script,
   age and assigned.
 - **`src/ui/*`** holds the React UI: search, property highlight, legend, timeline,

@@ -204,13 +204,18 @@ export class UnicodeData {
 
   /** The code chart section a code point falls in, if any. */
   section(cp: number): string | undefined {
+    return this.sectionRange(cp)?.[2];
+  }
+
+  /** The code chart section a code point falls in, as [start, end, title]. */
+  sectionRange(cp: number): [number, number, string] | undefined {
     const secs = this.meta.sections;
     let lo = 0, hi = secs.length - 1;
     while (lo <= hi) {
       const mid = (lo + hi) >> 1;
       if (secs[mid][1] < cp) lo = mid + 1;
       else if (secs[mid][0] > cp) hi = mid - 1;
-      else return secs[mid][2];
+      else return secs[mid];
     }
     return undefined;
   }

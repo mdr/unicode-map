@@ -9,6 +9,7 @@ export function Breadcrumb({
   onPlane,
   onBlock,
   onOverview,
+  onRange,
 }: {
   data: UnicodeData;
   camera: Camera | null;
@@ -16,6 +17,7 @@ export function Breadcrumb({
   onPlane: (p: number) => void;
   onBlock: (i: number) => void;
   onOverview: () => void;
+  onRange: (s: number, e: number) => void;
 }) {
   // Where are we? The selection if there is one, otherwise the centre of the view (when zoomed in).
   let cp: number | null = selected;
@@ -25,6 +27,8 @@ export function Breadcrumb({
   }
   const plane = cp !== null ? cp >> 16 : null;
   const bi = cp !== null ? data.blockIdx[cp] : -1;
+  // The chart section, once zoomed in far enough to see sections (or with a selection).
+  const section = cp !== null && (selected !== null || (camera?.k ?? 0) > 10) ? data.sectionRange(cp) : undefined;
   return (
     <nav className="breadcrumb">
       <button onClick={onOverview}>All planes</button>
@@ -43,6 +47,14 @@ export function Breadcrumb({
           <button onClick={() => onBlock(bi)}>
             <span className="crumb-dot" style={{ background: data.meta.regions[data.meta.blocks[bi].region].color }} />
             {data.meta.blocks[bi].name}
+          </button>
+        </>
+      )}
+      {section && (
+        <>
+          <span className="sep">›</span>
+          <button onClick={() => onRange(section[0], section[1])} className="crumb-section">
+            {section[2]}
           </button>
         </>
       )}

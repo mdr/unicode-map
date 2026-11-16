@@ -69,6 +69,21 @@
             '';
           };
 
+          # UniHieroglyphica (OFL-1.1), by Michel Suignard: the full Unicode set of Egyptian
+          # hieroglyphs, including the 3,995 signs of Extended-A (Unicode 16). Not in nixpkgs.
+          unihieroglyphica = pkgs.stdenvNoCC.mkDerivation {
+            pname = "unihieroglyphica";
+            version = "0-unstable-2026-07-23";
+            src = pkgs.fetchurl {
+              url = "https://raw.githubusercontent.com/thesaurus-linguae-aegyptiae/unihieroglyphica/9375eba4e2b626658e57e3a526118b8225c0581e/font_files/UniHieroglyphica.ttf";
+              hash = "sha256-rWC7L0aWl4N7VWOI1HtQCiHYZjcKSai+dwsgYQiq9mQ=";
+            };
+            dontUnpack = true;
+            installPhase = ''
+              install -Dm644 $src $out/share/fonts/truetype/UniHieroglyphica.ttf
+            '';
+          };
+
           # Web-servable font set: one regular face per Noto family, single faces extracted
           # from the CJK collections, Noto Color Emoji, and Last Resort as the final fallback.
           # Also writes manifest.json with each font's cmap coverage.
@@ -84,6 +99,7 @@
                   pkgs.jigmo # CJK Unified Ideographs Extensions B–J
                   pkgs.kreative-square # Symbols for Legacy Computing (Supplement)
                   kaiyuan-small-seal # Seal
+                  unihieroglyphica # Egyptian Hieroglyphs Extended-A
                   "${pkgs.unifont}/share/fonts/opentype/unifont" # pixel fallback for the rest
                   pkgs.last-resort
                 ];

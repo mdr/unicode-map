@@ -265,7 +265,7 @@ function Explorer({ data }: { data: UnicodeData }) {
           </div>
           <SearchBox data={data} onPickCp={(cp) => select(cp, { zoom: true })} onPickBlock={(i) => flyToBlock(i)} />
           <PropertyFilter value={prop} onChange={setProp} />
-          <Breadcrumb data={data} camera={camera} selected={selected} onPlane={flyToPlane} onBlock={flyToBlock} onOverview={() => viewRef.current?.overview()} />
+          <Breadcrumb data={data} camera={camera} selected={selected} onPlane={flyToPlane} onBlock={flyToBlock} onOverview={() => viewRef.current?.overview()} onRange={(a, b) => viewRef.current?.flyToRect(rangeRect(a, b), { pad: 1.6, maxK: 90 })} />
         </div>
         <Legend
           mode={mode}
