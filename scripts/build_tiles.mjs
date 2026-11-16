@@ -83,9 +83,16 @@ async function run(expression) {
 
 const cleanup = async () => {
   ws.close();
+  // Let Chrome finish exiting before removing its profile, which it writes to as it shuts down.
+  const exited = new Promise((r) => chrome.once("exit", r));
   chrome.kill();
+  await Promise.race([exited, sleep(5000)]);
   await server.close();
-  rmSync(profile, { recursive: true, force: true });
+  try {
+    rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+  } catch (e) {
+    console.warn(`Couldn't remove Chrome's temporary profile (${e.code}): ${profile}`);
+  }
 };
 
 try {
