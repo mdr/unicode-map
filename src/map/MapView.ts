@@ -406,6 +406,7 @@ export class MapView {
     const nameA = smooth(NAME_START, NAME_START * 1.3, k);
     const gap = Math.max(1, k * 0.04);
     const bar = Math.max(2, k * 0.05);
+    let lastFont = "";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
 
@@ -449,23 +450,25 @@ export class MapView {
             if (rowReady) {
               ctx.globalAlpha = t * (dim ? 0.25 : 1);
               ctx.fillStyle = "#eef1f6";
-              ctx.font = `${glyphPx}px ${data.glyphFamily(cp)}`;
+              const font = `${glyphPx}px ${data.glyphFamily(cp)}`;
+              if (font !== lastFont) ctx.font = lastFont = font;
               ctx.fillText(str, sx + k / 2, glyphY);
             }
           } else {
             this.drawSpecial(cp, sx, k, glyphY, t * (dim ? 0.3 : 1));
+            lastFont = "";
           }
           if (hexA > 0) {
             ctx.globalAlpha = t * hexA * (dim ? 0.3 : 0.75);
             ctx.fillStyle = "#aab3c3";
-            ctx.font = `500 ${Math.min(14, k * 0.12)}px ${MONO_FONT}`;
+            ctx.font = lastFont = `500 ${Math.min(14, k * 0.12)}px ${MONO_FONT}`;
             ctx.fillText(hex(cp), sx + k / 2, sy + k * 0.88);
           }
           if (nameA > 0) {
             ctx.globalAlpha = t * nameA * (dim ? 0.3 : 0.85);
             ctx.fillStyle = "#c4cad6";
             const fs = Math.min(12, k * 0.075);
-            ctx.font = `500 ${fs}px ${UI_FONT}`;
+            ctx.font = lastFont = `500 ${fs}px ${UI_FONT}`;
             this.wrapText(data.name(cp), sx + k / 2, sy + k * 0.72, k * 0.88, fs * 1.15, 2);
           }
         }

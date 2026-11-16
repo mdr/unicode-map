@@ -12,5 +12,5 @@ export function Glyph({ data, cp, className }: { data: UnicodeData; cp: number; 
   }
   const gc = data.gc(cp).code;
   const abbr = data.abbr(cp) ?? (gc === "Co" ? "PUA" : gc === "Cs" ? "SUR" : "");
-  return <span className={`${className ?? ""} glyph-abbr`}>{abbr}</span>;
+  return <span className={className}>{abbr && <span className="glyph-abbr">{abbr}</span>}</span>;
 }

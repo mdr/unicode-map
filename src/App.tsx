@@ -124,6 +124,7 @@ function Explorer({ data }: { data: UnicodeData }) {
       viewRef.current?.setSelected(s.cp ?? null);
       if (s.mode) setModeId(s.mode);
       if (s.view) viewRef.current?.flyTo(s.view);
+      else if (s.cp !== undefined) viewRef.current?.focusCp(s.cp);
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
