@@ -62,6 +62,9 @@ interface GlyphLevel {
 }
 /** Exported for scripts/build_tiles.mjs, which pre-builds the levels marked so. */
 export const GLYPH_LEVELS: GlyphLevel[] = [
+  // Below a few pixels a glyph is a smudge, but how much ink it has still shows: dense ideographs
+  // bright, marks and punctuation faint, emoji in colour. That texture is the point of this level.
+  { res: 2, span: 128, prebuilt: true },
   { res: 6, span: 64, prebuilt: true },
   { res: 12, span: 32, prebuilt: true },
   { res: 24, span: 16, prebuilt: true },
@@ -70,7 +73,11 @@ export const GLYPH_LEVELS: GlyphLevel[] = [
 const tileKey = (res: number, p: number, ty: number, tx: number) => `${res}:${p}:${ty}:${tx}`;
 /** Pre-built tile files fetched at once. */
 const GLYPH_TILE_LOADS = 12;
-const GLYPH_TILE_START = 2.5;
+/** Zoom (CSS px per code point) where glyph tiles start to fade in, and where they're fully in. */
+const GLYPH_TILE_START = 0.3;
+const GLYPH_TILE_FULL = 0.6;
+/** Smallest size glyphs are drawn at; smaller tiles are drawn at this size and scaled down. */
+const GLYPH_DRAW_MIN = 6;
 const GLYPH_TILE_BUDGET_MS = 10;
 const GLYPH_TILE_MAX_BYTES = 192 * 1024 * 1024;
 /** Cell colour of assigned code points in pure view. */
@@ -385,9 +392,17 @@ export class MapView {
   private resize() {
     const r = this.canvas.getBoundingClientRect();
     const first = this.w === 0;
+    const [ow, oh] = [this.w, this.h];
     this.dpr = window.devicePixelRatio || 1;
     this.w = r.width;
     this.h = r.height;
+    // The canvas grows and shrinks from its bottom-right (the sidebar is on the right), so keep
+    // what's at its top-left in place: toggling pure view or resizing the window doesn't shift the map.
+    if (!first && this.w > 0 && (ow !== this.w || oh !== this.h)) {
+      const { k, cx, cy } = this.cam;
+      this.anim = null;
+      this.setCamera({ k, cx: cx + (this.w - ow) / 2 / k, cy: cy + (this.h - oh) / 2 / k });
+    }
     this.canvas.width = Math.round(r.width * this.dpr);
     this.canvas.height = Math.round(r.height * this.dpr);
     if (first && this.w > 0) {
@@ -539,10 +554,10 @@ export class MapView {
 
     if (this.pure) {
       const cardT = smooth(CARD_START, CARD_FULL, k);
-      // Glyphs from pre-rendered tiles until real font rendering takes over. Below ~2.5px a
-      // glyph is a speck and the grey cells say as much.
+      // Glyphs from pre-rendered tiles until real font rendering takes over. Even far out, where
+      // glyphs are under a pixel, the tiles average down to a texture showing what's where.
       // Once cards start, their opaque cells cover the tiles and draw the same glyphs live.
-      const tileGA = smooth(GLYPH_TILE_START, GLYPH_TILE_START * 1.6, k);
+      const tileGA = smooth(GLYPH_TILE_START, GLYPH_TILE_FULL, k);
       if (tileGA > 0.01 && cardT === 0) this.renderGlyphTiles(planes, vis, tileGA);
       if (cardT > 0) this.renderCells(planes, vis, cardT);
       const gridA = smooth(GRID_START, GRID_START * 3, k) * (1 - cardT);
@@ -1342,6 +1357,19 @@ export class MapView {
 
   /** Draw one tile: `span`×`span` code points at `res` pixels each. Null if there's nothing to draw. */
   buildGlyphTile(p: number, ty: number, tx: number, res: number, span: number): HTMLCanvasElement | null {
+    if (res < GLYPH_DRAW_MIN) {
+      // Fonts don't draw usefully at a pixel or two: draw at a legible size and average it down.
+      const big = this.buildGlyphTile(p, ty, tx, GLYPH_DRAW_MIN, span);
+      if (!big) return null;
+      const cv = document.createElement("canvas");
+      cv.width = cv.height = span * res;
+      const c = cv.getContext("2d")!;
+      c.imageSmoothingEnabled = true;
+      c.imageSmoothingQuality = "high";
+      c.drawImage(big, 0, 0, cv.width, cv.height);
+      big.width = big.height = 0;
+      return cv;
+    }
     const data = this.data;
     let cv: HTMLCanvasElement | null = null;
     let c: CanvasRenderingContext2D | null = null;

@@ -8,6 +8,7 @@ Writes into public/:
   data/names.txt        one line per explicitly named code point: HEX<TAB>NAME<TAB>alias|alias
   data/detail/NN.json   per-code-point detail, one file per 0x1000 code points
   data/fonts.css        @font-face rules (family "UMap") with per-font unicode-range
+  data/LastResort.ttf   Last Resort with a cmap all browsers read (needs fontTools)
   data/coverage.json    assigned graphic code points with no Noto glyph, by block
   fonts -> $FONTS_DIR   symlink to the font set built by Nix
 """
@@ -467,8 +468,35 @@ for fid in sorted(cps_by_font):
     css.append(
         f'@font-face {{ font-family: "UMapF{fid}"; src: url("../fonts/{f["file"]}") format("{fmt}"); font-display: block; }}'
     )
+
+
+def write_last_resort():
+    """
+    Copy Last Resort with a cmap every browser reads. Outside the BMP it maps code points only
+    through a format 13 subtable (whole ranges to one glyph), which Firefox ignores: it then
+    draws its own hex box, differently at different sizes. Add a format 12 subtable listing each
+    assigned code point that no other font covers.
+    """
+    from fontTools.ttLib import TTFont
+    from fontTools.ttLib.tables._c_m_a_p import cmap_format_12
+
+    font = TTFont(os.path.join(FONTS, LAST_RESORT["file"]))
+    full = font.getBestCmap()  # merges in the format 13 ranges
+    mapping = {cp: g for cp, g in full.items() if cp <= 0xFFFF}
+    for cp in range(0x10000, MAX):
+        if gc[cp] not in ("Cn", "Co", "Cs") and cp not in font_of and cp in full:
+            mapping[cp] = full[cp]
+    sub = cmap_format_12(12)
+    sub.platformID, sub.platEncID, sub.language = 3, 10, 0
+    sub.cmap = mapping
+    font["cmap"].tables = [t for t in font["cmap"].tables if t.format == 4] + [sub]
+    font.save(os.path.join(OUT, "LastResort.ttf"))
+    return len(mapping) - sum(1 for cp in mapping if cp <= 0xFFFF)
+
+
+print(f"Last Resort: {write_last_resort()} supplementary code points mapped")
 css.append(
-    f'@font-face {{ font-family: "UMap Last Resort"; src: url("../fonts/{LAST_RESORT["file"]}") format("truetype"); font-display: block; }}'
+    '@font-face { font-family: "UMap Last Resort"; src: url("LastResort.ttf") format("truetype"); font-display: block; }'
 )
 # Fallback for interface text Inter can't draw (e.g. Egyptological ꜣ ꞽ in NamesList notes).
 NOTO_SANS = next(f for f in fonts if f["family"] == "Noto Sans")

@@ -332,7 +332,8 @@ function Explorer({ data }: { data: UnicodeData }) {
           </button>
           <button title="Pure view: just the characters (z)" onClick={() => setPure(true)}>
             <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
-              <path d="M2 5.5V2h3.5M10.5 2H14v3.5M14 10.5V14h-3.5M5.5 14H2v-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M1.5 8C3 5 5.3 3.5 8 3.5S13 5 14.5 8C13 11 10.7 12.5 8 12.5S3 11 1.5 8Z" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+              <circle cx="8" cy="8" r="2.1" fill="currentColor" />
             </svg>
           </button>
           <button title="Keyboard shortcuts (?)" onClick={() => setHelp(true)}>?</button>

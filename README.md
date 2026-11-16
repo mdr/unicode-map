@@ -39,7 +39,7 @@ pure view draws them in the browser instead, which is slower to fill in.
   with Noto Sans as a fallback for interface text Inter can't draw.
   The package also writes a `manifest.json` recording each font's coverage. The dev shell exports the paths as `UCD_DIR`, `UNIHAN_DIR`, `CONFUSABLES` and
   `FONTS_DIR`.
-- **`scripts/build_data.py`** (stdlib only) turns those into:
+- **`scripts/build_data.py`** (stdlib, plus fontTools for one step) turns those into:
   - `meta.json`: blocks, code chart sections, regions, property values, and run-length
     maps of General Category, Script, Age and font per code point.
   - `props.json`: code point ranges for every binary property and a few enumerated ones
@@ -48,6 +48,9 @@ pure view draws them in the browser instead, which is slower to fill in.
   - `names.txt`: names and aliases, used for search.
   - `detail/NN.json`: per-character detail in 4,096-code-point chunks, loaded on demand.
   - `fonts.css`: an `@font-face` per font.
+  - `LastResort.ttf`: a copy of Last Resort with a cmap every browser reads. The original
+    maps supplementary planes only through a format 13 subtable, which Firefox ignores, so
+    Firefox drew its own hex boxes instead.
   - `coverage.json`: assigned characters that no Noto font covers.
 - **`src/map/MapView.ts`** is the canvas renderer. Each plane is a 256×256 bitmap, scaled
   up, at low zoom. Grid lines fade in as you zoom, then cards with glyphs, code points and
@@ -59,7 +62,9 @@ pure view draws them in the browser instead, which is slower to fill in.
   The renderer also dims everything outside a highlight (rare matches get rings when zoomed
   out) and hides characters newer than the timeline's version. Pure view (`z`) drops the
   colours, labels and interface. In it, glyphs show from mid zoom using a pyramid of tile
-  images at 6, 12 and 24 px per code point, with 64, 32 and 16 code points per tile side.
+  images at 2, 6, 12 and 24 px per code point, with 128, 64, 32 and 16 code points per tile
+  side. The 2 px level is drawn at 6 px and averaged down, so even zoomed right out each
+  area shows its texture: dense ideographs bright, marks faint, emoji in colour.
   These are pre-built WebP files (about 35 MB) fetched as they come into view; without them,
   or for the 48 px level used on Retina screens, tiles are drawn in the browser. Live font
   rendering takes over once the cards appear.
