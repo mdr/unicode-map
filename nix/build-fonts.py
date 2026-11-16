@@ -25,6 +25,7 @@ os.makedirs(out_dir)
 EXCLUDE = re.compile(
     r"(Italic|-UI|UI\.|UI-|Display|Test|Unjoined|Looped|Mono|Rotated|Vertical"
     r"|Syriac(Eastern|Western)|Tifinagh[A-Z]|Rashi|TraditionalNushu"
+    r"|KreativeSquareSM|unifont_(t|jp|csur)\.|SealCompat"
     r"|-(Thin|ExtraLight|Light|Medium|SemiBold|Bold|ExtraBold|Black)\.)"
 )
 

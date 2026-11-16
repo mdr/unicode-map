@@ -22,9 +22,15 @@ Re-run `pnpm data` after changing `scripts/build_data.py` or bumping the Unicode
 - **`flake.nix`** pins the Unicode version (`unicodeVersion`) and fetches `UCD.zip`,
   `Unihan.zip` and `confusables.txt` with fixed hashes. The `fonts` package assembles a
   font set that browsers can load: one regular face per Noto family, single faces extracted
-  from the CJK collections, Noto Color Emoji, Last Resort as the final fallback, and Inter
-  and JetBrains Mono for the interface. It writes a `manifest.json` recording each font's
-  coverage. The dev shell exports the paths as `UCD_DIR`, `UNIHAN_DIR`, `CONFUSABLES` and
+  from the CJK collections, and Noto Color Emoji. Gap fillers come after Noto:
+  - Jigmo, for the CJK extensions.
+  - Kreative Square, for Legacy Computing.
+  - Kaiyuan Small Seal, for Seal. It isn't released yet, so it's built from its glyph
+    sources at a pinned commit.
+  - Unifont, a pixel font, for the few things nothing else covers.
+
+  Last Resort is the final placeholder. Inter and JetBrains Mono are the interface fonts.
+  The package also writes a `manifest.json` recording each font's coverage. The dev shell exports the paths as `UCD_DIR`, `UNIHAN_DIR`, `CONFUSABLES` and
   `FONTS_DIR`.
 - **`scripts/build_data.py`** (stdlib only) turns those into:
   - `meta.json`: blocks, regions, property values, run-length maps of General

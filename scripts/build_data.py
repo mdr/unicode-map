@@ -370,17 +370,20 @@ def tier(family):
     if family in ("Noto Sans Symbols", "Noto Sans Symbols 2", "Noto Sans Math", "Noto Music"):
         return 2
     if "Emoji" in family:
-        return 6
+        return EMOJI_TIER
     if "CJK" in family:
         return 3
     if family.startswith("Noto Sans"):
         return 1
-    if family.startswith("Noto Serif"):
+    if family.startswith("Noto Serif") or family.startswith("Noto"):
         return 4
-    return 5
+    if family.startswith("Unifont"):
+        return PIXEL_TIER
+    return 5  # non-Noto gap fillers: Jigmo, Kreative Square, Kaiyuan Small Seal
 
 
 EMOJI_TIER = 6
+PIXEL_TIER = 7  # Unifont: only for code points nothing else covers
 
 
 for i, f in enumerate(fonts):
@@ -396,17 +399,24 @@ for f in fonts:
                 font_cover[cp].append(f["id"])
 
 NOT_DRAWN = {"Cn", "Cc", "Cs", "Co", "Zl", "Zp"}
+idx_vs = binary_names.index("Variation_Selector")
+
+
+def drawable(cp):
+    return gc[cp] not in NOT_DRAWN and idx_vs not in binary.get(cp, ())
+
+
 font_of = {}  # cp -> font id
 uncovered = Counter()  # block index -> count
 for bi, blk in enumerate(blocks):
-    cps = [cp for cp in range(blk["s"], blk["e"] + 1) if gc[cp] not in NOT_DRAWN]
+    cps = [cp for cp in range(blk["s"], blk["e"] + 1) if drawable(cp)]
     counts = Counter()
     for cp in cps:
         for fid in font_cover[cp] or ():
             counts[fid] += 1
     primary = None
-    non_emoji = {fid: n for fid, n in counts.items() if fonts[fid]["tier"] != EMOJI_TIER}
-    pool = non_emoji or counts
+    non_emoji = {fid: n for fid, n in counts.items() if fonts[fid]["tier"] < EMOJI_TIER}
+    pool = non_emoji or {fid: n for fid, n in counts.items() if fonts[fid]["tier"] != EMOJI_TIER} or counts
     if pool:
         # Among fonts that cover most of what the best one covers, prefer the lowest tier.
         best = max(pool.values())
@@ -461,7 +471,7 @@ with open(os.path.join(OUT, "fonts.css"), "w") as fh:
 
 coverage = {
     "uncoveredTotal": sum(uncovered.values()),
-    "drawableTotal": sum(1 for cp in range(MAX) if gc[cp] not in NOT_DRAWN),
+    "drawableTotal": sum(1 for cp in range(MAX) if drawable(cp)),
     "byBlock": [
         {"block": blocks[bi]["name"], "uncovered": n, "assigned": blocks[bi]["assigned"]}
         for bi, n in uncovered.most_common()
@@ -531,7 +541,7 @@ meta = {
     "abbr": {
         f"{cp:X}": next((a for a, t in aliases.get(cp, []) if t == "abbreviation"), None) or abbreviate(cp)
         for cp in range(MAX)
-        if gc[cp] in ("Cc", "Cf", "Zs", "Zl", "Zp")
+        if gc[cp] in ("Cc", "Cf", "Zs", "Zl", "Zp") or idx_vs in binary.get(cp, ())
     },
     "valueNames": {k: {a: b.replace("_", " ") for a, b in pva[k].items()} for k in ("bc", "ea", "lb", "ccc")},
     "nonchars": to_ranges(
@@ -651,6 +661,11 @@ os.symlink(FONTS, link)
 assigned = sum(1 for g in gc if g != "Cn")
 print(f"Unicode {VERSION}: {len(blocks)} blocks, {assigned} assigned code points")
 print(f"Fonts: {len(cps_by_font)} faces used; {coverage['uncoveredTotal']} of {coverage['drawableTotal']} "
-      f"drawable code points have no Noto glyph (see public/data/coverage.json)")
+      f"drawable code points have no glyph in any font (see public/data/coverage.json)")
+pixel = Counter(blocks[block_of[cp]]["name"] for cp, fid in font_of.items() if fonts[fid]["tier"] == PIXEL_TIER)
+print(f"Unifont pixel fallback draws {sum(pixel.values())}: " + ", ".join(f"{n} {c}" for n, c in pixel.most_common(8)))
+by_font = Counter(fonts[fid]["family"] for fid in font_of.values() if fonts[fid]["tier"] == 5)
+print("Gap-filler fonts draw: " + ", ".join(f"{n} {c}" for n, c in by_font.most_common()))
+print("Still uncovered:")
 for row in coverage["byBlock"][:15]:
     print(f"  {row['uncovered']:6d} / {row['assigned']:6d}  {row['block']}")

@@ -14,8 +14,9 @@ what each code point is, and which plane, block, region and category it belongs 
 - **Layout:** linear. 17 planes of 256×256 cells (256 code points per row), arranged in a
   grid of planes. Zooming goes smoothly from planes, to blocks, to rows, to single code
   points.
-- **Glyphs:** Noto fonts via Nix, with Last Resort as the fallback, plus a coverage report
-  of the gaps.
+- **Glyphs:** Noto fonts via Nix. Gaps are filled by Jigmo (CJK extensions), Kreative
+  Square (Legacy Computing), Kaiyuan Small Seal (Seal) and Unifont (pixel fallback), with
+  Last Resort for anything left. A coverage report lists what remains.
 - **Colour modes:**
   - Region (the default)
   - General category
@@ -43,5 +44,7 @@ what each code point is, and which plane, block, region and category it belongs 
 - A Hilbert-curve layout as an alternative.
 - Multiple Unicode versions, and the differences between them.
 - Filtering by property, favourites.
-- Fonts to fill the CJK extension gaps (for example Jigmo, which is in nixpkgs).
+- Fonts for the remaining gaps: Egyptian Hieroglyphs Extended-A, Jurchen, Archaic
+  Cuneiform Numerals, the Tangut supplements and the last 348 Seal characters. None was in
+  nixpkgs or freely available as of Unicode 18.
 - Publishing (GitHub Pages), which means caring about size and mobile.

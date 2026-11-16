@@ -48,6 +48,27 @@
             hash = "sha256-btPulnyd/fZnfVY8mYUYL7xQou+31gWc1XsuLOGPW5I=";
           };
 
+          # Kaiyuan Small Seal (OFL-1.1): covers the Unicode 18 Seal block. Not released yet, so build
+          # it from the traced glyphs at a pinned commit. Work in progress: glyphs are unreviewed.
+          kaiyuan-small-seal = pkgs.stdenvNoCC.mkDerivation {
+            pname = "kaiyuan-small-seal";
+            version = "0-unstable-2026-09-22";
+            src = pkgs.fetchFromGitHub {
+              owner = "frankslin";
+              repo = "kaiyuan-small-seal-font";
+              rev = "97433695858330ec9fdb7de9c4604da2f635eba6";
+              hash = "sha256-qwM8SVPZds++b4mQSR26Eup5MdVZOdCIyCF3nz14j8c=";
+            };
+            nativeBuildInputs = [ python ];
+            buildPhase = ''
+              python3 scripts/build_font.py --no-woff2
+            '';
+            installPhase = ''
+              mkdir -p $out/share/fonts/truetype
+              cp build/*.ttf $out/share/fonts/truetype/
+            '';
+          };
+
           # Web-servable font set: one regular face per Noto family, single faces extracted
           # from the CJK collections, Noto Color Emoji, and Last Resort as the final fallback.
           # Also writes manifest.json with each font's cmap coverage.
@@ -59,6 +80,11 @@
                   pkgs.noto-fonts
                   pkgs.noto-fonts-cjk-sans
                   pkgs.noto-fonts-color-emoji
+                  # Gap fillers for what Noto doesn't cover (see public/data/coverage.json):
+                  pkgs.jigmo # CJK Unified Ideographs Extensions B–J
+                  pkgs.kreative-square # Symbols for Legacy Computing (Supplement)
+                  kaiyuan-small-seal # Seal
+                  "${pkgs.unifont}/share/fonts/opentype/unifont" # pixel fallback for the rest
                   pkgs.last-resort
                 ];
               }

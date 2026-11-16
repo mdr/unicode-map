@@ -258,6 +258,7 @@ export function displayString(data: UnicodeData, cp: number): string | null {
   if (gc === "Cn" || gc === "Cs" || gc === "Co" || gc === "Cc" || gc === "Cf" || gc === "Zl" || gc === "Zp" || gc === "Zs") {
     return null;
   }
+  if (data.abbr(cp)) return null; // invisible, e.g. variation selectors: drawn as a label
   const ch = String.fromCodePoint(cp);
   if (gc === "Mn" || gc === "Me" || gc === "Mc") return data.markBase(cp) + ch;
   return ch;
