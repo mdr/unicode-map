@@ -13,6 +13,7 @@ nix develop          # or `direnv allow` (there's an .envrc)
 pnpm install         # once
 pnpm data            # compile the UCD into public/data and link the fonts (~30s)
 pnpm tiles           # optional: pre-build pure view's glyph tiles into public/tiles (~1 min)
+pnpm about           # rarely: refresh the Wikipedia summaries in src/data/about.json (committed)
 pnpm dev             # http://localhost:5173
 ```
 
@@ -24,7 +25,7 @@ pure view draws them in the browser instead, which is slower to fill in.
 ## How it fits together
 
 - **`flake.nix`** pins the Unicode version (`unicodeVersion`) and fetches `UCD.zip`,
-  `Unihan.zip` and `confusables.txt` with fixed hashes. The `fonts` package assembles a
+  `Unihan.zip`, `confusables.txt` and CLDR's `cldr-common` with fixed hashes. The `fonts` package assembles a
   font set that browsers can load: one regular face per Noto family, single faces extracted
   from the CJK collections, and Noto Color Emoji. Gap fillers come after Noto:
   - Jigmo, for the CJK extensions.
@@ -73,6 +74,13 @@ pure view draws them in the browser instead, which is slower to fill in.
   from a per-plane ink bitmap that also fades dimmed characters and hides ones newer than the
   timeline's version.
 - **`scripts/build_tiles.mjs`** pre-builds those tiles.
+- **`scripts/build_about.mjs`** fetches short descriptions of scripts and blocks from English
+  Wikipedia into `src/data/about.json`, which is committed so builds never contact Wikipedia.
+  Scripts are matched to articles through Wikidata (ISO 15924 code to article), blocks through
+  their "(Unicode block)" articles. Raw responses are cached in `.cache/about`; `--refresh`
+  fetches again. The app shows them as "About" cards (for a selected character, and from the ⓘ
+  on block rows in the sidebar), with facts per script from CLDR (`CLDR_DIR`, pinned in the
+  flake): how widely it's used, where it comes from, direction, case, and its main languages.
 - **`src/map/colorModes.ts`** defines the colour modes: region, general category, script,
   age and assigned.
 - **`src/ui/*`** holds the React UI: search, property highlight, legend, timeline,

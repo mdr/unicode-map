@@ -41,6 +41,15 @@
             hash = "sha256-sTZYYvN70W39lNKQKnczFO4rI0BwtxbIaCeyO7pYSy0=";
           };
 
+          # Unicode CLDR: script metadata, and language and territory data, for "About" cards.
+          # Released separately from the UCD; this is the latest release.
+          cldr = pkgs.fetchzip {
+            name = "cldr-common-49";
+            url = "https://unicode.org/Public/cldr/49/cldr-common-49.zip";
+            stripRoot = false;
+            hash = "sha256-s0nDPUMwP/DgeL7PdeKyFASAU8hTHw644qPWrl+F6zw=";
+          };
+
           # UTS #39 confusables
           confusables = pkgs.fetchurl {
             name = "confusables-${unicodeVersion}.txt";
@@ -117,6 +126,7 @@
             "ucd" = ucd;
             "unihan" = unihan;
             "confusables.txt" = confusables;
+            "cldr" = cldr;
           };
 
           default = unicode-data;
@@ -139,6 +149,7 @@
             UCD_DIR = p.ucd;
             UNIHAN_DIR = p.unihan;
             CONFUSABLES = p.confusables;
+            CLDR_DIR = p.cldr;
             FONTS_DIR = p.fonts;
             shellHook = ''
               echo "unicode-map dev shell — Unicode ${unicodeVersion}"

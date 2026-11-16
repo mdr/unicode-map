@@ -40,6 +40,8 @@ interface Meta {
   fontRuns: number[];
   /** Code chart sections within blocks: [start, end, title], in code point order. */
   sections: [number, number, string][];
+  /** CLDR facts per script code (see data/about.ts ScriptInfo). */
+  scriptInfo: Record<string, unknown>;
   dottedCircleFont: number;
   fontsWithDottedCircle: number[];
 }

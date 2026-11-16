@@ -2,6 +2,7 @@ import { ReactNode, useEffect, useMemo, useState } from "react";
 import { Detail, displayString, hex, MAX_CP, planeName, uplus, UnicodeData, VERSION_YEARS } from "../data/unicode";
 import { ColorMode, cpColor } from "../map/colorModes";
 import { Glyph } from "./Glyph";
+import { AboutCards, blockScript } from "./About";
 import type { Here } from "../map/MapView";
 
 interface Props {
@@ -45,6 +46,8 @@ function Overview({ data, here, onPlane, onBlock, onPreview, onRange }: Props) {
   useEffect(() => () => onPreview(null), [onPreview]);
   const plane = here && here.cp >= 0 && here.k > 1.6 ? here.cp >> 16 : null;
   const currentBlock = plane !== null && here!.k > 2.5 ? data.blockIdx[here!.cp] : -1;
+  /** The block whose "About" is open in the list. */
+  const [aboutOpen, setAboutOpen] = useState<number | null>(null);
   const currentSection = currentBlock >= 0 && here!.k > 10 ? data.sectionRange(here!.cp) : undefined;
   /** Chart sections per block, for the current block's row to expand into. */
   const sectionsByBlock = useMemo(() => {
@@ -99,8 +102,8 @@ function Overview({ data, here, onPlane, onBlock, onPreview, onRange }: Props) {
           <div className="block-list">
             {data.meta.blocks.map((b, i) =>
               b.s >> 16 === plane ? (
+                <div key={i} className={`block-item ${aboutOpen === i ? "open" : ""}`}>
                 <button
-                  key={i}
                   className={`block-row ${currentBlock === i ? "current" : ""}`}
                   onClick={() => {
                     onPreview(null);
@@ -113,13 +116,30 @@ function Overview({ data, here, onPlane, onBlock, onPreview, onRange }: Props) {
                   <span className="block-name">{b.name}</span>
                   <span className="muted small mono">{hex(b.s)}</span>
                 </button>
+                <button
+                  className="info-btn"
+                  title={`About ${b.name}`}
+                  aria-expanded={aboutOpen === i}
+                  onClick={() => setAboutOpen(aboutOpen === i ? null : i)}
+                >
+                  i
+                </button>
+                </div>
               ) : null,
             ).flatMap((row, i) => {
+              if (!row) return [];
+              const about =
+                aboutOpen === i ? (
+                  <div key={`a${i}`} className="block-about">
+                    <AboutCards data={data} script={blockScript(data, i)} block={i} />
+                  </div>
+                ) : null;
               // The block you're in opens up into its chart sections.
               const secs = i === currentBlock ? sectionsByBlock.get(i) : undefined;
-              if (!row || !secs) return row ? [row] : [];
+              if (!secs) return about ? [row, about] : [row];
               return [
                 row,
+                ...(about ? [about] : []),
                 <div key={`s${i}`} className="section-list" style={{ borderColor: data.meta.regions[data.meta.blocks[i].region].color }}>
                   {secs.map(([a, e, title]) => (
                     <button
@@ -227,6 +247,12 @@ function CodePointDetail({ data, mode, cp, onSelect, onBlock, onPlane, onClose }
           )}
         </Rows>
       </Section>
+
+      {(assigned || block) && (
+        <Section title="About">
+          <AboutCards data={data} script={assigned ? script.code : block ? blockScript(data, blockIndex) : undefined} block={blockIndex} />
+        </Section>
+      )}
 
       {(d.aliases || d.alsoKnownAs || d.formalAlias || d.notes || d.variations) && (
         <Section title="Names & notes">

@@ -34,6 +34,8 @@ what each code point is, and which plane, block, region and category it belongs 
   else is dimmed.
 - **Chart sections:** at mid zoom, blocks are divided into the named sections of the code
   charts.
+- **About cards:** what a script or block is, from Wikipedia summaries (fetched ahead of time
+  and committed) and CLDR script facts, for the selected character and from the sidebar.
 - **Detail panel:**
   - Basics: name, block, plane, category, script, age.
   - Encodings: UTF-8, UTF-16 and UTF-32, plus HTML, CSS, JavaScript, Python and URL

@@ -6,3 +6,4 @@ result-*
 public/data/
 public/tiles/
 public/fonts
+.cache/

@@ -6,6 +6,7 @@
   "scripts": {
     "data": "python3 scripts/build_data.py",
     "tiles": "node scripts/build_tiles.mjs",
+    "about": "node scripts/build_about.mjs",
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",

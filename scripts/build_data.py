@@ -1,7 +1,7 @@
 """Compile the Unicode Character Database into compact files for the app.
 
 Reads paths from the environment set up by `nix develop`:
-  UNICODE_VERSION, UCD_DIR, UNIHAN_DIR, CONFUSABLES, FONTS_DIR
+  UNICODE_VERSION, UCD_DIR, UNIHAN_DIR, CONFUSABLES, FONTS_DIR, CLDR_DIR
 
 Writes into public/:
   data/meta.json        blocks, regions, property value lists, run-length property maps
@@ -37,6 +37,7 @@ UCD = env("UCD_DIR")
 UNIHAN = env("UNIHAN_DIR")
 CONFUSABLES = env("CONFUSABLES")
 FONTS = env("FONTS_DIR")
+CLDR = os.path.join(env("CLDR_DIR"), "common")
 
 
 def ucd(*parts):
@@ -539,6 +540,80 @@ def abbreviate(cp):
     return ("".join(w[0] for w in words)[:4] or "SP") if len(words) > 1 else (words[0][:4] if words else "SP")
 
 
+def cldr_script_info():
+    """
+    Facts about each script from CLDR: how widely it's used, where it comes from, its direction
+    and case, and the main languages written in it (by number of people, where CLDR knows).
+    """
+    import xml.etree.ElementTree as ET
+
+    en = ET.parse(os.path.join(CLDR, "main", "en.xml")).getroot()
+    lang_names = {e.get("type"): e.text for e in en.iter("language") if not e.get("alt")}
+    territory_names = {e.get("type"): e.text for e in en.iter("territory") if not e.get("alt")}
+
+    sup = ET.parse(os.path.join(CLDR, "supplemental", "supplementalData.xml")).getroot()
+    lang_scripts = defaultdict(set)
+    for e in sup.iter("language"):
+        if e.get("scripts") and e.get("alt") != "secondary":
+            lang_scripts[e.get("type")].update(e.get("scripts").split())
+    # People per language (and per language-in-a-script, for types like "zh_Hant").
+    speakers = Counter()
+    for t in sup.iter("territory"):
+        pop = t.get("population")
+        if not pop:
+            continue
+        for lp in t.iter("languagePopulation"):
+            speakers[lp.get("type")] += float(pop) * float(lp.get("populationPercent")) / 100
+
+    # CLDR writes Chinese as Hans/Hant, Japanese as Jpan and Korean as Kore; Unicode's scripts are
+    # Han, Hiragana, Katakana and Hangul.
+    parts = {"Hans": ["Hani"], "Hant": ["Hani"], "Jpan": ["Hani", "Hira", "Kana"], "Kore": ["Hang", "Hani"]}
+    by_script = defaultdict(Counter)
+
+    def add(sc, lang, n):
+        for u in parts.get(sc, [sc]):
+            by_script[u][lang] = max(by_script[u][lang], n) if sc in parts else by_script[u][lang] + n
+
+    for lang, scs in lang_scripts.items():
+        for sc in scs:
+            add(sc, lang, speakers.get(lang, 0))
+    for typ, n in speakers.items():
+        if "_" in typ:
+            lang, sc = typ.split("_", 1)
+            if len(sc) == 4 and sc[0].isupper():
+                add(sc, lang, n)
+
+    usage = {
+        "RECOMMENDED": "widespread",
+        "LIMITED_USE": "limited",
+        "ASPIRATIONAL": "emerging",
+        "EXCLUSION": "rare",
+    }
+    info = {}
+    with open(os.path.join(CLDR, "properties", "scriptMetadata.txt"), encoding="utf-8") as fh:
+        for line in fh:
+            line = line.split("#")[0].strip()
+            if not line:
+                continue
+            f = [x.strip() for x in line.split(";")]
+            code = f[0]
+            langs = sorted(by_script.get(code, {}).items(), key=lambda kv: (-kv[1], lang_names.get(kv[0], kv[0])))
+            entry = {
+                "usage": usage.get(f[5], "rare"),
+                "origin": territory_names.get(f[3]) if f[3] not in ("ZZ", "001") else None,
+                "rtl": f[6] == "YES",
+                "hasCase": f[10] == "YES",
+                "languages": [
+                    {"name": lang_names.get(l, l), "people": int(round(n, -3))}
+                    for l, n in langs[:6]
+                    if lang_names.get(l)
+                ],
+                "languageCount": len(langs),
+            }
+            info[code] = {k: v for k, v in entry.items() if v not in (None, [], False)}
+    return info
+
+
 def font_runs():
     out = []
     prev = None
@@ -575,6 +650,7 @@ meta = {
     "binaryProps": binary_names,
     "fonts": [{"file": f["file"], "family": f["family"]} for f in fonts],
     "fontRuns": font_runs(),
+    "scriptInfo": cldr_script_info(),
     "dottedCircleFont": font_of.get(0x25CC, -1),
     "fontsWithDottedCircle": sorted(fid for fid in cps_by_font if fid in (font_cover[0x25CC] or [])),
     "abbr": {
