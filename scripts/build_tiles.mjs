@@ -17,7 +17,6 @@ import { createServer } from "vite";
 
 const OUT = "public/tiles";
 const CHROME = process.env.CHROME ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
-const DEBUG_PORT = 9334;
 const BATCH = 16;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -29,23 +28,35 @@ const appUrl = server.resolvedUrls.local[0];
 
 const profile = mkdtempSync(join(tmpdir(), "umap-tiles-"));
 const chrome = spawn(CHROME, [
-  "--headless=new", `--remote-debugging-port=${DEBUG_PORT}`, `--user-data-dir=${profile}`,
+  "--headless=new", "--remote-debugging-port=0", `--user-data-dir=${profile}`,
   "--no-first-run", "--window-size=800,600",
   // CI runners (Ubuntu 24.04) don't allow Chrome's sandbox; it's only drawing our own page.
   ...(process.env.CI ? ["--no-sandbox"] : []),
   "about:blank",
-], { stdio: "ignore" });
+], { stdio: ["ignore", "ignore", "pipe"] });
 
+// Chrome picks a free port and says which on stderr; keep its output in case it fails to start.
+let chromeLog = "";
+const debugPort = await new Promise((resolve, reject) => {
+  const timer = setTimeout(() => reject(new Error(`Chrome at ${CHROME} didn't start within 60s:\n${chromeLog}`)), 60_000);
+  chrome.stderr.on("data", (d) => {
+    chromeLog += d;
+    const m = /DevTools listening on ws:\/\/[^:]+:(\d+)\//.exec(chromeLog);
+    if (m) {
+      clearTimeout(timer);
+      resolve(Number(m[1]));
+    }
+  });
+  chrome.on("error", (e) => reject(new Error(`Couldn't run Chrome at ${CHROME}: ${e.message}`)));
+  chrome.on("exit", (code) => reject(new Error(`Chrome exited (${code}) before starting:\n${chromeLog}`)));
+});
 let page;
 for (let i = 0; i < 100 && !page; i++) {
-  try {
-    const targets = await (await fetch(`http://127.0.0.1:${DEBUG_PORT}/json`)).json();
-    page = targets.find((t) => t.type === "page");
-  } catch {
-    await sleep(100);
-  }
+  const targets = await (await fetch(`http://127.0.0.1:${debugPort}/json`)).json();
+  page = targets.find((t) => t.type === "page");
+  if (!page) await sleep(100);
 }
-if (!page) throw new Error(`Couldn't start Chrome at ${CHROME}`);
+if (!page) throw new Error("Chrome has no page to drive");
 const ws = new WebSocket(page.webSocketDebuggerUrl);
 await new Promise((r) => ws.addEventListener("open", r));
 let nextId = 0;
