@@ -114,9 +114,17 @@ export class MapView {
    * tiles are recoloured with it in the normal view.
    */
   private inkBitmaps: HTMLCanvasElement[] = [];
+  /**
+   * Per plane, cells whose glyph is a colour emoji: the texture shows those as drawn rather than
+   * recoloured, or they'd become solid ink silhouettes. Null for planes without any.
+   */
+  private colourBitmaps: (HTMLCanvasElement | null)[] = [];
+  /** Index of the colour emoji font, if any. */
+  private colourFont = -1;
   /** Offscreen layer the glyph tiles are drawn into and recoloured on, in the normal view. */
   private glyphLayer: HTMLCanvasElement | null = null;
   private inkLayer: HTMLCanvasElement | null = null;
+  private colourLayer: HTMLCanvasElement | null = null;
   /** Show glyph texture from the tiles when zoomed out in the normal view. */
   private glyphTexture = true;
   private tilesOn = false;
@@ -162,6 +170,7 @@ export class MapView {
   ) {
     this.ctx = canvas.getContext("2d")!;
     void this.loadTileManifest();
+    this.colourFont = data.meta.fonts.findIndex((f) => /Color Emoji/i.test(f.family));
     this.blockPaths = data.meta.blocks.map((b) => {
       const p = new Path2D();
       const pts = rangeOutline(b.s, b.e);
@@ -496,6 +505,7 @@ export class MapView {
       }
       const ink = icv.getContext("2d")!.createImageData(PLANE_SIZE, PLANE_SIZE);
       const id = ink.data;
+      let colour: ImageData | null = null;
       const base = p << 16;
       for (let i = 0; i < 65536; i++) {
         const cp = base + i;
@@ -507,11 +517,17 @@ export class MapView {
           col = lit ? colors[v] : dimmed[v];
           // Ink as on the cards: dark or light to suit the colour, faint when dimmed.
           const io = i * 4;
-          const inkCol = lit && this.inkDark[v] ? INK_DARK : INK_LIGHT;
-          id[io] = inkCol[0];
-          id[io + 1] = inkCol[1];
-          id[io + 2] = inkCol[2];
-          id[io + 3] = lit ? 255 : 64;
+          if (this.colourFont >= 0 && data.fontIdx[cp] === this.colourFont + 1) {
+            // Colour emoji: no ink; shown as drawn instead.
+            colour ??= new ImageData(PLANE_SIZE, PLANE_SIZE);
+            colour.data[io + 3] = lit ? 255 : 64;
+          } else {
+            const inkCol = lit && this.inkDark[v] ? INK_DARK : INK_LIGHT;
+            id[io] = inkCol[0];
+            id[io + 1] = inkCol[1];
+            id[io + 2] = inkCol[2];
+            id[io + 3] = lit ? 255 : 64;
+          }
           if (lit && filtering && sparse.length <= SPARSE_MAX) sparse.push(cp);
           if (tile && lit) {
             const t = (((i >> 8) / TILE) | 0) * (PLANE_SIZE / TILE) + (((i & 255) / TILE) | 0);
@@ -532,6 +548,15 @@ export class MapView {
       }
       c.putImageData(img, 0, 0);
       icv.getContext("2d")!.putImageData(ink, 0, 0);
+      if (colour) {
+        let ccv = this.colourBitmaps[p];
+        if (!ccv) {
+          ccv = document.createElement("canvas");
+          ccv.width = ccv.height = PLANE_SIZE;
+          this.colourBitmaps[p] = ccv;
+        }
+        ccv.getContext("2d")!.putImageData(colour, 0, 0);
+      } else this.colourBitmaps[p] = null;
       if (tile) this.tileBitmaps[p].getContext("2d")!.putImageData(tile, 0, 0);
     }
     this.tilesOn = filtering;
@@ -769,7 +794,7 @@ export class MapView {
               ctx.fillText(str, sx + k / 2, glyphY);
             }
           } else {
-            this.drawSpecial(cp, sx, k, glyphY, t * (dim ? 0.3 : 1), dark);
+            this.drawSpecial(cp, sx, k, glyphY, (this.pure || this.glyphTexture ? 1 : t) * (dim ? 0.3 : 1), dark);
             lastFont = "";
           }
           if (hexA > 0) {
@@ -791,8 +816,8 @@ export class MapView {
     ctx.globalAlpha = 1;
   }
 
-  private drawSpecial(cp: number, sx: number, k: number, cy: number, alpha: number, dark: boolean) {
-    const ctx = this.ctx;
+  /** Placeholder for a code point with no visible glyph: a dashed box with its abbreviation. */
+  private drawSpecial(cp: number, sx: number, k: number, cy: number, alpha: number, dark: boolean, ctx = this.ctx) {
     const gc = this.data.gc(cp).code;
     let label: string | undefined;
     if (gc === "Co") label = "PUA";
@@ -1374,6 +1399,22 @@ export class MapView {
     lc.clearRect(0, 0, W, H);
     lc.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     this.renderGlyphTiles(planes, vis, 1, lc);
+    // Colour emoji keep their colours: copy the glyphs aside before they're recoloured, to keep
+    // just those cells of the copy below.
+    const colourPlanes = planes.filter((p) => this.colourBitmaps[p]);
+    let cc: CanvasRenderingContext2D | null = null;
+    if (colourPlanes.length) {
+      let cl = this.colourLayer;
+      if (!cl || cl.width !== W || cl.height !== H) {
+        cl = this.colourLayer = document.createElement("canvas");
+        cl.width = W;
+        cl.height = H;
+      }
+      cc = cl.getContext("2d")!;
+      cc.globalCompositeOperation = "copy";
+      cc.drawImage(layer, 0, 0);
+      cc.globalCompositeOperation = "source-over";
+    }
     // Every visible plane's ink goes into a second layer first: compositing with "source-in"
     // clears whatever lies outside the image drawn, so recolouring plane by plane would wipe out
     // all but the last plane.
@@ -1397,6 +1438,20 @@ export class MapView {
     lc.globalCompositeOperation = "source-in";
     lc.drawImage(inkLayer, 0, 0);
     lc.globalCompositeOperation = "source-over";
+    if (cc) {
+      // Reuse the ink layer for the colour cells' mask, and keep only those cells of the copy.
+      ic.setTransform(1, 0, 0, 1, 0, 0);
+      ic.clearRect(0, 0, W, H);
+      ic.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+      for (const p of colourPlanes) {
+        const o = planeOrigin(p);
+        ic.drawImage(this.colourBitmaps[p]!, this.sx(o.x), this.sy(o.y), PLANE_SIZE * k, PLANE_SIZE * k);
+      }
+      cc.globalCompositeOperation = "destination-in";
+      cc.drawImage(inkLayer, 0, 0);
+      cc.globalCompositeOperation = "source-over";
+      lc.drawImage(this.colourLayer!, 0, 0);
+    }
     const ctx = this.ctx;
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -1438,7 +1493,9 @@ export class MapView {
 
   /** Whether the fonts for `rows` rows of a plane, from row `y0`, are loaded (asking for them if not). */
   tileFontsReady(p: number, y0: number, rows: number) {
-    let ready = true;
+    // The placeholders' labels use the monospace interface font.
+    let ready = document.fonts.check(`12px ${MONO_FONT}`, "WJ");
+    if (!ready) void document.fonts.load(`12px ${MONO_FONT}`, "WJ").then(() => this.invalidate());
     for (let r = 0; r < rows; r++) if (!this.ensureRowFonts((p << 16) | ((y0 + r) << 8))) ready = false;
     return ready;
   }
@@ -1466,7 +1523,7 @@ export class MapView {
       for (let x = 0; x < span; x++) {
         const cp = (p << 16) | ((ty * span + y) << 8) | (tx * span + x);
         const str = displayString(data, cp);
-        if (!str) continue;
+        if (!str && !data.isAssigned(cp)) continue;
         if (!c) {
           cv = document.createElement("canvas");
           cv.width = cv.height = span * res;
@@ -1476,8 +1533,16 @@ export class MapView {
           c.fillStyle = "#eef1f6";
         }
         // Same size and position as on the cards, so the switch to real rendering is seamless.
+        if (!str) {
+          // No visible glyph (spaces, format characters, private use…): the cards' placeholder.
+          this.drawSpecial(cp, x * res, res, y * res + res * 0.53, 1, false, c);
+          c.fillStyle = "#eef1f6";
+          lastFont = "";
+          continue;
+        }
         const font = `${res * 0.5}px ${data.glyphFamily(cp)}`;
         if (font !== lastFont) c.font = lastFont = font;
+        c.globalAlpha = 1;
         c.fillText(str, x * res + res / 2, y * res + res * 0.53);
       }
     }

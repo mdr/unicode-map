@@ -84,7 +84,6 @@ try {
   // Helpers in the page: list a level's non-empty tiles, and draw and encode a batch of them.
   await run(`(async () => {
     const { GLYPH_LEVELS } = await import("/src/map/MapView.ts");
-    const { displayString } = await import("/src/data/unicode.ts");
     const v = window.__view, data = v.data;
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const toB64 = (c) => new Promise((r) => c.toBlob((b) => {
@@ -99,7 +98,8 @@ try {
         for (let p = 0; p < 17; p++) for (let ty = 0; ty < n; ty++) for (let tx = 0; tx < n; tx++) {
           let any = false;
           for (let y = 0; y < span && !any; y++) for (let x = 0; x < span && !any; x++) {
-            if (displayString(data, (p << 16) | ((ty * span + y) << 8) | (tx * span + x))) any = true;
+            // Anything assigned draws something: a glyph, or a placeholder for one with none.
+            if (data.isAssigned((p << 16) | ((ty * span + y) << 8) | (tx * span + x))) any = true;
           }
           if (any) out.push([p, ty, tx]);
         }
