@@ -186,6 +186,7 @@ idx_nonchar = binary_names.index("Noncharacter_Code_Point")
 # ---------------------------------------------------------------------------
 nl = defaultdict(lambda: defaultdict(list))
 subhead = {}
+sections = []  # [start, end, title]: chart sections ("@" subheadings) within blocks
 current_sub = None
 current = None
 XREF = re.compile(r"([0-9A-F]{4,6})\)?\s*$")
@@ -199,6 +200,7 @@ with open(ucd("NamesList.txt"), encoding="utf-8") as fh:
             current = None
         elif line.startswith("@\t"):
             current_sub = line.split("\t")[-1].strip()
+            sections.append([None, None, current_sub])
             current = None
         elif line.startswith("@"):
             current = None
@@ -206,6 +208,10 @@ with open(ucd("NamesList.txt"), encoding="utf-8") as fh:
             current = int(line.split("\t")[0], 16)
             if current_sub:
                 subhead[current] = current_sub
+                sec = sections[-1]
+                if sec[0] is None:
+                    sec[0] = current
+                sec[1] = current
         elif line.startswith("\t") and current is not None:
             body = line.strip()
             kind, text = body[0], body[1:].strip()
@@ -543,6 +549,7 @@ meta = {
         for cp in range(MAX)
         if gc[cp] in ("Cc", "Cf", "Zs", "Zl", "Zp") or idx_vs in binary.get(cp, ())
     },
+    "sections": [sec for sec in sections if sec[0] is not None],
     "valueNames": {k: {a: b.replace("_", " ") for a, b in pva[k].items()} for k in ("bc", "ea", "lb", "ccc")},
     "nonchars": to_ranges(
         cp for cp in range(MAX) if idx_nonchar in binary.get(cp, ())
@@ -550,6 +557,60 @@ meta = {
 }
 with open(os.path.join(OUT, "meta.json"), "w") as fh:
     json.dump(meta, fh, separators=(",", ":"))
+
+# ---------------------------------------------------------------------------
+# props.json: code point ranges for every binary property and selected enumerated
+# properties, loaded on demand by the property highlighter
+# ---------------------------------------------------------------------------
+def prop_ranges(paths, skip=()):
+    out = defaultdict(set)
+    for path in paths:
+        for f in data_lines(path):
+            if len(f) > 2 or f[1] in skip:
+                continue
+            a, b = cp_range(f[0])
+            out[f[1]].update(range(a, b + 1))
+    return out
+
+
+binary_all = prop_ranges(
+    [ucd("PropList.txt"), ucd("DerivedCoreProperties.txt"), ucd("emoji", "emoji-data.txt"),
+     ucd("extracted", "DerivedBinaryProperties.txt")],
+    skip={p for p in SKIP_BINARY if p.startswith("Other_")} | {"InCB"},
+)
+
+
+def enum_values(prop_map, names=None):
+    groups = defaultdict(list)
+    for cp, v in prop_map.items():
+        if gc[cp] != "Cn":  # assigned characters only; reserved code points just carry defaults
+            groups[v].append(cp)
+    return [
+        {"code": v, "name": (names or {}).get(v, v).replace("_", " "), "count": len(cps), "ranges": to_ranges(cps)}
+        for v, cps in sorted(groups.items(), key=lambda kv: -len(kv[1]))
+    ]
+
+
+decomp_type = {}
+for cp, f in ud.items():
+    if f[5]:
+        decomp_type[cp] = f[5].split()[0].strip("<>") if f[5].startswith("<") else "canonical"
+props_out = {
+    "binary": [
+        {"name": name.replace("_", " "), "count": len(cps), "ranges": to_ranges(cps)}
+        for name, cps in sorted(binary_all.items())
+    ],
+    "enums": [
+        {"prop": "bc", "label": "Bidi class", "values": enum_values(bidi, pva["bc"])},
+        {"prop": "ea", "label": "East Asian width", "values": enum_values(eaw, pva["ea"])},
+        {"prop": "lb", "label": "Line break", "values": enum_values(lb, pva["lb"])},
+        {"prop": "dt", "label": "Decomposition", "values": enum_values(decomp_type)},
+        {"prop": "nt", "label": "Numeric type", "values": enum_values(enum_prop(ucd("extracted", "DerivedNumericType.txt")))},
+        {"prop": "jt", "label": "Joining type", "values": enum_values(enum_prop(ucd("extracted", "DerivedJoiningType.txt")), pva["jt"])},
+    ],
+}
+with open(os.path.join(OUT, "props.json"), "w") as fh:
+    json.dump(props_out, fh, separators=(",", ":"))
 
 # ---------------------------------------------------------------------------
 # names.txt: explicit names plus searchable aliases

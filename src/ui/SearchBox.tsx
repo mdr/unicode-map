@@ -46,7 +46,7 @@ export function SearchBox({
         id="search-input"
         ref={inputRef}
         value={q}
-        placeholder="Search names, U+2603, or paste a character…"
+        placeholder="Search names, U+2603, or a character…"
         autoComplete="off"
         spellCheck={false}
         onChange={(e) => {

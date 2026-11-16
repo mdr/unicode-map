@@ -33,19 +33,25 @@ Re-run `pnpm data` after changing `scripts/build_data.py` or bumping the Unicode
   The package also writes a `manifest.json` recording each font's coverage. The dev shell exports the paths as `UCD_DIR`, `UNIHAN_DIR`, `CONFUSABLES` and
   `FONTS_DIR`.
 - **`scripts/build_data.py`** (stdlib only) turns those into:
-  - `meta.json`: blocks, regions, property values, run-length maps of General
-    Category, Script, Age and font per code point.
+  - `meta.json`: blocks, code chart sections, regions, property values, and run-length
+    maps of General Category, Script, Age and font per code point.
+  - `props.json`: code point ranges for every binary property and a few enumerated ones
+    (bidi class, width, line break, decomposition, numeric and joining type). The property
+    highlighter loads it on first use.
   - `names.txt`: names and aliases, used for search.
   - `detail/NN.json`: per-character detail in 4,096-code-point chunks, loaded on demand.
   - `fonts.css`: an `@font-face` per font.
   - `coverage.json`: assigned characters that no Noto font covers.
 - **`src/map/MapView.ts`** is the canvas renderer. Each plane is a 256×256 bitmap, scaled
   up, at low zoom. Grid lines fade in as you zoom, then cards with glyphs, code points and
-  names. Block outlines and labels sit on top, with sticky row and column axes.
+  names. Block outlines and labels sit on top, with sticky row and column axes. At mid zoom,
+  blocks split into their code chart sections (the `@` subheadings in `NamesList.txt`). It
+  also dims everything outside a property highlight and hides characters newer than the
+  timeline's version.
 - **`src/map/colorModes.ts`** defines the colour modes: region, general category, script,
   age and assigned.
-- **`src/ui/*`** holds the React UI: search, legend, breadcrumb, detail panel, tooltip and
-  minimap.
+- **`src/ui/*`** holds the React UI: search, property highlight, legend, timeline,
+  breadcrumb, detail panel, tooltip and minimap.
 
 ## Upgrading Unicode
 

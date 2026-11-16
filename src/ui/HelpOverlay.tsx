@@ -11,6 +11,8 @@ const KEYS: [string, string][] = [
   ["Enter", "Zoom to the selection"],
   ["+  −  0", "Zoom in, out, show everything"],
   ["1 – 5", "Switch colour mode"],
+  ["t", "Timeline: Unicode version by version"],
+  ["p", "Highlight characters with a property"],
   ["/", "Search"],
   ["Esc", "Clear selection"],
 ];

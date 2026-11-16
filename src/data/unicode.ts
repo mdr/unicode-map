@@ -38,6 +38,8 @@ interface Meta {
   nonchars: [number, number][];
   valueNames: Record<"bc" | "ea" | "lb" | "ccc", Record<string, string>>;
   fontRuns: number[];
+  /** Code chart sections within blocks: [start, end, title], in code point order. */
+  sections: [number, number, string][];
   dottedCircleFont: number;
   fontsWithDottedCircle: number[];
 }
@@ -198,6 +200,19 @@ export class UnicodeData {
   /** Whether name() is a real Unicode name rather than a code point label. */
   hasName(cp: number) {
     return !this.name(cp).startsWith("<");
+  }
+
+  /** The code chart section a code point falls in, if any. */
+  section(cp: number): string | undefined {
+    const secs = this.meta.sections;
+    let lo = 0, hi = secs.length - 1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (secs[mid][1] < cp) lo = mid + 1;
+      else if (secs[mid][0] > cp) hi = mid - 1;
+      else return secs[mid][2];
+    }
+    return undefined;
   }
 
   /** Index into meta.fonts of the font that draws this code point, if any. */

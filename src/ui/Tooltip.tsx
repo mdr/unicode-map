@@ -5,6 +5,7 @@ import { ColorMode, cpColor } from "../map/colorModes";
 export function Tooltip({ data, mode, cp, x, y }: { data: UnicodeData; mode: ColorMode; cp: number; x: number; y: number }) {
   const block = data.block(cp);
   const assigned = data.isAssigned(cp);
+  const section = data.section(cp);
   const flipX = x > window.innerWidth - 700;
   const style = {
     left: flipX ? undefined : x + 16,
@@ -22,7 +23,10 @@ export function Tooltip({ data, mode, cp, x, y }: { data: UnicodeData; mode: Col
           <span className="mono">{uplus(cp)}</span>
           {assigned && <> · {data.gc(cp).name}</>}
         </div>
-        <div className="tt-sub">{block ? block.name : "No block"}</div>
+        <div className="tt-sub">
+          {block ? block.name : "No block"}
+          {section && <> › {section}</>}
+        </div>
       </div>
     </div>
   );

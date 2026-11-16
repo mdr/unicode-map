@@ -25,6 +25,14 @@ what each code point is, and which plane, block, region and category it belongs 
   - Assigned or unassigned
 
   Each mode has a legend: hover over an entry to highlight it, click to pin it.
+- **Timeline:** a slider from Unicode 1.1 to the current version. The map shows only what
+  existed at the chosen version, with characters and blocks added per version. A play button
+  animates it.
+- **Property highlight:** pick any binary property (Emoji, Math, Dash…) or a value of bidi
+  class, East Asian width, line break, decomposition, numeric or joining type. Everything
+  else is dimmed.
+- **Chart sections:** at mid zoom, blocks are divided into the named sections of the code
+  charts.
 - **Detail panel:**
   - Basics: name, block, plane, category, script, age.
   - Encodings: UTF-8, UTF-16 and UTF-32, plus HTML, CSS, JavaScript, Python and URL
@@ -43,7 +51,7 @@ what each code point is, and which plane, block, region and category it belongs 
 
 - A Hilbert-curve layout as an alternative.
 - Multiple Unicode versions, and the differences between them.
-- Filtering by property, favourites.
+- Favourites, or a tray for collecting characters.
 - Fonts for the remaining gaps: Egyptian Hieroglyphs Extended-A, Jurchen, Archaic
   Cuneiform Numerals, the Tangut supplements and the last 348 Seal characters. None was in
   nixpkgs or freely available as of Unicode 18.
