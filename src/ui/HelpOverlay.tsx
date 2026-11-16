@@ -14,6 +14,7 @@ const KEYS: [string, string][] = [
   ["t", "Timeline: Unicode version by version"],
   ["p", "Highlight characters with a property"],
   ["z", "Pure view: just the characters"],
+  ["g", "Glyph texture when zoomed out, on or off"],
   ["/", "Search"],
   ["Esc", "Clear selection"],
 ];

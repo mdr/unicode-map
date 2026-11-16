@@ -80,6 +80,9 @@ const GLYPH_TILE_FULL = 0.6;
 const GLYPH_DRAW_MIN = 6;
 const GLYPH_TILE_BUDGET_MS = 10;
 const GLYPH_TILE_MAX_BYTES = 192 * 1024 * 1024;
+/** Glyph ink on light and dark cells (as on the cards). */
+const INK_DARK: RGB = [13, 16, 23];
+const INK_LIGHT: RGB = [238, 241, 246];
 /** Cell colour of assigned code points in pure view. */
 const PURE_CELL: RGB = [52, 58, 71];
 
@@ -105,6 +108,17 @@ export class MapView {
   private inkDark: boolean[] = [];
   private mask: Uint8Array | null = null;
   private tileBitmaps: HTMLCanvasElement[] = [];
+  /**
+   * Per plane, one pixel per code point: the ink its glyph is drawn in (dark or light to suit the
+   * cell colour, as on the cards) and how strongly (faint if dimmed, none if not shown). Glyph
+   * tiles are recoloured with it in the normal view.
+   */
+  private inkBitmaps: HTMLCanvasElement[] = [];
+  /** Offscreen layer the glyph tiles are drawn into and recoloured on, in the normal view. */
+  private glyphLayer: HTMLCanvasElement | null = null;
+  private inkLayer: HTMLCanvasElement | null = null;
+  /** Show glyph texture from the tiles when zoomed out in the normal view. */
+  private glyphTexture = true;
   private tilesOn = false;
   private sparseLit: number[] = [];
   private preview: Preview | null = null;
@@ -240,6 +254,11 @@ export class MapView {
   setHighlight(values: Set<number> | null) {
     this.highlight = values;
     this.rebuildBitmaps();
+  }
+
+  setGlyphTexture(on: boolean) {
+    this.glyphTexture = on;
+    this.invalidate();
   }
 
   setPure(on: boolean) {
@@ -469,6 +488,14 @@ export class MapView {
       const c = cv.getContext("2d")!;
       const img = c.createImageData(PLANE_SIZE, PLANE_SIZE);
       const d = img.data;
+      let icv = this.inkBitmaps[p];
+      if (!icv) {
+        icv = document.createElement("canvas");
+        icv.width = icv.height = PLANE_SIZE;
+        this.inkBitmaps[p] = icv;
+      }
+      const ink = icv.getContext("2d")!.createImageData(PLANE_SIZE, PLANE_SIZE);
+      const id = ink.data;
       const base = p << 16;
       for (let i = 0; i < 65536; i++) {
         const cp = base + i;
@@ -478,6 +505,13 @@ export class MapView {
           const v = valueOf[cp];
           const lit = this.valueOn[v] && (!mask || mask[cp]);
           col = lit ? colors[v] : dimmed[v];
+          // Ink as on the cards: dark or light to suit the colour, faint when dimmed.
+          const io = i * 4;
+          const inkCol = lit && this.inkDark[v] ? INK_DARK : INK_LIGHT;
+          id[io] = inkCol[0];
+          id[io + 1] = inkCol[1];
+          id[io + 2] = inkCol[2];
+          id[io + 3] = lit ? 255 : 64;
           if (lit && filtering && sparse.length <= SPARSE_MAX) sparse.push(cp);
           if (tile && lit) {
             const t = (((i >> 8) / TILE) | 0) * (PLANE_SIZE / TILE) + (((i & 255) / TILE) | 0);
@@ -497,6 +531,7 @@ export class MapView {
         d[o + 3] = 255;
       }
       c.putImageData(img, 0, 0);
+      icv.getContext("2d")!.putImageData(ink, 0, 0);
       if (tile) this.tileBitmaps[p].getContext("2d")!.putImageData(tile, 0, 0);
     }
     this.tilesOn = filtering;
@@ -577,8 +612,13 @@ export class MapView {
       ctx.globalAlpha = 1;
     }
 
-    // 2. Cards & glyphs at high zoom
+    // 2. Cards & glyphs at high zoom; below that, glyph texture from the tiles, in each cell's ink.
     const cardT = smooth(CARD_START, CARD_FULL, k);
+    if (this.glyphTexture && cardT === 0) {
+      // Fades in as in pure view, so the texture shows even far out.
+      const a = smooth(GLYPH_TILE_START, GLYPH_TILE_FULL, k);
+      if (a > 0.01) this.renderInkedGlyphs(planes, vis, a);
+    }
     if (cardT > 0) this.renderCells(planes, vis, cardT);
 
     // 3. Grid lines
@@ -722,7 +762,7 @@ export class MapView {
           if (str) {
             if (rowReady) {
               // Pure view: the glyph tiles already showed this at full strength, so no fade-in.
-              ctx.globalAlpha = this.pure ? 1 : t * (dim ? 0.25 : 1);
+              ctx.globalAlpha = this.pure ? 1 : (this.glyphTexture ? 1 : t) * (dim ? 0.25 : 1);
               ctx.fillStyle = glyphColor;
               const font = `${glyphPx}px ${data.glyphFamily(cp)}`;
               if (font !== lastFont) ctx.font = lastFont = font;
@@ -1242,8 +1282,7 @@ export class MapView {
    * (`pnpm tiles`), otherwise they're drawn here, nearest-first within a time budget per frame.
    * Until a tile is ready, the same area from another level stands in if it's cached.
    */
-  private renderGlyphTiles(planes: number[], vis: Rect, alpha: number) {
-    const ctx = this.ctx;
+  private renderGlyphTiles(planes: number[], vis: Rect, alpha: number, ctx = this.ctx) {
     const k = this.cam.k;
     const dk = k * this.dpr;
     const level = GLYPH_LEVELS.find((l) => l.res >= dk) ?? GLYPH_LEVELS[GLYPH_LEVELS.length - 1];
@@ -1273,7 +1312,7 @@ export class MapView {
           }
           if (img === null) continue; // nothing to draw here
           missing.push({ key, p, ty, tx, d: Math.hypot(o.x + (tx + 0.5) * T - cx, o.y + (ty + 0.5) * T - cy) });
-          for (const alt of others) if (this.drawTileArea(alt, p, tx * T, ty * T, T, x, y, w, h)) break;
+          for (const alt of others) if (this.drawTileArea(ctx, alt, p, tx * T, ty * T, T, x, y, w, h)) break;
         }
       }
     }
@@ -1317,11 +1356,60 @@ export class MapView {
   }
 
   /**
+   * Glyph texture for the normal view: draw the glyph tiles into an offscreen layer, keep only
+   * their shapes filled with each cell's ink (scaled up from the ink bitmaps), and lay that over
+   * the map. Dimmed and not-yet-encoded characters come out faint or absent for free.
+   */
+  private renderInkedGlyphs(planes: number[], vis: Rect, alpha: number) {
+    const W = this.canvas.width, H = this.canvas.height;
+    let layer = this.glyphLayer;
+    if (!layer || layer.width !== W || layer.height !== H) {
+      layer = this.glyphLayer = document.createElement("canvas");
+      layer.width = W;
+      layer.height = H;
+    }
+    const lc = layer.getContext("2d")!;
+    lc.setTransform(1, 0, 0, 1, 0, 0);
+    lc.globalCompositeOperation = "source-over";
+    lc.clearRect(0, 0, W, H);
+    lc.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    this.renderGlyphTiles(planes, vis, 1, lc);
+    // Every visible plane's ink goes into a second layer first: compositing with "source-in"
+    // clears whatever lies outside the image drawn, so recolouring plane by plane would wipe out
+    // all but the last plane.
+    let inkLayer = this.inkLayer;
+    if (!inkLayer || inkLayer.width !== W || inkLayer.height !== H) {
+      inkLayer = this.inkLayer = document.createElement("canvas");
+      inkLayer.width = W;
+      inkLayer.height = H;
+    }
+    const ic = inkLayer.getContext("2d")!;
+    ic.setTransform(1, 0, 0, 1, 0, 0);
+    ic.clearRect(0, 0, W, H);
+    ic.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    ic.imageSmoothingEnabled = false;
+    const k = this.cam.k;
+    for (const p of planes) {
+      const o = planeOrigin(p);
+      ic.drawImage(this.inkBitmaps[p], this.sx(o.x), this.sy(o.y), PLANE_SIZE * k, PLANE_SIZE * k);
+    }
+    lc.setTransform(1, 0, 0, 1, 0, 0);
+    lc.globalCompositeOperation = "source-in";
+    lc.drawImage(inkLayer, 0, 0);
+    lc.globalCompositeOperation = "source-over";
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(layer, 0, 0);
+    ctx.restore();
+  }
+
+  /**
    * Draw a square of code points (plane-local, `span` on a side) from another level's cached
    * tiles, as a stand-in. Returns false unless every tile it needs is cached.
    */
-  private drawTileArea(level: GlyphLevel, p: number, cx0: number, cy0: number, span: number, x: number, y: number, w: number, h: number) {
-    const ctx = this.ctx;
+  private drawTileArea(ctx: CanvasRenderingContext2D, level: GlyphLevel, p: number, cx0: number, cy0: number, span: number, x: number, y: number, w: number, h: number) {
     const T = level.span;
     if (T >= span) {
       const ty = Math.floor(cy0 / T), tx = Math.floor(cx0 / T);

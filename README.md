@@ -68,6 +68,10 @@ pure view draws them in the browser instead, which is slower to fill in.
   These are pre-built WebP files (about 35 MB) fetched as they come into view; without them,
   or for the 48 px level used on Retina screens, tiles are drawn in the browser. Live font
   rendering takes over once the cards appear.
+  The normal view uses the same tiles for glyph texture when zoomed out (`g` toggles it):
+  they're recoloured with each cell's ink, dark or light to suit its colour as on the cards,
+  from a per-plane ink bitmap that also fades dimmed characters and hides ones newer than the
+  timeline's version.
 - **`scripts/build_tiles.mjs`** pre-builds those tiles.
 - **`src/map/colorModes.ts`** defines the colour modes: region, general category, script,
   age and assigned.

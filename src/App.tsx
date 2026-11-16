@@ -57,6 +57,9 @@ function Explorer({ data }: { data: UnicodeData }) {
   /** Pure view: just the map, no interface or colouring. */
   const [pure, setPure] = useState(initial.pure ?? false);
   const [pureHint, setPureHint] = useState(false);
+  /** Glyph texture in the normal view when zoomed out (experimental; `g` toggles it). */
+  const [glyphTexture, setGlyphTexture] = useState(true);
+  useEffect(() => viewRef.current?.setGlyphTexture(glyphTexture), [glyphTexture]);
   /** Timeline position (index into meta.ages), or null when the timeline is closed. */
   const [asOf, setAsOf] = useState<number | null>(() => {
     const i = initial.asOf ? data.meta.ages.indexOf(initial.asOf) : -1;
@@ -278,6 +281,7 @@ function Explorer({ data }: { data: UnicodeData }) {
         case "?": setHelp((h) => !h); break;
         case "t": toggleTimeline(); break;
         case "z": setPure(true); break;
+        case "g": setGlyphTexture((g) => !g); break;
         case "p": (document.querySelector(".pf-open") as HTMLButtonElement | null)?.click(); break;
         case "/":
           e.preventDefault();
