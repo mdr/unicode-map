@@ -51,6 +51,28 @@ const TILE = 4;
 const V_NONCHAR = 1;
 /** Highlights with at most this many matches are ringed at low zoom. */
 const SPARSE_MAX = 400;
+/** Pure view's glyph tiles: the levels of the pyramid, and limits. */
+interface GlyphLevel {
+  /** Device pixels per code point. */
+  res: number;
+  /** Code points per tile side. */
+  span: number;
+  /** Whether `pnpm tiles` pre-builds this level as WebP files. */
+  prebuilt: boolean;
+}
+/** Exported for scripts/build_tiles.mjs, which pre-builds the levels marked so. */
+export const GLYPH_LEVELS: GlyphLevel[] = [
+  { res: 6, span: 64, prebuilt: true },
+  { res: 12, span: 32, prebuilt: true },
+  { res: 24, span: 16, prebuilt: true },
+  { res: 48, span: 16, prebuilt: false },
+];
+const tileKey = (res: number, p: number, ty: number, tx: number) => `${res}:${p}:${ty}:${tx}`;
+/** Pre-built tile files fetched at once. */
+const GLYPH_TILE_LOADS = 12;
+const GLYPH_TILE_START = 2.5;
+const GLYPH_TILE_BUDGET_MS = 10;
+const GLYPH_TILE_MAX_BYTES = 192 * 1024 * 1024;
 /** Cell colour of assigned code points in pure view. */
 const PURE_CELL: RGB = [52, 58, 71];
 
@@ -85,6 +107,13 @@ export class MapView {
   private headerHover = false;
   /** Pure view: no colour, labels or chrome; just the cells and their glyphs. */
   private pure = false;
+  /** Pre-rendered glyph tiles (16×16 code points at a few resolutions) for mid zoom in pure view. */
+  private glyphTiles = new Map<string, HTMLCanvasElement | HTMLImageElement | null>();
+  private glyphTileBytes = 0;
+  /** Pre-built tile files ("res/plane/ty-tx"), if there are any, and their version for cache busting. */
+  private staticTiles: Set<string> | null = null;
+  private staticTilesVersion = "";
+  private tileLoads = new Set<string>();
   private blockLit: Uint8Array | null = null;
   private asOf: number | null = null;
   private blockFirstAge: number[];
@@ -111,6 +140,7 @@ export class MapView {
     private cb: MapCallbacks,
   ) {
     this.ctx = canvas.getContext("2d")!;
+    void this.loadTileManifest();
     this.blockPaths = data.meta.blocks.map((b) => {
       const p = new Path2D();
       const pts = rangeOutline(b.s, b.e);
@@ -509,6 +539,11 @@ export class MapView {
 
     if (this.pure) {
       const cardT = smooth(CARD_START, CARD_FULL, k);
+      // Glyphs from pre-rendered tiles until real font rendering takes over. Below ~2.5px a
+      // glyph is a speck and the grey cells say as much.
+      // Once cards start, their opaque cells cover the tiles and draw the same glyphs live.
+      const tileGA = smooth(GLYPH_TILE_START, GLYPH_TILE_START * 1.6, k);
+      if (tileGA > 0.01 && cardT === 0) this.renderGlyphTiles(planes, vis, tileGA);
       if (cardT > 0) this.renderCells(planes, vis, cardT);
       const gridA = smooth(GRID_START, GRID_START * 3, k) * (1 - cardT);
       if (gridA > 0.01) this.renderGrid(planes, vis, gridA);
@@ -671,7 +706,8 @@ export class MapView {
           const str = displayString(data, cp);
           if (str) {
             if (rowReady) {
-              ctx.globalAlpha = t * (dim ? 0.25 : 1);
+              // Pure view: the glyph tiles already showed this at full strength, so no fade-in.
+              ctx.globalAlpha = this.pure ? 1 : t * (dim ? 0.25 : 1);
               ctx.fillStyle = glyphColor;
               const font = `${glyphPx}px ${data.glyphFamily(cp)}`;
               if (font !== lastFont) ctx.font = lastFont = font;
@@ -1181,6 +1217,188 @@ export class MapView {
       }
     }
     ctx.globalAlpha = 1;
+  }
+
+  /**
+   * Draw glyphs from cached tile images. Each level of the pyramid draws its tiles at a fixed
+   * resolution; coarser levels cover more code points per tile, so a screen needs a few dozen
+   * images at any zoom. We use the smallest resolution at least the current zoom (in device
+   * pixels), so images only shrink. Tiles come from pre-built WebP files when there are some
+   * (`pnpm tiles`), otherwise they're drawn here, nearest-first within a time budget per frame.
+   * Until a tile is ready, the same area from another level stands in if it's cached.
+   */
+  private renderGlyphTiles(planes: number[], vis: Rect, alpha: number) {
+    const ctx = this.ctx;
+    const k = this.cam.k;
+    const dk = k * this.dpr;
+    const level = GLYPH_LEVELS.find((l) => l.res >= dk) ?? GLYPH_LEVELS[GLYPH_LEVELS.length - 1];
+    const T = level.span;
+    const others = GLYPH_LEVELS.filter((l) => l !== level).sort(
+      (a, b) => Math.abs(Math.log(a.res / level.res)) - Math.abs(Math.log(b.res / level.res)),
+    );
+    const missing: { key: string; p: number; ty: number; tx: number; d: number }[] = [];
+    const cx = vis.x + vis.w / 2, cy = vis.y + vis.h / 2;
+    const n = PLANE_SIZE / T;
+    ctx.imageSmoothingEnabled = true;
+    ctx.globalAlpha = alpha;
+    for (const p of planes) {
+      const o = planeOrigin(p);
+      const tx0 = Math.max(0, Math.floor((vis.x - o.x) / T)), tx1 = Math.min(n - 1, Math.floor((vis.x + vis.w - o.x) / T));
+      const ty0 = Math.max(0, Math.floor((vis.y - o.y) / T)), ty1 = Math.min(n - 1, Math.floor((vis.y + vis.h - o.y) / T));
+      for (let ty = ty0; ty <= ty1; ty++) {
+        for (let tx = tx0; tx <= tx1; tx++) {
+          // Whole-pixel edges, so neighbouring tiles meet without seams.
+          const x = Math.round(this.sx(o.x + tx * T)), y = Math.round(this.sy(o.y + ty * T));
+          const w = Math.round(this.sx(o.x + (tx + 1) * T)) - x, h = Math.round(this.sy(o.y + (ty + 1) * T)) - y;
+          const key = tileKey(level.res, p, ty, tx);
+          const img = this.glyphTiles.get(key);
+          if (img) {
+            ctx.drawImage(img, x, y, w, h);
+            continue;
+          }
+          if (img === null) continue; // nothing to draw here
+          missing.push({ key, p, ty, tx, d: Math.hypot(o.x + (tx + 0.5) * T - cx, o.y + (ty + 0.5) * T - cy) });
+          for (const alt of others) if (this.drawTileArea(alt, p, tx * T, ty * T, T, x, y, w, h)) break;
+        }
+      }
+    }
+    ctx.globalAlpha = 1;
+    ctx.imageSmoothingEnabled = false;
+    if (!missing.length) return;
+    missing.sort((a, b) => a.d - b.d);
+
+    // Pre-built tiles: fetch the nearest few at a time; the browser decodes them off-thread.
+    if (this.staticTiles && level.prebuilt) {
+      for (const t of missing) {
+        if (this.tileLoads.has(t.key)) continue;
+        if (!this.staticTiles.has(`${level.res}/${t.p}/${t.ty}-${t.tx}`)) {
+          this.storeGlyphTile(t.key, null);
+          continue;
+        }
+        if (this.tileLoads.size >= GLYPH_TILE_LOADS) break;
+        this.tileLoads.add(t.key);
+        const img = new Image();
+        img.src = `./tiles/${level.res}/${t.p}/${t.ty}-${t.tx}.webp?v=${this.staticTilesVersion}`;
+        img.decode().then(
+          () => this.storeGlyphTile(t.key, img),
+          () => this.storeGlyphTile(t.key, null),
+        ).finally(() => {
+          this.tileLoads.delete(t.key);
+          this.invalidate();
+        });
+      }
+      return;
+    }
+
+    // Otherwise draw them here, nearest the centre first, for a few milliseconds per frame.
+    const start = performance.now();
+    for (const t of missing) {
+      if (performance.now() - start > GLYPH_TILE_BUDGET_MS) break;
+      // Fonts still loading for these rows: they invalidate when ready, and we come back.
+      if (!this.tileFontsReady(t.p, t.ty * T, T)) continue;
+      this.storeGlyphTile(t.key, this.buildGlyphTile(t.p, t.ty, t.tx, level.res, T));
+    }
+    this.invalidate(); // draw what was just built, and carry on with the rest
+  }
+
+  /**
+   * Draw a square of code points (plane-local, `span` on a side) from another level's cached
+   * tiles, as a stand-in. Returns false unless every tile it needs is cached.
+   */
+  private drawTileArea(level: GlyphLevel, p: number, cx0: number, cy0: number, span: number, x: number, y: number, w: number, h: number) {
+    const ctx = this.ctx;
+    const T = level.span;
+    if (T >= span) {
+      const ty = Math.floor(cy0 / T), tx = Math.floor(cx0 / T);
+      const img = this.glyphTiles.get(tileKey(level.res, p, ty, tx));
+      if (img === undefined) return false;
+      if (img) {
+        const r = level.res;
+        ctx.drawImage(img, (cx0 - tx * T) * r, (cy0 - ty * T) * r, span * r, span * r, x, y, w, h);
+      }
+      return true;
+    }
+    const m = span / T;
+    for (let j = 0; j < m; j++) {
+      for (let i = 0; i < m; i++) {
+        if (this.glyphTiles.get(tileKey(level.res, p, cy0 / T + j, cx0 / T + i)) === undefined) return false;
+      }
+    }
+    for (let j = 0; j < m; j++) {
+      for (let i = 0; i < m; i++) {
+        const img = this.glyphTiles.get(tileKey(level.res, p, cy0 / T + j, cx0 / T + i));
+        if (img) ctx.drawImage(img, x + (w * i) / m, y + (h * j) / m, w / m, h / m);
+      }
+    }
+    return true;
+  }
+
+  /** Whether the fonts for `rows` rows of a plane, from row `y0`, are loaded (asking for them if not). */
+  tileFontsReady(p: number, y0: number, rows: number) {
+    let ready = true;
+    for (let r = 0; r < rows; r++) if (!this.ensureRowFonts((p << 16) | ((y0 + r) << 8))) ready = false;
+    return ready;
+  }
+
+  /** Draw one tile: `span`×`span` code points at `res` pixels each. Null if there's nothing to draw. */
+  buildGlyphTile(p: number, ty: number, tx: number, res: number, span: number): HTMLCanvasElement | null {
+    const data = this.data;
+    let cv: HTMLCanvasElement | null = null;
+    let c: CanvasRenderingContext2D | null = null;
+    let lastFont = "";
+    for (let y = 0; y < span; y++) {
+      for (let x = 0; x < span; x++) {
+        const cp = (p << 16) | ((ty * span + y) << 8) | (tx * span + x);
+        const str = displayString(data, cp);
+        if (!str) continue;
+        if (!c) {
+          cv = document.createElement("canvas");
+          cv.width = cv.height = span * res;
+          c = cv.getContext("2d")!;
+          c.textAlign = "center";
+          c.textBaseline = "middle";
+          c.fillStyle = "#eef1f6";
+        }
+        // Same size and position as on the cards, so the switch to real rendering is seamless.
+        const font = `${res * 0.5}px ${data.glyphFamily(cp)}`;
+        if (font !== lastFont) c.font = lastFont = font;
+        c.fillText(str, x * res + res / 2, y * res + res * 0.53);
+      }
+    }
+    return cv;
+  }
+
+  private storeGlyphTile(key: string, img: HTMLCanvasElement | HTMLImageElement | null) {
+    this.glyphTiles.set(key, img);
+    if (img) this.glyphTileBytes += img.width * img.height * 4;
+    // Evict the oldest tiles past the memory cap.
+    for (const [old, oldImg] of this.glyphTiles) {
+      if (this.glyphTileBytes <= GLYPH_TILE_MAX_BYTES) break;
+      if (old === key) continue;
+      this.glyphTiles.delete(old);
+      if (oldImg) {
+        this.glyphTileBytes -= oldImg.width * oldImg.height * 4;
+        if (oldImg instanceof HTMLCanvasElement) oldImg.width = oldImg.height = 0; // release it now
+      }
+    }
+  }
+
+  /** Look for pre-built glyph tiles (see scripts/build_tiles.mjs). */
+  private async loadTileManifest() {
+    try {
+      const r = await fetch("./tiles/manifest.json");
+      if (!r.ok) return;
+      const m: { version: string; tiles: string[] } = await r.json();
+      this.staticTiles = new Set(m.tiles);
+      this.staticTilesVersion = m.version;
+      // Forget tiles drawn here at pre-built levels, in favour of the files.
+      for (const key of [...this.glyphTiles.keys()]) {
+        if (GLYPH_LEVELS.some((l) => l.prebuilt && key.startsWith(`${l.res}:`))) this.glyphTiles.delete(key);
+      }
+      this.invalidate();
+    } catch {
+      // No pre-built tiles: draw them in the browser.
+    }
   }
 
   private renderPreview(vis: Rect) {

@@ -83,8 +83,12 @@ function Explorer({ data }: { data: UnicodeData }) {
       },
     });
     viewRef.current = view;
+    // For poking at the renderer from the console and test scripts.
+    if (import.meta.env.DEV) (window as unknown as { __view: MapView }).__view = view;
     view.setMinimap(minimapRef.current);
     view.setMode(getMode(data, modeId));
+    // Pure view from the URL: the effect that applies it ran before the view existed.
+    if (initial.pure) view.setPure(true);
     if (initial.view) view.setCamera(initial.view);
     if (initial.cp !== undefined) {
       view.setSelected(initial.cp);

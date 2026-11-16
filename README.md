@@ -12,10 +12,14 @@ files and the fonts.
 nix develop          # or `direnv allow` (there's an .envrc)
 pnpm install         # once
 pnpm data            # compile the UCD into public/data and link the fonts (~30s)
+pnpm tiles           # optional: pre-build pure view's glyph tiles into public/tiles (~1 min)
 pnpm dev             # http://localhost:5173
 ```
 
-Re-run `pnpm data` after changing `scripts/build_data.py` or bumping the Unicode version.
+Re-run `pnpm data` after changing `scripts/build_data.py` or bumping the Unicode version,
+and `pnpm tiles` after that or after changing the fonts. `pnpm tiles` draws the tiles with the
+app itself in headless Google Chrome (set `CHROME` to use another binary). Without the tiles,
+pure view draws them in the browser instead, which is slower to fill in.
 
 ## How it fits together
 
@@ -53,7 +57,13 @@ Re-run `pnpm data` after changing `scripts/build_data.py` or bumping the Unicode
   and section headers sit on the row edges where each starts and stay on screen while you pan.
   They're placed in priority order and skipped if they would overlap, so busy areas thin out.
   The renderer also dims everything outside a highlight (rare matches get rings when zoomed
-  out) and hides characters newer than the timeline's version.
+  out) and hides characters newer than the timeline's version. Pure view (`z`) drops the
+  colours, labels and interface. In it, glyphs show from mid zoom using a pyramid of tile
+  images at 6, 12 and 24 px per code point, with 64, 32 and 16 code points per tile side.
+  These are pre-built WebP files (about 35 MB) fetched as they come into view; without them,
+  or for the 48 px level used on Retina screens, tiles are drawn in the browser. Live font
+  rendering takes over once the cards appear.
+- **`scripts/build_tiles.mjs`** pre-builds those tiles.
 - **`src/map/colorModes.ts`** defines the colour modes: region, general category, script,
   age and assigned.
 - **`src/ui/*`** holds the React UI: search, property highlight, legend, timeline,
