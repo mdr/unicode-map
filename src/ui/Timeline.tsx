@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { type UnicodeData, VERSION_YEARS } from "../data/unicode"
+import { versionStats } from "../data/versionStats"
 import { required } from "../required"
 
 /**
@@ -23,33 +24,7 @@ export const Timeline = ({
   const valueRef = useRef(value)
   valueRef.current = value
 
-  // Characters added per version, and the blocks that first appeared in each.
-  const stats = useMemo(() => {
-    const added = new Array<number>(ages.length).fill(0)
-    for (let cp = 0; cp < data.ageIdx.length; cp++) {
-      const age = data.ageIdx[cp]!
-      if (data.isAssigned(cp)) added[age] = (added[age] ?? 0) + 1
-    }
-    const total: number[] = []
-    added.reduce((sum, n, i) => (total[i] = sum + n), 0)
-    const newBlocks: { name: string; count: number }[][] = ages.map(() => [])
-    for (const b of data.meta.blocks) {
-      let first = Infinity,
-        n = 0
-      for (let cp = b.s; cp <= b.e; cp++) {
-        if (!data.isAssigned(cp)) continue
-        const age = data.ageIdx[cp]!
-        if (age < first) {
-          first = age
-          n = 0
-        }
-        if (age === first) n++
-      }
-      newBlocks[first]?.push({ name: b.name, count: n })
-    }
-    for (const nb of newBlocks) nb.sort((a, b) => b.count - a.count)
-    return { added, total, newBlocks }
-  }, [data, ages])
+  const stats = useMemo(() => versionStats(data), [data])
 
   useEffect(() => {
     if (!playing) return

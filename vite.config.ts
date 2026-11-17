@@ -6,13 +6,17 @@ const noReexports = [
   { selector: "ExportNamedDeclaration[source]", message: "Don't re-export; import from the defining module." }
 ]
 
-// React's DOM refs start as null (`useRef<HTMLDivElement>(null)`); that is the one place it is allowed.
+// React's DOM refs are null until mounted (`useRef<HTMLDivElement>(null)`, typed `RefObject<HTMLDivElement | null>`):
+// the one place null is allowed.
 const noNull = [
   {
     selector: "Literal[raw='null']:not(CallExpression[callee.name='useRef'] > Literal)",
     message: "Use undefined, not null."
   },
-  { selector: "TSNullKeyword", message: "Use undefined, not null." },
+  {
+    selector: "TSNullKeyword:not(TSTypeReference[typeName.name='RefObject'] TSNullKeyword)",
+    message: "Use undefined, not null."
+  },
   { selector: "MemberExpression[property.name='toBeNull']", message: "Use toBeUndefined, not toBeNull." }
 ]
 

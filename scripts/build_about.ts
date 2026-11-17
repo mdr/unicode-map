@@ -69,6 +69,15 @@ const getJson = async (url: string): Promise<unknown> => {
   }
 }
 
+/** Each asked-for title mapped to the page it ends up at, following normalisation and redirects. */
+const finalTitles = (asked: string[], q: QueryResponse["query"]): Map<string, string> => {
+  const final = new Map(asked.map((t) => [t, t]))
+  for (const { from, to } of [...(q.normalized ?? []), ...(q.redirects ?? [])]) {
+    for (const [k, v] of final) if (v === from) final.set(k, to)
+  }
+  return final
+}
+
 /** Intro text, short description and canonical title for up to 20 titles at a time. */
 const intros = async (titles: string[]): Promise<Map<string, Page>> => {
   const out = new Map<string, Page>()
@@ -79,12 +88,8 @@ const intros = async (titles: string[]): Promise<Map<string, Page>> => {
       "&prop=extracts|description&exintro=1&explaintext=1&exlimit=20&titles=" +
       encodeURIComponent(batch.join("|"))
     const q = ((await getJson(url)) as QueryResponse).query
-    // Follow normalisation and redirects back to the titles we asked for.
-    const final = new Map(batch.map((t) => [t, t]))
-    for (const n of q.normalized ?? []) for (const [k, v] of final) if (v === n.from) final.set(k, n.to)
-    for (const rd of q.redirects ?? []) for (const [k, v] of final) if (v === rd.from) final.set(k, rd.to)
     const pages = new Map(q.pages.filter((p) => !p.missing).map((p) => [p.title, p]))
-    for (const [asked, title] of final) {
+    for (const [asked, title] of finalTitles(batch, q)) {
       const p = pages.get(title)
       if (p?.extract) out.set(asked, { title: p.title, description: p.description, extract: p.extract })
     }

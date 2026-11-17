@@ -18,6 +18,61 @@ export type SearchResult = CodePointResult | BlockResult
 
 const CP_PATTERN = /^(?:u\+|0x|\\u\{?|\\x\{?|&#x|U\+)?([0-9a-f]{1,6})\}?;?$/i
 
+interface NameEntry {
+  cp: number
+  /** Name and aliases, lower case, joined by "|". */
+  text: string
+}
+
+/** How well a name entry matches: 0 its name, 1 an alias, 2 word starts in its name, 3 in an alias, 4 anywhere. */
+const nameScore = (entry: NameEntry, lower: string, tokens: string[]): number => {
+  const names = entry.text.split("|")
+  const name = names[0] ?? ""
+  if (name === lower) return 0
+  if (names.includes(lower)) return 1
+  if (wordStart(name, tokens)) return 2
+  if (wordStart(entry.text, tokens)) return 3
+  return 4
+}
+
+/** Code points whose name or aliases contain every word of the query, best matches first. */
+export const matchNames = (entries: NameEntry[], lower: string): { cp: number; score: number }[] => {
+  const tokens = lower.split(/\s+/).filter(Boolean)
+  return entries
+    .filter((entry) => tokens.every((t) => entry.text.includes(t)))
+    .map((entry) => ({ cp: entry.cp, score: nameScore(entry, lower, tokens), length: nameLength(entry) }))
+    .sort((a, b) => a.score - b.score || a.length - b.length || a.cp - b.cp)
+}
+
+// Entries without a name (controls have only aliases) sort after named ones of any length.
+const nameLength = (entry: NameEntry): number => (entry.text.split("|")[0] ?? "").length || 99
+
+/** Code points written in a notation: U+2603, 0x2603, \u2603, &#x2603;, &#9731; or bare hex. */
+export const notationCodePoints = (q: string): { cp: number; why: string }[] => {
+  const hexDigits = CP_PATTERN.exec(q)?.[1]
+  const decimalDigits = /^&#(\d+);?$/.exec(q)?.[1]
+  return [
+    ...(hexDigits ? [{ cp: parseInt(hexDigits, 16), why: "code point" }] : []),
+    ...(decimalDigits ? [{ cp: parseInt(decimalDigits, 10), why: "decimal code point" }] : [])
+  ]
+}
+
+const isPasted = (c: string): boolean => (c.codePointAt(0) ?? 0) > 0x7e
+
+const matchingBlocks = (data: UnicodeData, lower: string): BlockResult[] =>
+  data.meta.blocks
+    .map((block, index): BlockResult => ({ type: SearchResultType.BLOCK, block, index }))
+    .filter(({ block }) => block.name.toLowerCase().includes(lower))
+    .sort((a, b) => a.block.name.length - b.block.name.length)
+    .slice(0, 6)
+
+/** "CJK UNIFIED IDEOGRAPH-4E00" and the like, whose names aren't in the names list. */
+const algorithmicName = (data: UnicodeData, lower: string): number | undefined => {
+  const digits = /-([0-9a-f]{4,6})$/.exec(lower)?.[1]
+  const cp = digits === undefined ? undefined : parseInt(digits, 16)
+  return cp !== undefined && data.name(cp).toLowerCase() === lower ? cp : undefined
+}
+
 export const search = (data: UnicodeData, raw: string, limit = 60): SearchResult[] => {
   const q = raw.trim()
   if (!q) return []
@@ -31,70 +86,27 @@ export const search = (data: UnicodeData, raw: string, limit = 60): SearchResult
 
   // Pasted characters: anything outside printable ASCII, or a single character.
   const chars = Array.from(q)
-  if (chars.some((c) => c.codePointAt(0)! > 0x7e) || chars.length === 1) {
-    for (const c of chars.slice(0, 40))
-      pushCp(c.codePointAt(0)!, chars.length > 1 ? "in pasted text" : "pasted character")
-    if (chars.some((c) => c.codePointAt(0)! > 0x7e)) return out
+  const pasted = chars.some(isPasted)
+  if (pasted || chars.length === 1) {
+    const why = chars.length > 1 ? "in pasted text" : "pasted character"
+    for (const c of chars.slice(0, 40)) pushCp(c.codePointAt(0) ?? 0, why)
+    if (pasted) return out
   }
 
-  // Code point notation
-  const hexDigits = CP_PATTERN.exec(q)?.[1]
-  if (hexDigits) pushCp(parseInt(hexDigits, 16), "code point")
-  const decimalDigits = /^&#(\d+);?$/.exec(q)?.[1]
-  if (decimalDigits) pushCp(parseInt(decimalDigits, 10), "decimal code point")
-
+  for (const { cp, why } of notationCodePoints(q)) pushCp(cp, why)
   const lower = q.toLowerCase()
+  const blocks = matchingBlocks(data, lower)
+  const algorithmic = algorithmicName(data, lower)
+  if (algorithmic !== undefined) pushCp(algorithmic, "name")
 
-  // Blocks
-  const blocks = data.meta.blocks
-    .map((block, index) => ({ block, index }))
-    .filter(({ block }) => block.name.toLowerCase().includes(lower))
-    .sort((a, b) => a.block.name.length - b.block.name.length)
-    .slice(0, 6)
-
-  // Algorithmic names, e.g. "CJK UNIFIED IDEOGRAPH-4E00"
-  const algorithmicDigits = /-([0-9a-f]{4,6})$/.exec(lower)?.[1]
-  if (algorithmicDigits) {
-    const cp = parseInt(algorithmicDigits, 16)
-    if (data.name(cp).toLowerCase() === lower) pushCp(cp, "name")
-  }
-
-  // Names and aliases
-  const tokens = lower.split(/\s+/).filter(Boolean)
-  if (tokens.join("").length >= 2) {
-    const scored: { cp: number; score: number; len: number }[] = []
-    for (const e of data.searchEntries) {
-      let ok = true
-      for (const t of tokens) {
-        if (!e.text.includes(t)) {
-          ok = false
-          break
-        }
-      }
-      if (!ok) continue
-      const name = e.text.split("|")[0] ?? ""
-      let score = 4
-      if (name === lower) score = 0
-      else if (e.text.split("|").includes(lower)) score = 1
-      else if (wordStart(name, tokens)) score = 2
-      else if (wordStart(e.text, tokens)) score = 3
-      scored.push({ cp: e.cp, score, len: name.length || 99 })
-    }
-    scored.sort((a, b) => a.score - b.score || a.len - b.len || a.cp - b.cp)
-    const blockResults: SearchResult[] = blocks.map(({ block, index }) => ({
-      type: SearchResultType.BLOCK,
-      block,
-      index
-    }))
-    // Put exact name hits before blocks, the rest after.
-    for (const s of scored.filter((s) => s.score <= 1)) pushCp(s.cp)
-    out.push(...blockResults)
-    for (const s of scored) {
-      if (out.length >= limit) break
-      pushCp(s.cp)
-    }
-  } else {
-    out.push(...blocks.map(({ block, index }): SearchResult => ({ type: SearchResultType.BLOCK, block, index })))
+  if (lower.replace(/\s+/g, "").length < 2) return [...out, ...blocks].slice(0, limit)
+  const names = matchNames(data.searchEntries, lower)
+  // Exact name and alias hits come before blocks, the rest after.
+  for (const n of names.filter((n) => n.score <= 1)) pushCp(n.cp)
+  out.push(...blocks)
+  for (const n of names) {
+    if (out.length >= limit) break
+    pushCp(n.cp)
   }
   return out.slice(0, limit)
 }
