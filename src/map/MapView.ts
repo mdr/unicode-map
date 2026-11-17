@@ -43,8 +43,21 @@ const CARD_FULL = 36;
 const HEX_START = 58;
 const NAME_START = 120;
 const AXIS_START = 13;
-/** Zoom at which chart sections appear (as headers) and blocks with sections switch to headers. */
+/** The sticky axes: column numbers along the top, row numbers down the left (CSS px). */
+const AXIS_TOP = 20;
+const AXIS_LEFT = 58;
+/** Zoom at which the dividers between chart sections appear. */
 const SECTION_START = 16;
+/**
+ * Labels come in three steps as you zoom in, one kind at a time:
+ * - landmarks: big names centred in blocks of several rows, while glyphs are too small to read;
+ * - block names: a label at the start of every block, once rows are tall enough for one;
+ * - section names: added once the cards with readable glyphs appear.
+ * The landmark names fade out completely before the block labels fade in, so they never overlap.
+ */
+const LANDMARK_END = 12;
+const BLOCK_LABEL_START = 14;
+const BLOCK_LABEL_FULL = 16;
 /** Code points per side of a highlight tile at low zoom. */
 const TILE = 4;
 /** Value index of noncharacters in every colour mode (see colorModes). */
@@ -130,6 +143,8 @@ export class MapView {
   private tilesOn = false;
   private sparseLit: number[] = [];
   private preview: Preview | null = null;
+  /** A block or section that was clicked: stays pointed out until you click elsewhere or press Esc. */
+  private pinned: Preview | null = null;
   /** Headers drawn in the last frame (screen rects), for hover and click. */
   private headerHits: { r: Rect; s: number; e: number; name: string }[] = [];
   /** Whether the current preview comes from hovering a header on the map (not the sidebar). */
@@ -149,7 +164,6 @@ export class MapView {
   private sections: { s: number; e: number; title: string; path: Path2D; plane: number; block: number; bbox: Rect }[];
   private blockBBox: Rect[];
   private sectionFirstAge: number[];
-  private blockHasSections: boolean[];
   private blockPaths: Path2D[];
   private selected: number | null = null;
   private hovered = -1;
@@ -159,9 +173,9 @@ export class MapView {
   private loadedRows = new Set<number>();
   private pendingRows = new Set<number>();
   private lastResortReady = false;
-  private minimap: HTMLCanvasElement | null = null;
   private resizeObs: ResizeObserver;
   private disposers: (() => void)[] = [];
+  private movingTimer = 0;
 
   constructor(
     private canvas: HTMLCanvasElement,
@@ -198,12 +212,7 @@ export class MapView {
       return min;
     };
     this.sectionFirstAge = this.sections.map((sec) => firstAge(sec.s, sec.e));
-    this.blockHasSections = data.meta.blocks.map(() => false);
     this.blockBBox = data.meta.blocks.map((b) => rangeRect(b.s, b.e));
-    for (const sec of this.sections) {
-      const bi = data.blockIdx[sec.s];
-      if (bi >= 0) this.blockHasSections[bi] = true;
-    }
     this.resizeObs = new ResizeObserver(() => this.resize());
     this.resizeObs.observe(canvas);
     this.resize();
@@ -276,6 +285,7 @@ export class MapView {
     // Without the floating top bar, fitted views can use the whole canvas.
     this.insets = on ? { l: 16, t: 16, r: 16, b: 16 } : { l: 16, t: 92, r: 16, b: 16 };
     this.preview = null;
+    this.pinned = null;
     this.headerHits = [];
     this.headerHover = false;
     this.hovered = -1;
@@ -295,14 +305,57 @@ export class MapView {
       if (!this.preview) return;
       this.preview = null;
     } else {
-      const path = new Path2D();
-      const pts = rangeOutline(range.s, range.e);
-      path.moveTo(pts[0][0], pts[0][1]);
-      for (const [x, y] of pts.slice(1)) path.lineTo(x, y);
-      path.closePath();
-      this.preview = { ...range, path, rect: rangeRect(range.s, range.e) };
+      this.preview = makePreview(range);
     }
     this.invalidate();
+  }
+
+  /**
+   * Take the user to a block or section and keep it pointed out. Blocks are long strips one or
+   * more 256-cell rows wide, so fitting a whole one usually leaves its cells too small to read:
+   * instead, zoom to where glyphs are legible and line up the range's start, unless it fits
+   * whole at that size. Showing the same range again fits all of it.
+   */
+  showRange(s: number, e: number) {
+    const again = this.pinned?.s === s && this.pinned.e === e;
+    this.preview = null;
+    this.headerHover = false;
+    this.pinned = makePreview({ s, e, name: this.rangeName(s, e) });
+    const r = this.pinned.rect;
+    const pad = 1.6;
+    const fit = clamp(Math.min(this.availW() / (r.w * pad), this.availH() / (r.h * pad)), 0, 90);
+    if (again || fit >= READ_K) {
+      this.flyToRect(r, { pad, maxK: 90 });
+      return;
+    }
+    const k = clamp(this.cam.k, READ_K, 72);
+    const m = 28; // screen margin around the range, in CSS pixels
+    const fitsW = r.w * k <= this.availW() - 2 * m;
+    const fitsH = r.h * k <= this.availH() - 2 * m;
+    const centre = this.centreFor(r.x + r.w / 2, r.y + r.h / 2, k);
+    // A range that fits vertically sits in the upper part of the view, clear of the legend
+    // floating at the bottom.
+    const midY = this.insets.t + Math.max(this.availH() * 0.33, (r.h * k) / 2 + m);
+    this.flyTo({
+      k,
+      // Line the start up just right of the row numbers, which are showing at this zoom.
+      cx: fitsW ? centre.cx : r.x - (Math.max(this.insets.l, AXIS_LEFT) + m - this.w / 2) / k,
+      cy: fitsH ? r.y + r.h / 2 - (midY - this.h / 2) / k : r.y - (this.insets.t + m - this.h / 2) / k,
+    });
+  }
+
+  /** Stop pointing out the clicked block or section. */
+  clearPinned() {
+    if (!this.pinned) return;
+    this.pinned = null;
+    this.invalidate();
+  }
+
+  private rangeName(s: number, e: number) {
+    const b = this.data.meta.blocks.find((b) => b.s === s && b.e === e);
+    if (b) return b.name;
+    const sec = this.data.sectionRange(s);
+    return sec && sec[0] === s && sec[1] === e ? sec[2] : uplus(s);
   }
 
   /** Dim everything outside a per-code-point mask (property highlight). */
@@ -320,13 +373,12 @@ export class MapView {
 
   setSelected(cp: number | null) {
     this.selected = cp;
+    // Picking a character outside the pointed-out block or section lets it go.
+    if (cp !== null && this.pinned && (cp < this.pinned.s || cp > this.pinned.e)) this.pinned = null;
     this.invalidate();
   }
 
-  setMinimap(canvas: HTMLCanvasElement | null) {
-    this.minimap = canvas;
-    this.invalidate();
-  }
+
 
   setCamera(cam: Camera, cancelAnim = true) {
     if (cancelAnim) this.anim = null;
@@ -354,6 +406,7 @@ export class MapView {
   }
 
   overview(animate = true) {
+    this.clearPinned();
     this.flyToRect(WORLD, { animate, pad: 1 });
   }
 
@@ -622,7 +675,6 @@ export class MapView {
       if (cardT > 0) this.renderCells(planes, vis, cardT);
       const gridA = smooth(GRID_START, GRID_START * 3, k) * (1 - cardT);
       if (gridA > 0.01) this.renderGrid(planes, vis, gridA);
-      this.renderMinimap();
       return;
     }
 
@@ -658,7 +710,7 @@ export class MapView {
     // 5. Plane frames and titles
     for (const p of planes) this.renderPlaneFrame(p);
 
-    // 6. Block names, centred in the block, until the block switches to headers
+    // 6. Landmark names, centred in big blocks, while zoomed out
     const axisA = smooth(AXIS_START, AXIS_START * 1.6, k);
     this.renderBlockLabels(planes, vis);
 
@@ -666,15 +718,15 @@ export class MapView {
     this.renderMarkers();
 
     // 8. Block and section headers on the row edges, placed without overlapping
-    this.renderHeaders(planes, vis, sectionA, axisA);
+    // Section labels wait for readable glyphs, after block labels have had a step of their own.
+    this.renderHeaders(planes, vis, smooth(CARD_START, CARD_START * 1.15, k), axisA);
 
     // Sidebar hover preview, over everything but the axes
-    if (this.preview) this.renderPreview(vis);
+    const pv = this.preview ?? this.pinned;
+    if (pv) this.renderPreview(vis, pv);
 
     // 9. Sticky axes
     if (axisA > 0.01) this.renderAxes(planes, vis, axisA);
-
-    this.renderMinimap();
   }
 
   private renderGrid(planes: number[], vis: Rect, alpha: number) {
@@ -957,11 +1009,9 @@ export class MapView {
    * How far a block has switched from its centred name to a header on its top edge (0–1).
    * Blocks with chart sections switch when the sections appear; others when cards appear.
    */
-  private blockHeaderA(i: number) {
-    const k = this.cam.k;
-    return this.blockHasSections[i]
-      ? smooth(SECTION_START, SECTION_START * 1.15, k)
-      : smooth(CARD_START * 0.8, CARD_START, k);
+  /** Opacity of block labels (at the block's start). */
+  private blockHeaderA() {
+    return smooth(BLOCK_LABEL_START, BLOCK_LABEL_FULL, this.cam.k);
   }
 
   private blockExists(i: number) {
@@ -1012,9 +1062,11 @@ export class MapView {
     for (let i = 0; i < blocks.length; i++) {
       const b = blocks[i];
       if (!planeSet.has(b.s >> 16) || !this.blockExists(i)) continue;
-      const a = (1 - this.blockHeaderA(i)) * (this.blockLit && !this.blockLit[i] ? 0.3 : 1);
+      const a = (1 - smooth(LANDMARK_END * 0.8, LANDMARK_END, this.cam.k)) * (this.blockLit && !this.blockLit[i] ? 0.3 : 1);
       if (a <= 0.01) continue;
       const lr = labelRect(b.s, b.e);
+      // Landmarks only: a one-row strip can't carry a name at a readable size.
+      if (lr.h < 2) continue;
       const fit = lr.h === 1 ? this.fitLabel(b.name, lr, vis, 600, 15, 0.62) : this.fitLabel(b.name, lr, vis, 600, 30, 0.42);
       if (fit) {
         ctx.globalAlpha = a * clamp((fit.fs - 8) / 3, 0, 1);
@@ -1061,10 +1113,17 @@ export class MapView {
    * on screen, at its first visible cell, sliding along (sticky) while the range is in view.
    * Returns screen coordinates and the room available to the right, or null.
    */
-  private headerAnchor(s: number, e: number, top: number, left: number) {
+  private headerAnchor(s: number, e: number, top: number, left: number, sticky = true) {
     const k = this.cam.k;
     const o = planeOrigin(s >> 16);
     const r0 = (s >> 8) & 255, r1 = (e >> 8) & 255;
+    if (sticky === false) {
+      // Pinned to the range's first cell: it scrolls away with it.
+      const y = this.sy(o.y + r0), x = this.sx(o.x + (s & 255));
+      if (y < top || y > this.h || x < left - 1 || x > this.w) return null;
+      const x1 = this.sx(o.x + (r0 === r1 ? (e & 255) + 1 : 256));
+      return { x, y, room: x1 - x };
+    }
     let y = this.sy(o.y + r0);
     if (y < top) {
       // Scrolled past the start: stick to the top while the range continues, then get pushed up.
@@ -1159,11 +1218,12 @@ export class MapView {
     for (let i = 0; i < blocks.length; i++) {
       const b = blocks[i];
       if (!planeSet.has(b.s >> 16) || !this.blockExists(i)) continue;
-      const a = this.blockHeaderA(i);
+      const a = this.blockHeaderA();
       if (a <= 0.01) continue;
       const bb = this.blockBBox[i];
       if (bb.x > vis.x + vis.w || bb.x + bb.w < vis.x || bb.y > vis.y + vis.h || bb.y + bb.h < vis.y) continue;
-      const at = this.headerAnchor(b.s, b.e, top, left);
+      // Like sections, a block's label sits at the cell where it starts and scrolls away with it.
+      const at = this.headerAnchor(b.s, b.e, top, left, false);
       if (!at) continue;
       const style = {
         size: size + 0.5,
@@ -1188,7 +1248,8 @@ export class MapView {
     if (sectionA > 0.01) {
       const secs = this.visibleSections(planes, vis).sort((p, q) => q.e - q.s - (p.e - p.s));
       for (const sec of secs) {
-        const at = this.headerAnchor(sec.s, sec.e, top, left);
+        // Section labels sit at the cell where the section starts, not following you around.
+        const at = this.headerAnchor(sec.s, sec.e, top, left, false);
         if (!at) continue;
         let x = at.x + 2;
         // A section starting where its block starts follows the block's header.
@@ -1201,6 +1262,8 @@ export class MapView {
           ink: "rgba(238, 241, 246, 0.95)",
           border: "rgba(255, 255, 255, 0.18)",
           dot: this.fullColors[valueOf[sec.s]],
+          // Leave it out rather than cut it to a stub; hovering a cell still names its section.
+          minChars: Infinity,
         };
         const room = at.x + at.room - x;
         const w = this.measurePill(sec.title, room, style);
@@ -1266,11 +1329,16 @@ export class MapView {
   private renderAxes(planes: number[], vis: Rect, alpha: number) {
     const ctx = this.ctx;
     const k = this.cam.k;
-    const top = 20, left = 58;
+    const top = AXIS_TOP, left = AXIS_LEFT;
+    // Opaque gutters, so the numbers never sit over cells; cells slide under them like a
+    // spreadsheet's headers, with a hairline edge.
     ctx.globalAlpha = alpha;
-    ctx.fillStyle = "rgba(11,14,20,0.86)";
+    ctx.fillStyle = "#0b0e14";
     ctx.fillRect(0, 0, this.w, top);
     ctx.fillRect(0, top, left, this.h - top);
+    ctx.fillStyle = "rgba(255,255,255,0.08)";
+    ctx.fillRect(left - 1, top, 1, this.h - top);
+    ctx.fillRect(left, top - 1, this.w - left, 1);
     ctx.font = `500 10px ${MONO_FONT}`;
     ctx.fillStyle = "#8d96a8";
     ctx.textBaseline = "middle";
@@ -1582,9 +1650,8 @@ export class MapView {
     }
   }
 
-  private renderPreview(vis: Rect) {
+  private renderPreview(vis: Rect, pv: Preview) {
     const ctx = this.ctx;
-    const pv = this.preview!;
     const { k, cx, cy } = this.cam;
     const dpr = this.dpr;
     ctx.save();
@@ -1593,7 +1660,7 @@ export class MapView {
     const outside = new Path2D();
     outside.rect(vis.x - 1, vis.y - 1, vis.w + 2, vis.h + 2);
     outside.addPath(pv.path);
-    ctx.fillStyle = `rgba(8, 10, 14, ${pv.soft ? 0.4 : 0.62})`;
+    ctx.fillStyle = `rgba(8, 10, 14, ${pv.soft ? 0.4 : pv === this.pinned ? 0.55 : 0.62})`;
     ctx.fill(outside, "evenodd");
     // A glowing outline, at least a few pixels across even when the range is tiny on screen.
     ctx.shadowColor = "rgba(120, 180, 255, 0.95)";
@@ -1612,8 +1679,10 @@ export class MapView {
       ctx.stroke();
     }
     // Its full name: over the hovered header, or just above the range's top-left corner.
-    const x = pv.labelAt ? pv.labelAt.x : clamp(this.sx(pv.rect.x), 8, this.w - 40);
-    const y = pv.labelAt ? pv.labelAt.y : clamp(this.sy(pv.rect.y) - 14, 14, this.h - 14);
+    // Kept clear of the axis gutters when they're showing.
+    const axes = k > AXIS_START;
+    const x = pv.labelAt ? pv.labelAt.x : clamp(this.sx(pv.rect.x), axes ? AXIS_LEFT + 6 : 8, this.w - 40);
+    const y = pv.labelAt ? pv.labelAt.y : clamp(this.sy(pv.rect.y) - 14, axes ? AXIS_TOP + 14 : 14, this.h - 14);
     this.pill(pv.name, x, y, this.w - x - 8, {
       size: 12.5,
       bold: true,
@@ -1621,55 +1690,6 @@ export class MapView {
       ink: "#0d1017",
       border: "rgba(8, 10, 14, 0.55)",
     });
-  }
-
-  private renderMinimap() {
-    const mm = this.minimap;
-    if (!mm) return;
-    const r = mm.getBoundingClientRect();
-    const dpr = this.dpr;
-    if (mm.width !== Math.round(r.width * dpr)) {
-      mm.width = Math.round(r.width * dpr);
-      mm.height = Math.round(r.height * dpr);
-    }
-    const c = mm.getContext("2d")!;
-    c.setTransform(dpr, 0, 0, dpr, 0, 0);
-    c.clearRect(0, 0, r.width, r.height);
-    const s = Math.min(r.width / WORLD.w, r.height / WORLD.h);
-    const ox = (r.width - WORLD.w * s) / 2 - WORLD.x * s;
-    const oy = (r.height - WORLD.h * s) / 2 - WORLD.y * s;
-    c.imageSmoothingEnabled = true;
-    for (let p = 0; p < PLANE_COUNT; p++) {
-      const o = planeOrigin(p);
-      c.drawImage(this.planeBitmaps[p], ox + o.x * s, oy + o.y * s, PLANE_SIZE * s, PLANE_SIZE * s);
-    }
-    const vis = this.visibleWorld();
-    const vx = ox + vis.x * s, vy = oy + vis.y * s, vw = Math.max(3, vis.w * s), vh = Math.max(3, vis.h * s);
-    c.fillStyle = "rgba(255,255,255,0.12)";
-    c.fillRect(vx, vy, vw, vh);
-    c.strokeStyle = "#ffffff";
-    c.lineWidth = 1.5;
-    c.strokeRect(vx, vy, vw, vh);
-    if (this.preview) {
-      const pr = this.preview.rect;
-      const w = Math.max(4, pr.w * s), h = Math.max(4, pr.h * s);
-      const x = ox + (pr.x + pr.w / 2) * s - w / 2, y = oy + (pr.y + pr.h / 2) * s - h / 2;
-      c.strokeStyle = "#8ab4ff";
-      c.lineWidth = 2;
-      c.strokeRect(x - 1, y - 1, w + 2, h + 2);
-    }
-    (mm as HTMLCanvasElement & { _map?: { s: number; ox: number; oy: number } })._map = { s, ox, oy };
-  }
-
-  /** Minimap pointer position → centre the camera there. */
-  minimapNavigate(clientX: number, clientY: number, animate: boolean) {
-    const mm = this.minimap as (HTMLCanvasElement & { _map?: { s: number; ox: number; oy: number } }) | null;
-    if (!mm?._map) return;
-    const r = mm.getBoundingClientRect();
-    const { s, ox, oy } = mm._map;
-    const wx = (clientX - r.left - ox) / s;
-    const wy = (clientY - r.top - oy) / s;
-    this.flyTo({ ...this.cam, cx: wx, cy: wy }, animate);
   }
 
   // ---------------------------------------------------------------------------
@@ -1709,6 +1729,7 @@ export class MapView {
         const k = clamp(pinch.k * (d / pinch.d), this.fitK() * 0.6, 800);
         const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
         this.setCamera({ k, cx: pinch.wx - (mx - this.w / 2) / k, cy: pinch.wy - (my - this.h / 2) / k });
+        this.noteMoving();
         return;
       }
       if (drag && drag.id === e.pointerId) {
@@ -1717,6 +1738,7 @@ export class MapView {
         if (drag.moved) {
           el.style.cursor = "grabbing";
           this.setCamera({ k: this.cam.k, cx: drag.cx - dx / this.cam.k, cy: drag.cy - dy / this.cam.k });
+          this.noteMoving();
         }
         return;
       }
@@ -1730,12 +1752,12 @@ export class MapView {
           const p = local(e);
           const hit = this.headerAt(p.x, p.y);
           if (hit) {
-            // Clicking a block or section header zooms to it.
-            this.setPreview(null);
-            this.flyToRect(rangeRect(hit.s, hit.e), { pad: 1.6, maxK: 90 });
+            // Clicking a block or section header takes you to it.
+            this.showRange(hit.s, hit.e);
           } else {
             const w = this.toWorld(p.x, p.y);
             const cp = cellToCp(w.x, w.y);
+            if (this.pinned && (cp < this.pinned.s || cp > this.pinned.e)) this.clearPinned();
             this.cb.onSelect(cp >= 0 ? cp : null);
           }
         }
@@ -1755,6 +1777,7 @@ export class MapView {
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       this.anim = null;
+      this.noteMoving();
       const p = local(e);
       // Pinch gestures arrive as ctrl+wheel. Trackpad scrolls (small or horizontal deltas) pan;
       // mouse wheels (large line-sized steps) zoom.
@@ -1793,6 +1816,18 @@ export class MapView {
       el.removeEventListener("wheel", onWheel);
       el.removeEventListener("dblclick", onDbl);
     });
+  }
+
+  /**
+   * While you pan or zoom by hand, mark the map area as moving (the class `moving`), so the
+   * floating panels can fade out of the way until you stop.
+   */
+  private noteMoving() {
+    const area = this.canvas.parentElement;
+    if (!area) return;
+    area.classList.add("moving");
+    clearTimeout(this.movingTimer);
+    this.movingTimer = window.setTimeout(() => area.classList.remove("moving"), 450);
   }
 
   private headerAt(x: number, y: number) {
@@ -1834,6 +1869,18 @@ export class MapView {
 
 
 export { rangeRect };
+
+/** Zoom (CSS px per cell) at which block clicks land: glyph cards are fully drawn. */
+const READ_K = 40;
+
+function makePreview(range: { s: number; e: number; name: string; labelAt?: { x: number; y: number }; soft?: boolean }): Preview {
+  const path = new Path2D();
+  const pts = rangeOutline(range.s, range.e);
+  path.moveTo(pts[0][0], pts[0][1]);
+  for (const [x, y] of pts.slice(1)) path.lineTo(x, y);
+  path.closePath();
+  return { ...range, path, rect: rangeRect(range.s, range.e) };
+}
 
 interface Preview {
   s: number;

@@ -2,17 +2,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { UnicodeData } from "./data/unicode";
 import { getMode, ModeId, MODES } from "./map/colorModes";
 import { Camera, Here, MapView } from "./map/MapView";
-import { planeRect, rangeRect } from "./map/layout";
+import { planeRect } from "./map/layout";
 import { SearchBox } from "./ui/SearchBox";
 import { Legend } from "./ui/Legend";
 import { DetailPanel } from "./ui/DetailPanel";
 import { Tooltip } from "./ui/Tooltip";
 import { Breadcrumb } from "./ui/Breadcrumb";
-import { Minimap } from "./ui/Minimap";
 import { readHash, writeHash } from "./urlState";
 import { HelpOverlay } from "./ui/HelpOverlay";
 import { PropertyFilter } from "./ui/PropertyFilter";
 import { Timeline } from "./ui/Timeline";
+import { ChartView } from "./ui/ChartView";
 import { loadProps, maskOf, PropOption } from "./data/props";
 
 export function App() {
@@ -41,7 +41,6 @@ export function App() {
 
 function Explorer({ data }: { data: UnicodeData }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const minimapRef = useRef<HTMLCanvasElement>(null);
   const viewRef = useRef<MapView | null>(null);
   const initial = useMemo(() => readHash(), []);
   const [modeId, setModeId] = useState<ModeId>(initial.mode ?? "region");
@@ -65,6 +64,15 @@ function Explorer({ data }: { data: UnicodeData }) {
     const i = initial.asOf ? data.meta.ages.indexOf(initial.asOf) : -1;
     return i > 0 ? i : null;
   });
+  /** Chart view: a block laid out like the Unicode code charts, in place of the map. */
+  const [chart, setChart] = useState<{ block: number; focus?: [number, number] } | null>(() => {
+    const i = initial.chart !== undefined ? data.meta.blocks.findIndex((b) => b.s === initial.chart) : -1;
+    return i >= 0 ? { block: i } : null;
+  });
+  const chartRef = useRef(chart);
+  chartRef.current = chart;
+  /** The code point at the middle of the chart's visible columns, for the sidebar to follow. */
+  const [chartAt, setChartAt] = useState<number | null>(null);
   const mode = useMemo(() => getMode(data, modeId), [data, modeId]);
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
@@ -88,7 +96,6 @@ function Explorer({ data }: { data: UnicodeData }) {
     viewRef.current = view;
     // For poking at the renderer from the console and test scripts.
     if (import.meta.env.DEV) (window as unknown as { __view: MapView }).__view = view;
-    view.setMinimap(minimapRef.current);
     view.setMode(getMode(data, modeId));
     // Pure view from the URL: the effect that applies it ran before the view existed.
     if (initial.pure) view.setPure(true);
@@ -173,11 +180,24 @@ function Explorer({ data }: { data: UnicodeData }) {
   }, []);
 
   // URL state
-  const extras = () => ({ prop: prop?.key, asOf: asOf !== null ? data.meta.ages[asOf] : undefined, pure });
+  const extras = () => ({
+    prop: prop?.key,
+    asOf: asOf !== null ? data.meta.ages[asOf] : undefined,
+    pure,
+    chart: chart ? data.meta.blocks[chart.block].s : undefined,
+  });
   useEffect(() => {
     writeHash({ cp: selected ?? undefined, mode: modeId, view: camera ?? undefined, ...extras() }, false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [camera, modeId, prop, asOf, pure]);
+  // Opening and closing a chart are history steps, so Back returns to the map.
+  const lastChart = useRef(chart?.block);
+  useEffect(() => {
+    if (lastChart.current === chart?.block) return;
+    lastChart.current = chart?.block;
+    writeHash({ cp: selected ?? undefined, mode: modeId, view: viewRef.current?.camera, ...extras() }, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chart?.block]);
   const lastPushed = useRef<number | null | undefined>(initial.cp);
   useEffect(() => {
     if (lastPushed.current === selected) return;
@@ -192,6 +212,9 @@ function Explorer({ data }: { data: UnicodeData }) {
       setSelected(s.cp ?? null);
       viewRef.current?.setSelected(s.cp ?? null);
       if (s.mode) setModeId(s.mode);
+      const ci = s.chart !== undefined ? data.meta.blocks.findIndex((b) => b.s === s.chart) : -1;
+      lastChart.current = ci >= 0 ? ci : undefined;
+      setChart(ci >= 0 ? { block: ci } : null);
       if (s.view) viewRef.current?.flyTo(s.view);
       else if (s.cp !== undefined) viewRef.current?.focusCp(s.cp);
     };
@@ -202,13 +225,28 @@ function Explorer({ data }: { data: UnicodeData }) {
   const flyToBlock = useCallback(
     (index: number) => {
       const b = data.meta.blocks[index];
-      viewRef.current?.flyToRect(rangeRect(b.s, b.e));
+      // With a chart open, blocks open in the chart instead.
+      if (chartRef.current) setChart({ block: index });
+      viewRef.current?.showRange(b.s, b.e);
     },
     [data],
   );
-  const flyToRange = useCallback((a: number, b: number) => viewRef.current?.flyToRect(rangeRect(a, b), { pad: 1.6, maxK: 90 }), []);
+  const flyToRange = useCallback(
+    (a: number, b: number) => {
+      if (chartRef.current) setChart({ block: data.blockIdx[a], focus: [a, b] });
+      viewRef.current?.showRange(a, b);
+    },
+    [data],
+  );
+  /** Open the chart for a block, or the block a code point is in. */
+  const openChart = useCallback((block: number, focus?: [number, number]) => {
+    if (block >= 0) setChart({ block, focus });
+  }, []);
   const previewRange = useCallback((r: { s: number; e: number; name: string } | null) => viewRef.current?.setPreview(r), []);
-  const flyToPlane = useCallback((p: number) => viewRef.current?.flyToRect(planeRect(p), { pad: 1.08 }), []);
+  const flyToPlane = useCallback((p: number) => {
+    viewRef.current?.clearPinned();
+    viewRef.current?.flyToRect(planeRect(p), { pad: 1.08 });
+  }, []);
 
   // Keyboard navigation
   useEffect(() => {
@@ -233,20 +271,32 @@ function Explorer({ data }: { data: UnicodeData }) {
         const cp = view.centreCp();
         return cp >= 0 ? cp : 0;
       };
+      const ch = chartRef.current;
       const move = (delta: number, assignedOnly = false) => {
-        let cp = cur ?? centre();
+        let cp = cur ?? (ch ? data.meta.blocks[ch.block].s - delta : centre());
         do {
           cp += delta;
         } while (assignedOnly && cp > 0 && cp < 0x10ffff && !data.isAssigned(cp));
         cp = Math.max(0, Math.min(0x10ffff, cp));
+        if (ch) {
+          // In a chart, moving past either end of the block opens the next one's chart.
+          const b = data.meta.blocks[ch.block];
+          if (cp < b.s || cp > b.e) {
+            const nb = data.blockIdx[cp];
+            if (nb < 0) return;
+            setChart({ block: nb });
+          }
+        }
         select(cp, { zoom: true });
       };
+      // A chart reads down its columns of 16: up and down step by one, left and right by a column.
+      const [dx, dy] = ch ? [16, 1] : [1, 256];
       const blocks = data.meta.blocks;
       switch (e.key) {
-        case "ArrowLeft": move(-1, e.shiftKey); break;
-        case "ArrowRight": move(1, e.shiftKey); break;
-        case "ArrowUp": move(-256); break;
-        case "ArrowDown": move(256); break;
+        case "ArrowLeft": move(-dx, e.shiftKey && !ch); break;
+        case "ArrowRight": move(dx, e.shiftKey && !ch); break;
+        case "ArrowUp": move(-dy, e.shiftKey && !!ch); break;
+        case "ArrowDown": move(dy, e.shiftKey && !!ch); break;
         case "]":
         case "[": {
           const at = cur ?? centre();
@@ -269,9 +319,18 @@ function Explorer({ data }: { data: UnicodeData }) {
         case "Enter":
           if (cur !== null) view.focusCp(cur);
           break;
+        case "c": {
+          if (chartRef.current) setChart(null);
+          else openChart(data.blockIdx[cur ?? centre()]);
+          break;
+        }
         case "Escape":
           if (help) setHelp(false);
-          else select(null);
+          else if (chartRef.current) setChart(null);
+          else {
+            select(null);
+            view.clearPinned();
+          }
           break;
         case "+":
         case "=": view.zoomBy(2); break;
@@ -297,10 +356,10 @@ function Explorer({ data }: { data: UnicodeData }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [data, select, flyToBlock, flyToPlane, help, toggleTimeline, changeMode, pure]);
+  }, [data, select, flyToBlock, flyToPlane, help, toggleTimeline, changeMode, pure, openChart]);
 
   return (
-    <div className={`app ${pure ? "pure" : ""}`}>
+    <div className={`app ${pure ? "pure" : ""} ${chart ? "charting" : ""}`}>
       <div className="map-area">
         <canvas ref={canvasRef} className="map-canvas" />
         <div className="top-bar">
@@ -342,12 +401,27 @@ function Explorer({ data }: { data: UnicodeData }) {
           </button>
           <button title="Keyboard shortcuts (?)" onClick={() => setHelp(true)}>?</button>
         </div>
-        <Minimap view={viewRef} canvasRef={minimapRef} />
         {asOf !== null && <Timeline data={data} value={asOf} onChange={setAsOf} onClose={() => setAsOf(null)} />}
         {pure && (
           <button className={`pure-hint ${pureHint ? "show" : ""}`} onClick={() => setPure(false)}>
             Pure view · press <kbd>Z</kbd> or <kbd>Esc</kbd> to leave
           </button>
+        )}
+        {chart && (
+          <ChartView
+            data={data}
+            mode={mode}
+            block={chart.block}
+            focus={chart.focus}
+            selected={selected}
+            onSelect={(cp) => select(cp, { zoom: true })}
+            onHover={(cp, x, y) => setHover(cp >= 0 ? { cp, x, y } : null)}
+            onView={setChartAt}
+            onClose={() => {
+              setHover(null);
+              setChart(null);
+            }}
+          />
         )}
         {hover && !pure && <Tooltip data={data} mode={mode} cp={hover.cp} x={hover.x} y={hover.y} />}
         {help && <HelpOverlay onClose={() => setHelp(false)} />}
@@ -356,12 +430,14 @@ function Explorer({ data }: { data: UnicodeData }) {
         data={data}
         mode={mode}
         cp={selected}
-        here={here}
+        here={chart ? { cp: chartAt ?? data.meta.blocks[chart.block].s, k: 60 } : here}
         onPreview={previewRange}
         onSelect={(cp) => select(cp, { zoom: true })}
         onBlock={flyToBlock}
         onPlane={flyToPlane}
         onRange={flyToRange}
+        onChart={openChart}
+        chartBlock={chart?.block ?? null}
         onClose={() => select(null)}
       />
     </div>

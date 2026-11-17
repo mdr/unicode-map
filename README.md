@@ -58,13 +58,16 @@ pure view draws them in the browser instead, which is slower to fill in.
 - **`src/map/MapView.ts`** is the canvas renderer. Each plane is a 256×256 bitmap, scaled
   up, at low zoom. Grid lines fade in as you zoom, then cards with glyphs, code points and
   names. Cards keep their cell's colour at every zoom, with dark or light text to suit it.
-  Block outlines and labels sit on top, with sticky row and column axes. From mid zoom,
-  blocks split into their code chart sections (the `@` subheadings in `NamesList.txt`): block
-  and section headers sit on the row edges where each starts and stay on screen while you pan.
-  They're placed in priority order and skipped if they would overlap, so busy areas thin out.
+  Block outlines and labels sit on top, with sticky row and column axes. Labels come in three
+  steps as you zoom in, one kind at a time: big landmark names centred in multi-row blocks,
+  then a label at the start of every block, then the code chart sections (the `@` subheadings
+  in `NamesList.txt`) once glyphs are readable. Labels sit at the cell where their range
+  starts, are placed in priority order, and are skipped rather than truncated or overlapped.
+  Clicking a block lands at its start at a readable zoom and keeps it outlined.
   The renderer also dims everything outside a highlight (rare matches get rings when zoomed
   out) and hides characters newer than the timeline's version. Pure view (`z`) drops the
-  colours, labels and interface. In it, glyphs show from mid zoom using a pyramid of tile
+  colours, labels and interface. Chart view (`c`) shows a block like Unicode's code charts,
+  in columns of 16 with its sections marked, and a names list beside small blocks. In it, glyphs show from mid zoom using a pyramid of tile
   images at 2, 6, 12 and 24 px per code point, with 128, 64, 32 and 16 code points per tile
   side. The 2 px level is drawn at 6 px and averaged down, so even zoomed right out each
   area shows its texture: dense ideographs bright, marks faint, emoji in colour.
@@ -86,7 +89,7 @@ pure view draws them in the browser instead, which is slower to fill in.
 - **`src/map/colorModes.ts`** defines the colour modes: region, general category, script,
   age and assigned.
 - **`src/ui/*`** holds the React UI: search, property highlight, legend, timeline,
-  breadcrumb, detail panel, tooltip and minimap.
+  breadcrumb, detail panel and tooltip.
 
 ## Upgrading Unicode
 

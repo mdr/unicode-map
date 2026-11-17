@@ -46,7 +46,10 @@ what each code point is, and which plane, block, region and category it belongs 
   - Unihan: definitions, readings, radical and strokes, variants.
 - **Navigation:**
   - Search by name or alias, code point notation, pasted text, or block name.
-  - Breadcrumb and minimap.
+  - Breadcrumb, and a sidebar that follows where you are.
+  - Chart view: a block in columns of 16, like the Unicode code charts, with sections and a
+    names list.
+  - Links to each character's page on unicode.org, its code chart and Unihan entry.
   - Keyboard shortcuts.
   - URL hash state (selection, mode, view), with back and forward working.
 

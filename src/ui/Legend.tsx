@@ -19,12 +19,27 @@ export function Legend({
   onPreview: (key: string | null) => void;
 }) {
   const [filter, setFilter] = useState("");
-  const [collapsed, setCollapsed] = useState(false);
+  // Just the mode tabs until you ask for the key; remembered between visits.
+  const [open, setOpenState] = useState(() => {
+    try {
+      return localStorage.getItem("umap.legend") === "open";
+    } catch {
+      return false;
+    }
+  });
+  const setOpen = (o: boolean) => {
+    setOpenState(o);
+    try {
+      localStorage.setItem("umap.legend", o ? "open" : "closed");
+    } catch {
+      /* private mode etc. */
+    }
+  };
   const total = mode.legend.reduce((n, g) => n + g.items.length, 0);
   const f = filter.trim().toLowerCase();
 
   return (
-    <div className={`legend panel ${collapsed ? "collapsed" : ""}`}>
+    <div className={`legend panel ${open ? "" : "collapsed"}`}>
       <div className="mode-tabs" role="tablist">
         {MODES.map((m, i) => (
           <button
@@ -37,15 +52,28 @@ export function Legend({
             {m.label}
           </button>
         ))}
-      </div>
-      <div className="legend-head">
-        <span className="legend-desc">{mode.description}</span>
-        <button className="link" onClick={() => setCollapsed((c) => !c)}>
-          {collapsed ? "Show" : "Hide"}
+        <button
+          className="legend-toggle"
+          title={open ? "Hide the key" : "Show the key: what the colours mean"}
+          aria-expanded={open}
+          onClick={() => setOpen(!open)}
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
+            <path d={open ? "M3 7.5 6 4.5l3 3" : "M3 4.5 6 7.5l3-3"} fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </button>
       </div>
-      {!collapsed && (
+      {!open && pinned.length > 0 && (
+        <div className="legend-pins">
+          Highlighting {pinned.length} {pinned.length === 1 ? "item" : "items"}
+          <button className="link" onClick={onClearPins}>Clear</button>
+        </div>
+      )}
+      {open && (
         <>
+          <div className="legend-head">
+            <span className="legend-desc">{mode.description}</span>
+          </div>
           {total > 16 && (
             <input className="legend-filter" placeholder={`Filter ${total} items…`} value={filter} onChange={(e) => setFilter(e.target.value)} />
           )}

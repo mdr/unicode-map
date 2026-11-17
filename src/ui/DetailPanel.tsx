@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useMemo, useState } from "react";
+import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Detail, displayString, hex, MAX_CP, planeName, uplus, UnicodeData, VERSION_YEARS } from "../data/unicode";
 import { ColorMode, cpColor } from "../map/colorModes";
 import { Glyph } from "./Glyph";
@@ -18,6 +18,10 @@ interface Props {
   onPreview: (r: { s: number; e: number; name: string } | null) => void;
   /** Fly to a code point range (a chart section). */
   onRange: (s: number, e: number) => void;
+  /** Open a block as a code chart. */
+  onChart: (block: number) => void;
+  /** The block whose chart is open, if any. */
+  chartBlock: number | null;
 }
 
 export function DetailPanel(props: Props) {
@@ -31,7 +35,7 @@ export function DetailPanel(props: Props) {
 // ---------------------------------------------------------------------------
 // Nothing selected: overview of the code space and the plane in view
 
-function Overview({ data, here, onPlane, onBlock, onPreview, onRange }: Props) {
+function Overview({ data, here, onPlane, onBlock, onPreview, onRange, onChart, chartBlock }: Props) {
   const planeStats = useMemo(
     () =>
       Array.from({ length: 17 }, (_, p) => {
@@ -49,6 +53,11 @@ function Overview({ data, here, onPlane, onBlock, onPreview, onRange }: Props) {
   /** The block whose "About" is open in the list. */
   const [aboutOpen, setAboutOpen] = useState<number | null>(null);
   const currentSection = currentBlock >= 0 && here!.k > 10 ? data.sectionRange(here!.cp) : undefined;
+  // Keep the block you're in visible in the list as you move between blocks.
+  const listRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    listRef.current?.querySelector(".block-row.current")?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }, [currentBlock]);
   /** Chart sections per block, for the current block's row to expand into. */
   const sectionsByBlock = useMemo(() => {
     const m = new Map<number, [number, number, string][]>();
@@ -62,6 +71,7 @@ function Overview({ data, here, onPlane, onBlock, onPreview, onRange }: Props) {
   }, [data]);
   return (
     <div className="detail-scroll">
+      {plane === null && (
       <div className="ov-hero">
         <div className="ov-title">The Unicode code space</div>
         <p className="muted">
@@ -71,7 +81,29 @@ function Overview({ data, here, onPlane, onBlock, onPreview, onRange }: Props) {
         </p>
         <p className="muted small">Click any cell to inspect it, or search above. Press <kbd>?</kbd> for shortcuts.</p>
       </div>
+      )}
       <Section title="Planes">
+        {plane !== null ? (
+          // Inside a plane, the planes shrink to a row of numbered tiles, leaving room for its blocks.
+          <div className="plane-grid">
+            {planeStats.map((n, p) => (
+              <button
+                key={p}
+                className={`plane-tile ${plane === p ? "current" : ""} ${n ? "" : "empty"}`}
+                title={`Plane ${p}: ${planeName(p)[0]} · ${n ? `${n.toLocaleString()} assigned` : "nothing assigned"}`}
+                onClick={() => {
+                  onPreview(null);
+                  onPlane(p);
+                }}
+                onMouseEnter={() => onPreview({ s: p << 16, e: (p << 16) | 0xffff, name: `Plane ${p} · ${planeName(p)[0]}` })}
+                onMouseLeave={() => onPreview(null)}
+              >
+                {p}
+                <span className="plane-tile-fill" style={{ width: `${(n / 65536) * 100}%` }} />
+              </button>
+            ))}
+          </div>
+        ) : (
         <div className="plane-list">
           {planeStats.map((n, p) => (
             <button
@@ -96,10 +128,11 @@ function Overview({ data, here, onPlane, onBlock, onPreview, onRange }: Props) {
             </button>
           ))}
         </div>
+        )}
       </Section>
       {plane !== null && (
-        <Section title={`Blocks in plane ${plane}`}>
-          <div className="block-list">
+        <Section title={`Blocks in plane ${plane} · ${planeName(plane)[0]}`}>
+          <div className="block-list" ref={listRef}>
             {data.meta.blocks.map((b, i) =>
               b.s >> 16 === plane ? (
                 <div key={i} className={`block-item ${aboutOpen === i ? "open" : ""}`}>
@@ -115,6 +148,13 @@ function Overview({ data, here, onPlane, onBlock, onPreview, onRange }: Props) {
                   <span className="swatch" style={{ background: data.meta.regions[b.region].color }} />
                   <span className="block-name">{b.name}</span>
                   <span className="muted small mono">{hex(b.s)}</span>
+                </button>
+                <button
+                  className={`info-btn chart-btn ${chartBlock === i ? "on" : ""}`}
+                  title={`Open ${b.name} as a code chart (c)`}
+                  onClick={() => onChart(i)}
+                >
+                  <ChartIcon />
                 </button>
                 <button
                   className="info-btn"
@@ -170,7 +210,7 @@ function Overview({ data, here, onPlane, onBlock, onPreview, onRange }: Props) {
 // ---------------------------------------------------------------------------
 // A single code point
 
-function CodePointDetail({ data, mode, cp, onSelect, onBlock, onPlane, onClose }: Props & { cp: number }) {
+function CodePointDetail({ data, mode, cp, onSelect, onBlock, onPlane, onClose, onChart }: Props & { cp: number }) {
   const [detail, setDetail] = useState<Detail | undefined | null>(null);
   useEffect(() => {
     let live = true;
@@ -208,6 +248,31 @@ function CodePointDetail({ data, mode, cp, onSelect, onBlock, onPlane, onClose }
           <button onClick={() => cp > 0 && onSelect(cp - 1)} title="Previous (←)">‹ {hex(Math.max(0, cp - 1))}</button>
           <button onClick={() => cp < MAX_CP - 1 && onSelect(cp + 1)} title="Next (→)">{hex(Math.min(MAX_CP - 1, cp + 1))} ›</button>
         </div>
+        <div className="cp-links">
+          <a
+            href={`https://util.unicode.org/UnicodeJsps/character.jsp?a=${hex(cp)}`}
+            target="_blank"
+            rel="noreferrer"
+            title="This character's properties, on the Unicode Consortium's site"
+          >
+            unicode.org ↗
+          </a>
+          {block && (
+            <a href={`https://www.unicode.org/charts/PDF/U${hex(block.s)}.pdf`} target="_blank" rel="noreferrer" title={`The official code chart for ${block.name} (PDF)`}>
+              Code chart ↗
+            </a>
+          )}
+          {d.unihan && (
+            <a
+              href={`https://www.unicode.org/cgi-bin/GetUnihanData.pl?codepoint=${hex(cp)}`}
+              target="_blank"
+              rel="noreferrer"
+              title="This ideograph in the Unihan database"
+            >
+              Unihan ↗
+            </a>
+          )}
+        </div>
       </div>
 
       {!assigned && <Unassigned data={data} cp={cp} />}
@@ -222,7 +287,10 @@ function CodePointDetail({ data, mode, cp, onSelect, onBlock, onPlane, onClose }
           {block && (
             <Row label="Block">
               <button className="link" onClick={() => onBlock(blockIndex)}>{block.name}</button>
-              <span className="muted small mono"> {hex(block.s)}–{hex(block.e)}</span>
+              <span className="muted small mono"> {hex(block.s)}–{hex(block.e)}</span>{" "}
+              <button className="link small" title="Open the block as a code chart (c)" onClick={() => onChart(blockIndex)}>
+                Chart
+              </button>
             </Row>
           )}
           {region && (
@@ -334,10 +402,6 @@ function CodePointDetail({ data, mode, cp, onSelect, onBlock, onPlane, onClose }
         </Section>
       )}
 
-      <div className="detail-foot">
-        <a href={`https://www.unicode.org/charts/PDF/U${hex(block?.s ?? cp)}.pdf`} target="_blank" rel="noreferrer">Unicode code chart ↗</a>
-        <a href={`https://util.unicode.org/UnicodeJsps/character.jsp?a=${hex(cp)}`} target="_blank" rel="noreferrer">Unicode utilities ↗</a>
-      </div>
     </div>
   );
 }
@@ -520,4 +584,13 @@ function CopyButton({ text, label, small, disabled }: { text: string; label: str
 
 function aliasLabel(t: string) {
   return { correction: "Corrected name", control: "Control name", alternate: "Alternate name", figment: "Figment", abbreviation: "Abbreviation" }[t] ?? t;
+}
+
+/** A small grid: open as a code chart. */
+function ChartIcon() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 11 11" aria-hidden>
+      {[0, 4, 8].flatMap((x) => [0, 4, 8].map((y) => <rect key={`${x}${y}`} x={x} y={y} width="3" height="3" rx="0.6" fill="currentColor" />))}
+    </svg>
+  );
 }
