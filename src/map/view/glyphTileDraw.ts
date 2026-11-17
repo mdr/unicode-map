@@ -1,7 +1,14 @@
 import { displayString, type UnicodeData } from "../../data/unicode"
 import { drawSpecial } from "./text"
 import type { CodePoint, Plane } from "../../units"
-import { glyphFit } from "./glyphFit"
+import { canvasInk, fitScale } from "./glyphFit"
+
+/** Room for a glyph around its centre, as on a card without captions (see cells.ts). */
+const tileReach = (res: number): { x: number; y: number } => {
+  const gap = Math.max(1, res * 0.04)
+  const margin = res * 0.03
+  return { x: res / 2 - gap - margin, y: Math.min(res * 0.53, res * 0.47) - gap - margin }
+}
 
 /** Smallest size glyphs are drawn at; smaller tiles are drawn at this size and scaled down. */
 const GLYPH_DRAW_MIN = 6
@@ -40,9 +47,10 @@ const drawTileRow = (
     const family = data.glyphFamily(cp)
     const font = `${res * 0.5}px ${family}`
     if (font !== lastFont) c.font = lastFont = font
-    const { scale, dx, dy } = glyphFit(c, cp, str, res * 0.5)
-    const size = res * 0.5 * scale
-    if (scale < 1) c.font = lastFont = `${size}px ${family}`
+    const ink = canvasInk(c, cp, str, res * 0.5)
+    const size = res * 0.5 * fitScale(ink, res * 0.5, tileReach(res))
+    const { dx, dy } = ink
+    if (size < res * 0.5) c.font = lastFont = `${size}px ${family}`
     c.globalAlpha = 1
     c.fillText(str, x * res + res / 2 + dx * size, y * res + res * 0.53 + dy * size)
   }

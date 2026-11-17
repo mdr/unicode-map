@@ -1,42 +1,43 @@
 import type { CSSProperties } from "react"
 import type { CodePoint } from "../../units"
 
-/** How far a glyph's ink may reach from its card's centre, in ems: the card's sides are about 0.94 em away. */
-const REACH = 0.9
-
 /**
- * How to draw a glyph on a card: shrunk by `scale` (1 for almost every character; less for the
- * few hundred too big for a card, such as U+FDFD, cuneiform and some Brahmic vowels), and moved
- * by (dx, dy) ems of its drawn size so its ink, not its font's em box, is centred. Without that,
- * a glyph whose ink sits high in its font, such as Tibetan ༀ, looks high.
+ * A glyph's ink on the canvas, in ems of its drawn size: (dx, dy) moves it so its ink, not its
+ * font's em box, is centred, as a glyph whose ink sits high in its font (Tibetan ༀ) otherwise
+ * looks high; `halfW` and `halfH` are the ink's half-size, for shrinking the rare glyph too big
+ * for its room (U+FDFD, cuneiform, some Brahmic vowels, tall marks such as U+2E0E).
  */
-export interface GlyphFit {
-  scale: number
+export interface CanvasInk {
   dx: number
   dy: number
+  halfW: number
+  halfH: number
 }
 
-const fits = new Map<CodePoint, GlyphFit>()
+const inks = new Map<CodePoint, CanvasInk>()
 
 /**
  * Measured with the context's current font, of size `em`, with textAlign "center" and
  * textBaseline "middle"; once per code point, as it doesn't depend on the size. Call only once
  * the glyph's font has loaded.
  */
-export const glyphFit = (ctx: CanvasRenderingContext2D, cp: CodePoint, str: string, em: number): GlyphFit => {
-  const known = fits.get(cp)
+export const canvasInk = (ctx: CanvasRenderingContext2D, cp: CodePoint, str: string, em: number): CanvasInk => {
+  const known = inks.get(cp)
   if (known) return known
   const m = ctx.measureText(str)
-  const halfW = (m.actualBoundingBoxLeft + m.actualBoundingBoxRight) / 2 / em
-  const halfH = (m.actualBoundingBoxAscent + m.actualBoundingBoxDescent) / 2 / em
-  const fit = {
-    scale: Math.min(1, REACH / halfW, REACH / halfH),
+  const ink = {
     dx: (m.actualBoundingBoxLeft - m.actualBoundingBoxRight) / 2 / em,
-    dy: (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2 / em
+    dy: (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2 / em,
+    halfW: (m.actualBoundingBoxLeft + m.actualBoundingBoxRight) / 2 / em,
+    halfH: (m.actualBoundingBoxAscent + m.actualBoundingBoxDescent) / 2 / em
   }
-  fits.set(cp, fit)
-  return fit
+  inks.set(cp, ink)
+  return ink
 }
+
+/** The factor to shrink a glyph drawn at `em` pixels by so its centred ink reaches no further than (x, y) pixels. */
+export const fitScale = (ink: CanvasInk, em: number, reach: { x: number; y: number }): number =>
+  Math.min(1, reach.x / (ink.halfW * em), reach.y / (ink.halfH * em))
 
 let measurer: CanvasRenderingContext2D | undefined
 

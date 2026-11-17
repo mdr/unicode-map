@@ -5,7 +5,7 @@ import { HEX_START, MONO_FONT, NAME_START, PAGE_BG, smooth, UI_FONT } from "./co
 import type { FrameView, Scene } from "./scene"
 import { drawSpecial, wrapText } from "./text"
 import type { CodePoint } from "../../units"
-import { glyphFit } from "./glyphFit"
+import { canvasInk, fitScale } from "./glyphFit"
 
 /** What drawing the cards needs, worked out once per frame. */
 interface CellPass {
@@ -32,6 +32,8 @@ interface CellPass {
   glyphPx: number
   /** Glyph centre, as a fraction of the cell from its top. */
   glyphDy: number
+  /** How far a glyph's ink may reach from its centre, in pixels: inside the card, clear of the captions. */
+  glyphReach: { x: number; y: number }
   glyphA: number
   glyphDimA: number
   specialA: number
@@ -67,6 +69,7 @@ const makePass = (sc: Scene, t: number): CellPass => {
     // move down to leave them room.
     glyphPx: k * (0.5 - 0.06 * hexA),
     glyphDy: nameA > 0 ? 0.45 : 0.53,
+    glyphReach: glyphReach(k, gap, nameA > 0 ? 0.45 : 0.53, hexA, nameA),
     // Pure view: the glyph tiles already showed these at full strength, so no fade-in.
     glyphA: pure ? 1 : fade * 1,
     glyphDimA: pure ? 1 : fade * 0.25,
@@ -76,6 +79,20 @@ const makePass = (sc: Scene, t: number): CellPass => {
     lastFont: ""
   }
 }
+
+/**
+ * Room for a card's glyph around its centre (at `dy` of the cell): the card's sides, and above
+ * the captions once they show. The name is up to two lines centred at 0.72 of the cell, the code
+ * point a line at 0.88.
+ */
+const glyphReach = (k: number, gap: number, dy: number, hexA: number, nameA: number): { x: number; y: number } => {
+  const margin = k * 0.03
+  const captionTop = nameA > 0 ? k * 0.72 - 1.1 * nameSize(k) : hexA > 0 ? k * 0.88 - 0.6 * hexSize(k) : k - gap
+  return { x: k / 2 - gap - margin, y: Math.min(k * dy - gap - margin, captionTop - margin - k * dy) }
+}
+
+const hexSize = (k: number): number => Math.min(14, k * 0.12)
+const nameSize = (k: number): number => Math.min(12, k * 0.075)
 
 /** A code point that doesn't exist (yet): an empty slot, or lit if the highlight picks it out. */
 const drawEmpty = (c: CellPass, cp: CodePoint, v: number, sx: number, sy: number): void => {
@@ -97,13 +114,13 @@ const drawCaptions = (c: CellPass, cp: CodePoint, sx: number, sy: number, dim: b
   if (c.hexA > 0) {
     ctx.globalAlpha = t * c.hexA * (dim ? 0.3 : 0.7)
     ctx.fillStyle = dark ? "#0d1017" : "#c4cad6"
-    ctx.font = c.lastFont = `500 ${Math.min(14, k * 0.12)}px ${MONO_FONT}`
+    ctx.font = c.lastFont = `500 ${hexSize(k)}px ${MONO_FONT}`
     ctx.fillText(hex(cp), sx + k / 2, sy + k * 0.88)
   }
   if (c.nameA > 0) {
     ctx.globalAlpha = t * c.nameA * (dim ? 0.3 : 0.85)
     ctx.fillStyle = dark ? "#0d1017" : "#dde2ea"
-    const fs = Math.min(12, k * 0.075)
+    const fs = nameSize(k)
     ctx.font = c.lastFont = `500 ${fs}px ${UI_FONT}`
     wrapText(ctx, c.data.name(cp), sx + k / 2, sy + k * 0.72, k * 0.88, fs * 1.15, 2)
   }
@@ -115,8 +132,10 @@ const drawGlyph = (c: CellPass, cp: CodePoint, str: string, x: number, y: number
   const family = c.data.glyphFamily(cp)
   const font = `${glyphPx}px ${family}`
   if (font !== c.lastFont) ctx.font = c.lastFont = font
-  const { scale, dx, dy } = glyphFit(ctx, cp, str, glyphPx)
+  const ink = canvasInk(ctx, cp, str, glyphPx)
+  const scale = fitScale(ink, glyphPx, c.glyphReach)
   const size = glyphPx * scale
+  const { dx, dy } = ink
   if (scale < 1) ctx.font = c.lastFont = `${size}px ${family}`
   ctx.fillText(str, x + dx * size, y + dy * size)
 }
