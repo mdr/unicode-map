@@ -1,3 +1,4 @@
+import { required } from "../required"
 // Loads the compiled UCD (see scripts/build_data.py) and exposes fast per-code-point lookups.
 
 export const MAX_CP = 0x110000
@@ -167,8 +168,8 @@ export class UnicodeData {
 
     for (const line of namesTxt.split("\n")) {
       if (!line) continue
-      const [hex, name, als] = line.split("\t")
-      const cp = parseInt(hex, 16)
+      const [hexDigits = "", name, als] = line.split("\t")
+      const cp = parseInt(hexDigits, 16)
       if (name) this.names.set(cp, name)
       const aliasList = als ? als.split("|") : []
       if (aliasList.length) this.aliasIndex.set(cp, aliasList)
@@ -189,17 +190,23 @@ export class UnicodeData {
   }
 
   gc(cp: number): ValueInfo {
-    return this.meta.gc[this.gcIdx[cp]]
+    return required(this.meta.gc[this.gcIdx[cp] ?? this.gcCn], `general category of ${hex(cp)}`)
   }
   script(cp: number): ScriptInfo {
-    return this.meta.scripts[this.scriptIdx[cp]]
+    return required(this.meta.scripts[this.scriptIdx[cp] ?? 0], `script of ${hex(cp)}`)
   }
   age(cp: number): string {
-    return this.meta.ages[this.ageIdx[cp]]
+    return required(this.meta.ages[this.ageIdx[cp] ?? 0], `age of ${hex(cp)}`)
   }
   block(cp: number): Block | undefined {
-    const i = this.blockIdx[cp]
-    return i >= 0 ? this.meta.blocks[i] : undefined
+    return this.meta.blocks[this.blockIdx[cp] ?? -1]
+  }
+  /** The block at an index into meta.blocks, as blockIdx, search results and the URL give them. */
+  blockAt(index: number): Block {
+    return required(this.meta.blocks[index], `block ${index}`)
+  }
+  regionOf(block: Block): Region {
+    return required(this.meta.regions[block.region], `region of ${block.name}`)
   }
   region(cp: number): Region | undefined {
     const b = this.block(cp)
@@ -238,9 +245,10 @@ export class UnicodeData {
       hi = secs.length - 1
     while (lo <= hi) {
       const mid = (lo + hi) >> 1
-      if (secs[mid][1] < cp) lo = mid + 1
-      else if (secs[mid][0] > cp) hi = mid - 1
-      else return secs[mid]
+      const sec = required(secs[mid], "section")
+      if (sec[1] < cp) lo = mid + 1
+      else if (sec[0] > cp) hi = mid - 1
+      else return sec
     }
     return undefined
   }
@@ -283,10 +291,9 @@ export class UnicodeData {
 }
 
 const expandRuns = (runs: number[], out: Uint8Array): void => {
-  for (let i = 0; i < runs.length; i += 2) {
-    const start = runs[i]
-    const end = i + 2 < runs.length ? runs[i + 2] : MAX_CP
-    out.fill(runs[i + 1], start, end)
+  // Pairs of [start, value]; each run ends where the next starts.
+  for (let i = 0; i + 1 < runs.length; i += 2) {
+    out.fill(runs[i + 1] ?? 0, runs[i], runs[i + 2] ?? MAX_CP)
   }
 }
 

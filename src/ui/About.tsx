@@ -124,7 +124,7 @@ export const AboutCards = ({ data, script, block }: { data: UnicodeData; script?
 
 /** The main script of a block: the commonest real script among its assigned characters. */
 export const blockScript = (data: UnicodeData, block: number): string | undefined => {
-  const b = data.meta.blocks[block]
+  const b = data.blockAt(block)
   const counts = new Map<string, number>()
   for (let cp = b.s; cp <= b.e; cp++) {
     if (!data.isAssigned(cp)) continue

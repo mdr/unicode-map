@@ -38,10 +38,10 @@ export const search = (data: UnicodeData, raw: string, limit = 60): SearchResult
   }
 
   // Code point notation
-  const m = CP_PATTERN.exec(q)
-  if (m) pushCp(parseInt(m[1], 16), "code point")
-  const dec = /^&#(\d+);?$/.exec(q)
-  if (dec) pushCp(parseInt(dec[1], 10), "decimal code point")
+  const hexDigits = CP_PATTERN.exec(q)?.[1]
+  if (hexDigits) pushCp(parseInt(hexDigits, 16), "code point")
+  const decimalDigits = /^&#(\d+);?$/.exec(q)?.[1]
+  if (decimalDigits) pushCp(parseInt(decimalDigits, 10), "decimal code point")
 
   const lower = q.toLowerCase()
 
@@ -53,9 +53,9 @@ export const search = (data: UnicodeData, raw: string, limit = 60): SearchResult
     .slice(0, 6)
 
   // Algorithmic names, e.g. "CJK UNIFIED IDEOGRAPH-4E00"
-  const alg = /-([0-9a-f]{4,6})$/.exec(lower)
-  if (alg) {
-    const cp = parseInt(alg[1], 16)
+  const algorithmicDigits = /-([0-9a-f]{4,6})$/.exec(lower)?.[1]
+  if (algorithmicDigits) {
+    const cp = parseInt(algorithmicDigits, 16)
     if (data.name(cp).toLowerCase() === lower) pushCp(cp, "name")
   }
 
@@ -72,7 +72,7 @@ export const search = (data: UnicodeData, raw: string, limit = 60): SearchResult
         }
       }
       if (!ok) continue
-      const name = e.text.split("|")[0]
+      const name = e.text.split("|")[0] ?? ""
       let score = 4
       if (name === lower) score = 0
       else if (e.text.split("|").includes(lower)) score = 1

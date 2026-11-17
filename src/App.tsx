@@ -190,7 +190,7 @@ const Explorer = ({ data }: { data: UnicodeData }) => {
     prop: prop?.key,
     asOf: asOf !== undefined ? data.meta.ages[asOf] : undefined,
     pure,
-    chart: chart ? data.meta.blocks[chart.block].s : undefined
+    chart: chart ? data.blockAt(chart.block).s : undefined
   })
   useEffect(() => {
     writeHash({ cp: selected ?? undefined, mode: modeId, view: camera ?? undefined, ...extras() }, false)
@@ -230,7 +230,7 @@ const Explorer = ({ data }: { data: UnicodeData }) => {
 
   const flyToBlock = useCallback(
     (index: number) => {
-      const b = data.meta.blocks[index]
+      const b = data.blockAt(index)
       // With a chart open, blocks open in the chart instead.
       if (chartRef.current) setChart({ block: index })
       viewRef.current?.showRange(b.s, b.e)
@@ -239,7 +239,7 @@ const Explorer = ({ data }: { data: UnicodeData }) => {
   )
   const flyToRange = useCallback(
     (a: number, b: number) => {
-      if (chartRef.current) setChart({ block: data.blockIdx[a], focus: [a, b] })
+      if (chartRef.current) setChart({ block: data.blockIdx[a] ?? -1, focus: [a, b] })
       viewRef.current?.showRange(a, b)
     },
     [data]
@@ -282,16 +282,16 @@ const Explorer = ({ data }: { data: UnicodeData }) => {
       }
       const ch = chartRef.current
       const move = (delta: number, assignedOnly = false) => {
-        let cp = cur ?? (ch ? data.meta.blocks[ch.block].s - delta : centre())
+        let cp = cur ?? (ch ? data.blockAt(ch.block).s - delta : centre())
         do {
           cp += delta
         } while (assignedOnly && cp > 0 && cp < 0x10ffff && !data.isAssigned(cp))
         cp = Math.max(0, Math.min(0x10ffff, cp))
         if (ch) {
           // In a chart, moving past either end of the block opens the next one's chart.
-          const b = data.meta.blocks[ch.block]
+          const b = data.blockAt(ch.block)
           if (cp < b.s || cp > b.e) {
-            const nb = data.blockIdx[cp]
+            const nb = data.blockIdx[cp] ?? -1
             if (nb < 0) return
             setChart({ block: nb })
           }
@@ -318,8 +318,9 @@ const Explorer = ({ data }: { data: UnicodeData }) => {
         case "[": {
           const at = cur ?? centre()
           const i = e.key === "]" ? blocks.findIndex((b) => b.s > at) : blocks.findLastIndex((b) => b.e < at)
-          if (i >= 0) {
-            select(blocks[i].s, { focus: false })
+          const block = blocks[i]
+          if (block) {
+            select(block.s, { focus: false })
             flyToBlock(i)
           }
           break
@@ -338,7 +339,7 @@ const Explorer = ({ data }: { data: UnicodeData }) => {
           break
         case "c": {
           if (chartRef.current) setChart(undefined)
-          else openChart(data.blockIdx[cur ?? centre()])
+          else openChart(data.blockIdx[cur ?? centre()] ?? -1)
           break
         }
         case "Escape":
@@ -381,7 +382,8 @@ const Explorer = ({ data }: { data: UnicodeData }) => {
           break
         default: {
           const n = parseInt(e.key, 10)
-          if (n >= 1 && n <= MODES.length) changeMode(MODES[n - 1].id)
+          const mode = MODES[n - 1]
+          if (mode) changeMode(mode.id)
           else return
         }
       }
@@ -493,7 +495,7 @@ const Explorer = ({ data }: { data: UnicodeData }) => {
         data={data}
         mode={mode}
         cp={selected}
-        here={chart ? { cp: chartAt ?? data.meta.blocks[chart.block].s, k: 60 } : here}
+        here={chart ? { cp: chartAt ?? data.blockAt(chart.block).s, k: 60 } : here}
         onPreview={previewRange}
         onSelect={(cp) => select(cp, { zoom: true })}
         onBlock={flyToBlock}

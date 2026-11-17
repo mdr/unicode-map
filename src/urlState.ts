@@ -30,9 +30,9 @@ export const readHash = (): UrlState => {
   const h = decodeURIComponent(location.hash.slice(1))
   const out: UrlState = {}
   for (const part of h.split("&")) {
-    const cpm = /^U\+([0-9A-Fa-f]{1,6})$/.exec(part)
-    if (cpm) {
-      const cp = parseInt(cpm[1], 16)
+    const cpDigits = /^U\+([0-9A-Fa-f]{1,6})$/.exec(part)?.[1]
+    if (cpDigits) {
+      const cp = parseInt(cpDigits, 16)
       if (cp <= 0x10ffff) out.cp = cp
       continue
     }
@@ -44,9 +44,9 @@ export const readHash = (): UrlState => {
     if (k === "mode" && v) out.mode = MODE_FROM_URL.get(v)
     if (k === "prop" && v) out.prop = v
     if (k === "asof" && v) out.asOf = v
-    if (k === "chart" && /^[0-9A-Fa-f]{1,6}$/.test(v ?? "")) out.chart = parseInt(v, 16)
-    if (k === "view") {
-      const [cx, cy, z] = (v ?? "").split(",").map(Number)
+    if (k === "chart" && v && /^[0-9A-Fa-f]{1,6}$/.test(v)) out.chart = parseInt(v, 16)
+    if (k === "view" && v) {
+      const [cx = NaN, cy = NaN, z = NaN] = v.split(",").map(Number)
       if ([cx, cy, z].every(Number.isFinite) && z > 0) out.view = { cx, cy, k: z }
     }
   }

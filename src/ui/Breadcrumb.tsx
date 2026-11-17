@@ -24,7 +24,8 @@ export const Breadcrumb = ({
   let cp: number | undefined = selected
   if (cp === undefined && here && here.k > 2.5 && here.cp >= 0) cp = here.cp
   const plane = cp !== undefined ? cp >> 16 : undefined
-  const bi = cp !== undefined ? data.blockIdx[cp] : -1
+  const bi = cp !== undefined ? (data.blockIdx[cp] ?? -1) : -1
+  const block = bi >= 0 ? data.blockAt(bi) : undefined
   // The chart section, once zoomed in far enough to see sections (or with a selection).
   const section =
     cp !== undefined && (selected !== undefined || (here?.k ?? 0) > 10) ? data.sectionRange(cp) : undefined
@@ -47,18 +48,16 @@ export const Breadcrumb = ({
           </button>
         </>
       )}
-      {bi >= 0 && (
+      {block && (
         <>
           <span className="sep">›</span>
           <button
             onClick={() => onBlock(bi)}
-            onMouseEnter={() =>
-              onPreview({ s: data.meta.blocks[bi].s, e: data.meta.blocks[bi].e, name: data.meta.blocks[bi].name })
-            }
+            onMouseEnter={() => onPreview({ s: block.s, e: block.e, name: block.name })}
             onMouseLeave={() => onPreview(undefined)}
           >
-            <span className="crumb-dot" style={{ background: data.meta.regions[data.meta.blocks[bi].region].color }} />
-            {data.meta.blocks[bi].name}
+            <span className="crumb-dot" style={{ background: data.regionOf(block).color }} />
+            {block.name}
           </button>
         </>
       )}

@@ -161,8 +161,7 @@ export default defineConfig({
       "typescript/no-require-imports": "error",
       "typescript/no-this-alias": "error",
       "typescript/no-unnecessary-boolean-literal-compare": "error",
-      // TODO: "error" with noUncheckedIndexedAccess; without it, guards on array lookups look unnecessary.
-      "typescript/no-unnecessary-condition": "off",
+      "typescript/no-unnecessary-condition": "error",
       "typescript/no-unnecessary-template-expression": "error",
       "typescript/no-unnecessary-type-arguments": "error",
       "typescript/no-unnecessary-type-assertion": "error",

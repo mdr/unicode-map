@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { hex, uplus, type UnicodeData } from "../data/unicode"
 import { type ColorMode, cpColor } from "../map/colorModes"
+import { required } from "../required"
 import { Glyph } from "./Glyph"
 
 /**
@@ -31,7 +32,7 @@ export const ChartView = ({
   onView: (cp: number) => void
   onClose: () => void
 }) => {
-  const b = data.meta.blocks[bi]
+  const b = required(data.meta.blocks[bi], "chart block")
   const first = b.s & ~15
   const cols = ((b.e | 15) - first + 1) / 16
   const sections = useMemo(() => data.meta.sections.filter(([s, e]) => s <= b.e && e >= b.s), [data, b])
@@ -200,7 +201,10 @@ export const ChartView = ({
     <div className="chart-view">
       <header className="chart-head">
         <div className="chart-title">
-          <span className="swatch" style={{ background: data.meta.regions[b.region].color }} />
+          <span
+            className="swatch"
+            style={{ background: required(data.meta.regions[b.region], "block region").color }}
+          />
           <h2>{b.name}</h2>
           <span className="muted mono small">
             {uplus(b.s)}–{uplus(b.e)}
@@ -295,16 +299,16 @@ const NamesList = ({
   onSelect: (cp: number) => void
   onHoverCp: (cp: number | undefined) => void
 }) => {
-  const b = data.meta.blocks[bi]
+  const b = required(data.meta.blocks[bi], "names list block")
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     ref.current?.querySelector(".names-row.selected")?.scrollIntoView({ block: "nearest" })
   }, [selected])
   const rows = []
   let si = 0
+  let sec = sections[si]
   for (let cp = b.s; cp <= b.e; cp++) {
-    while (si < sections.length && sections[si][1] < cp) si++
-    const sec = sections[si]
+    while (sec && sec[1] < cp) sec = sections[++si]
     if (sec?.[0] === cp)
       rows.push(
         <div key={`h${cp}`} className="names-head">

@@ -111,7 +111,7 @@ export const SearchBox = ({
                 </>
               ) : (
                 <>
-                  <span className="sr-glyph sr-block" style={{ background: data.meta.regions[r.block.region].color }}>
+                  <span className="sr-glyph sr-block" style={{ background: data.regionOf(r.block).color }}>
                     ▦
                   </span>
                   <span className="sr-main">

@@ -56,7 +56,7 @@ const Overview = ({ data, here, onPlane, onBlock, onPreview, onRange, onChart, c
   // Don't leave the map dimmed if this panel goes away under the pointer (e.g. on selecting).
   useEffect(() => () => onPreview(undefined), [onPreview])
   const plane = here && here.cp >= 0 && here.k > 1.6 ? here.cp >> 16 : undefined
-  const currentBlock = plane !== undefined && here!.k > 2.5 ? data.blockIdx[here!.cp] : -1
+  const currentBlock = plane !== undefined && here!.k > 2.5 ? (data.blockIdx[here!.cp] ?? -1) : -1
   /** The block whose "About" is open in the list. */
   const [aboutOpen, setAboutOpen] = useState<number>()
   const currentSection = currentBlock >= 0 && here!.k > 10 ? data.sectionRange(here!.cp) : undefined
@@ -69,10 +69,8 @@ const Overview = ({ data, here, onPlane, onBlock, onPreview, onRange, onChart, c
   const sectionsByBlock = useMemo(() => {
     const m = new Map<number, [number, number, string][]>()
     for (const sec of data.meta.sections) {
-      const b = data.blockIdx[sec[0]]
-      if (b < 0) continue
-      if (!m.has(b)) m.set(b, [])
-      m.get(b)!.push(sec)
+      const b = data.blockIdx[sec[0]] ?? -1
+      if (b >= 0) m.set(b, [...(m.get(b) ?? []), sec])
     }
     return m
   }, [data])
@@ -162,7 +160,7 @@ const Overview = ({ data, here, onPlane, onBlock, onPreview, onRange, onChart, c
                       onMouseEnter={() => onPreview({ s: b.s, e: b.e, name: b.name })}
                       onMouseLeave={() => onPreview(undefined)}
                     >
-                      <span className="swatch" style={{ background: data.meta.regions[b.region].color }} />
+                      <span className="swatch" style={{ background: data.regionOf(b).color }} />
                       <span className="block-name">{b.name}</span>
                       <span className="muted small mono">{hex(b.s)}</span>
                     </button>
@@ -201,7 +199,7 @@ const Overview = ({ data, here, onPlane, onBlock, onPreview, onRange, onChart, c
                   <div
                     key={`s${i}`}
                     className="section-list"
-                    style={{ borderColor: data.meta.regions[data.meta.blocks[i].region].color }}
+                    style={{ borderColor: data.regionOf(data.blockAt(i)).color }}
                   >
                     {secs.map(([a, e, title]) => (
                       <button
@@ -233,11 +231,11 @@ const Overview = ({ data, here, onPlane, onBlock, onPreview, onRange, onChart, c
 // A single code point
 
 const CodePointDetail = ({ data, mode, cp, onSelect, onBlock, onPlane, onClose, onChart }: Props & { cp: number }) => {
-  const [detail, setDetail] = useState<Detail | undefined>()
+  // Loaded for this code point; a code point can have no detail entry at all.
+  const [loaded, setLoaded] = useState<{ cp: number; detail: Detail | undefined }>()
   useEffect(() => {
     let live = true
-    setDetail(undefined)
-    void data.detail(cp).then((d) => live && setDetail(d))
+    void data.detail(cp).then((detail) => live && setLoaded({ cp, detail }))
     return () => {
       live = false
     }
@@ -248,11 +246,12 @@ const CodePointDetail = ({ data, mode, cp, onSelect, onBlock, onPlane, onClose, 
   const script = data.script(cp)
   const age = data.age(cp)
   const block = data.block(cp)
-  const blockIndex = data.blockIdx[cp]
+  const blockIndex = data.blockIdx[cp] ?? -1
   const region = data.region(cp)
   const plane = cp >> 16
   const vn = data.meta.valueNames
-  const d = detail ?? {}
+  const loading = loaded?.cp !== cp
+  const d = (loading ? undefined : loaded.detail) ?? {}
   const font = d.font !== undefined ? data.meta.fonts[d.font] : undefined
 
   return (
@@ -485,7 +484,7 @@ const CodePointDetail = ({ data, mode, cp, onSelect, onBlock, onPlane, onClose, 
             <Row label="Rendered with">
               {font ? (
                 font.family
-              ) : detail === undefined ? (
+              ) : loading ? (
                 "…"
               ) : (
                 <span className="muted">No Noto glyph — Last Resort placeholder</span>
@@ -496,7 +495,7 @@ const CodePointDetail = ({ data, mode, cp, onSelect, onBlock, onPlane, onClose, 
             <div className="chips text">
               {d.props.map((i) => (
                 <span key={i} className="chip prop">
-                  {data.meta.binaryProps[i].replace(/_/g, " ")}
+                  {data.meta.binaryProps[i]?.replace(/_/g, " ")}
                 </span>
               ))}
             </div>

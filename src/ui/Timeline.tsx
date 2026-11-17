@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { type UnicodeData, VERSION_YEARS } from "../data/unicode"
+import { required } from "../required"
 
 /**
  * Scrub through Unicode's history: the map shows only what had been encoded by the chosen version.
@@ -25,7 +26,10 @@ export const Timeline = ({
   // Characters added per version, and the blocks that first appeared in each.
   const stats = useMemo(() => {
     const added = new Array<number>(ages.length).fill(0)
-    for (let cp = 0; cp < data.ageIdx.length; cp++) if (data.isAssigned(cp)) added[data.ageIdx[cp]]++
+    for (let cp = 0; cp < data.ageIdx.length; cp++) {
+      const age = data.ageIdx[cp]!
+      if (data.isAssigned(cp)) added[age] = (added[age] ?? 0) + 1
+    }
     const total: number[] = []
     added.reduce((sum, n, i) => (total[i] = sum + n), 0)
     const newBlocks: { name: string; count: number }[][] = ages.map(() => [])
@@ -34,13 +38,14 @@ export const Timeline = ({
         n = 0
       for (let cp = b.s; cp <= b.e; cp++) {
         if (!data.isAssigned(cp)) continue
-        if (data.ageIdx[cp] < first) {
-          first = data.ageIdx[cp]
+        const age = data.ageIdx[cp]!
+        if (age < first) {
+          first = age
           n = 0
         }
-        if (data.ageIdx[cp] === first) n++
+        if (age === first) n++
       }
-      if (first !== Infinity) newBlocks[first].push({ name: b.name, count: n })
+      newBlocks[first]?.push({ name: b.name, count: n })
     }
     for (const nb of newBlocks) nb.sort((a, b) => b.count - a.count)
     return { added, total, newBlocks }
@@ -61,8 +66,8 @@ export const Timeline = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playing])
 
-  const version = ages[value]
-  const nb = stats.newBlocks[value]
+  const version = required(ages[value], `version ${value}`)
+  const nb = stats.newBlocks[value] ?? []
   const maxAdded = Math.max(...stats.added.slice(1))
 
   return (
@@ -120,7 +125,8 @@ export const Timeline = ({
           Unicode {version} <span className="tl-year">{VERSION_YEARS[version] ?? ""}</span>
         </span>
         <span className="tl-stat">
-          <b>{stats.total[value].toLocaleString()}</b> characters · <b>+{stats.added[value].toLocaleString()}</b> new
+          <b>{(stats.total[value] ?? 0).toLocaleString()}</b> characters ·{" "}
+          <b>+{(stats.added[value] ?? 0).toLocaleString()}</b> new
         </span>
         {nb.length > 0 && (
           <span className="tl-blocks" title={nb.map((b) => b.name).join(", ")}>

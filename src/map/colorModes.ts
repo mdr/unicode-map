@@ -1,4 +1,5 @@
 import { MAX_CP, type UnicodeData, VERSION_YEARS } from "../data/unicode"
+import { required } from "../required"
 
 export type RGB = [number, number, number]
 
@@ -54,7 +55,7 @@ export const PLANE_BG: RGB = [22, 26, 34]
 // Special values shared by all modes (value indices 0..3).
 const V_UNASSIGNED = 0
 const V_NONCHAR = 1
-const SPECIAL_COLORS: RGB[] = [PLANE_BG, [58, 31, 42]]
+const SPECIAL_COLORS: [RGB, RGB] = [PLANE_BG, [58, 31, 42]]
 const OFFSET = 2
 
 const hexToRgb = (h: string): RGB => {
@@ -155,7 +156,10 @@ const build = (
 
 const countBy = (data: UnicodeData, arr: Uint8Array | Int16Array, n: number): number[] => {
   const counts = new Array<number>(n).fill(0)
-  for (let cp = 0; cp < MAX_CP; cp++) if (data.gcIdx[cp] !== data.gcCn && arr[cp] >= 0) counts[arr[cp]]++
+  for (let cp = 0; cp < MAX_CP; cp++) {
+    const v = arr[cp]!
+    if (data.gcIdx[cp] !== data.gcCn && v >= 0) counts[v] = counts[v]! + 1
+  }
   return counts
 }
 
@@ -172,8 +176,8 @@ const regionColors = (data: UnicodeData): RGB[] => {
   regionColorCache = data.meta.blocks.map((b) => {
     const k = seen.get(b.region) ?? 0
     seen.set(b.region, k + 1)
-    const [dl, ds] = shades[k % shades.length]
-    return shade(hexToRgb(data.meta.regions[b.region].color), dl, ds)
+    const [dl, ds] = required(shades[k % shades.length], "region shade")
+    return shade(hexToRgb(required(data.meta.regions[b.region], "block region").color), dl, ds)
   })
   return regionColorCache
 }
@@ -189,10 +193,10 @@ const regionMode = (data: UnicodeData): ColorMode => {
       sublabel: `${values.length} blocks`,
       color: r.color,
       values,
-      count: values.reduce((n, i) => n + blocks[i].assigned, 0)
+      count: values.reduce((n, i) => n + required(blocks[i], "block").assigned, 0)
     }
   })
-  return build(data, ModeId.REGION, (cp) => data.blockIdx[cp], colors, [{ items }])
+  return build(data, ModeId.REGION, (cp) => data.blockIdx[cp]!, colors, [{ items }])
 }
 
 const GC_COLORS: Record<string, string> = {
@@ -237,10 +241,12 @@ const GC_GROUPS: [string, string][] = [
   ["C", "Other"]
 ]
 
+const gcColor = (code: string): string => GC_COLORS[code] ?? "#888888"
+
 const gcMode = (data: UnicodeData): ColorMode => {
   const gcs = data.meta.gc
   const counts = countBy(data, data.gcIdx, gcs.length)
-  const colors = gcs.map((g) => hexToRgb(GC_COLORS[g.code] ?? "#888888"))
+  const colors = gcs.map((g) => hexToRgb(gcColor(g.code)))
   const legend: LegendGroup[] = GC_GROUPS.map(([prefix, label]) => ({
     label,
     items: gcs
@@ -250,12 +256,12 @@ const gcMode = (data: UnicodeData): ColorMode => {
         key: g.code,
         label: g.name,
         sublabel: g.code,
-        color: GC_COLORS[g.code],
+        color: gcColor(g.code),
         values: [i],
-        count: counts[i]
+        count: required(counts[i], "category count")
       }))
   }))
-  return build(data, ModeId.GENERAL_CATEGORY, (cp) => data.gcIdx[cp], colors, legend)
+  return build(data, ModeId.GENERAL_CATEGORY, (cp) => data.gcIdx[cp]!, colors, legend)
 }
 
 const scriptMode = (data: UnicodeData): ColorMode => {
@@ -268,21 +274,23 @@ const scriptMode = (data: UnicodeData): ColorMode => {
     // Spread hues with the golden angle; vary lightness a little so neighbours differ.
     return hslToRgb(i * 137.508, 0.62, 0.5 + ((i % 3) - 1) * 0.08)
   })
+  const script = (i: number): UnicodeData["meta"]["scripts"][number] => required(scripts[i], "script")
+  const count = (i: number): number => required(counts[i], "script count")
   const order = scripts
     .map((_, i) => i)
-    .filter((i) => counts[i] > 0)
-    .sort((a, b) => counts[b] - counts[a])
+    .filter((i) => count(i) > 0)
+    .sort((a, b) => count(b) - count(a))
   const toItem = (i: number): LegendItem => ({
-    key: scripts[i].code,
-    label: scripts[i].name,
-    sublabel: scripts[i].code,
-    color: rgbToCss(colors[i]),
+    key: script(i).code,
+    label: script(i).name,
+    sublabel: script(i).code,
+    color: rgbToCss(required(colors[i], "script colour")),
     values: [i],
-    count: counts[i]
+    count: count(i)
   })
-  const shared = order.filter((i) => ["Zyyy", "Zinh"].includes(scripts[i].code))
-  const specific = order.filter((i) => !["Zyyy", "Zinh", "Zzzz"].includes(scripts[i].code))
-  return build(data, ModeId.SCRIPT, (cp) => data.scriptIdx[cp], colors, [
+  const shared = order.filter((i) => ["Zyyy", "Zinh"].includes(script(i).code))
+  const specific = order.filter((i) => !["Zyyy", "Zinh", "Zzzz"].includes(script(i).code))
+  return build(data, ModeId.SCRIPT, (cp) => data.scriptIdx[cp]!, colors, [
     { label: "Shared", items: shared.map(toItem) },
     { label: `Scripts (${specific.length})`, items: specific.map(toItem) }
   ])
@@ -293,9 +301,10 @@ const ramp = (t: number): RGB => {
   const x = t * (AGE_STOPS.length - 1)
   const i = Math.min(AGE_STOPS.length - 2, Math.floor(x))
   const f = x - i
-  const a = AGE_STOPS[i],
-    b = AGE_STOPS[i + 1]
-  return [0, 1, 2].map((k) => Math.round(a[k] + (b[k] - a[k]) * f)) as RGB
+  const a = required(AGE_STOPS[i], "age stop"),
+    b = required(AGE_STOPS[i + 1], "age stop")
+  const mix = (x: number, y: number): number => Math.round(x + (y - x) * f)
+  return [mix(a[0], b[0]), mix(a[1], b[1]), mix(a[2], b[2])]
 }
 
 const ageMode = (data: UnicodeData): ColorMode => {
@@ -311,11 +320,11 @@ const ageMode = (data: UnicodeData): ColorMode => {
       key: a,
       label: `Unicode ${a}`,
       sublabel: VERSION_YEARS[a] ? String(VERSION_YEARS[a]) : undefined,
-      color: rgbToCss(colors[i]),
+      color: rgbToCss(required(colors[i], "age colour")),
       values: [i],
-      count: counts[i]
+      count: required(counts[i], "age count")
     }))
-  return build(data, ModeId.AGE, (cp) => data.ageIdx[cp], colors, [{ items }])
+  return build(data, ModeId.AGE, (cp) => data.ageIdx[cp]!, colors, [{ items }])
 }
 
 const assignedMode = (data: UnicodeData): ColorMode => {
@@ -330,16 +339,20 @@ const assignedMode = (data: UnicodeData): ColorMode => {
     return 0
   }
   const counts = [0, 0, 0, 0]
-  for (let cp = 0; cp < MAX_CP; cp++) if (data.gcIdx[cp] !== data.gcCn) counts[value(cp)]++
+  for (let cp = 0; cp < MAX_CP; cp++)
+    if (data.gcIdx[cp] !== data.gcCn) {
+      const v = value(cp)
+      counts[v] = counts[v]! + 1
+    }
   return build(data, ModeId.ASSIGNED, value, colors, [
     {
       label: "Assigned",
       items: labels.map((label, i) => ({
         key: String(i),
         label,
-        color: rgbToCss(colors[i]),
+        color: rgbToCss(required(colors[i], "assigned colour")),
         values: [i],
-        count: counts[i]
+        count: required(counts[i], "assigned count")
       }))
     }
   ])
@@ -365,4 +378,5 @@ export const getMode = (data: UnicodeData, id: ModeId): ColorMode => {
 }
 
 /** Colour of a single code point in a mode, as CSS. */
-export const cpColor = (mode: ColorMode, cp: number): string => rgbToCss(mode.colors[mode.valueOf[cp]])
+export const cpColor = (mode: ColorMode, cp: number): string =>
+  rgbToCss(required(mode.colors[required(mode.valueOf[cp], "code point value")], "value colour"))

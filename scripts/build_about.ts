@@ -255,7 +255,8 @@ for (const [cp, pages] of [...candidates2].sort((a, b) => a[0] - b[0])) {
   const key = cp.toString(16).toUpperCase().padStart(4, "0")
   // With several, the one more characters share is the canonical article (A → "A", not a stray
   // link to a Cyrillic letter).
-  if (ok.length) chars[key] = entry(ok.sort((a, b) => sharedBy(b).size - sharedBy(a).size)[0])
+  const best = ok.sort((a, b) => sharedBy(b).size - sharedBy(a).size)[0]
+  if (best) chars[key] = entry(best)
   else
     dropped.push(`${key} ${pages.map((p) => `${p.title} (${p.description ?? "-"}; ${sharedBy(p).size})`).join(" | ")}`)
 }
