@@ -25,9 +25,25 @@ const mark = (sc: Scene, cp: CodePoint, color: string, width: number, strong: bo
     ctx.stroke()
     return
   }
+  if (!strong) {
+    ctx.strokeStyle = color
+    ctx.lineWidth = width
+    ctx.strokeRect(x + width / 2, y + width / 2, k - width, k - width)
+    return
+  }
+  // The selection: a ring just outside the card, thicker as cards grow, over a dark halo so it
+  // stands out against any card colour and the white block outlines.
+  const w = clamp(k * 0.05, width, 5)
+  const out = w * 0.6
+  const path = new Path2D()
+  path.roundRect(x - out, y - out, k + 2 * out, k + 2 * out, Math.min(8, k * 0.12))
+  ctx.lineJoin = "round"
+  ctx.strokeStyle = "rgba(0, 0, 0, 0.75)"
+  ctx.lineWidth = w + 4
+  ctx.stroke(path)
   ctx.strokeStyle = color
-  ctx.lineWidth = width
-  ctx.strokeRect(x + width / 2, y + width / 2, k - width, k - width)
+  ctx.lineWidth = w
+  ctx.stroke(path)
 }
 
 /** Rings around the few matches of a sparse highlight, at low zoom. */
