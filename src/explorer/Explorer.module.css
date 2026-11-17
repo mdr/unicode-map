@@ -1,0 +1,89 @@
+/* Top bar ------------------------------------------------------------------ */
+.topBar {
+  position: absolute;
+  top: 28px;
+  left: 70px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.topBar > * {
+  pointer-events: auto;
+}
+
+.brand {
+  flex: none;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px 6px 6px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  backdrop-filter: blur(12px);
+}
+
+.brandMark {
+  font: 700 13px var(--mono);
+  background: linear-gradient(135deg, #5b8def, #b58ad6 50%, #e2607f);
+  color: white;
+  border-radius: 7px;
+  padding: 6px 7px;
+}
+
+.brandTitle {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.brandSub {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+:global(.legend),
+.topBar {
+  transition: opacity 0.25s;
+}
+
+/* Pure view ----------------------------------------------------------------- */
+:global(.app):global(.pure) .topBar,
+:global(.app):global(.pure) :global(.legend),
+:global(.app):global(.pure) :global(.map-controls),
+:global(.app):global(.pure) :global(.timeline),
+:global(.app):global(.pure) :global(.detail) {
+  display: none;
+}
+
+.pureHint {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(11, 14, 20, 0.85);
+  border: 1px solid var(--panel-border);
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s;
+}
+
+.pureHint:global(.show) {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+:global(.app).charting .topBar,
+:global(.app).charting :global(.legend),
+:global(.app).charting :global(.map-controls),
+:global(.app).charting :global(.timeline) {
+  display: none;
+}

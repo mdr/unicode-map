@@ -1,0 +1,436 @@
+:global(.swatch).inline {
+  display: inline-block;
+  vertical-align: -1px;
+  width: 10px;
+  height: 10px;
+}
+
+.cpHero {
+  position: relative;
+  padding: 22px 22px 16px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 22%, transparent), transparent);
+  border-top: 3px solid var(--accent);
+}
+
+.cpHero .close {
+  position: absolute;
+  right: 12px;
+  top: 10px;
+  font-size: 22px;
+  color: var(--muted);
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+}
+
+.cpHero .close:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.cpGlyph {
+  height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 104px;
+  line-height: 1;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 12px;
+  border: 1px solid var(--panel-border);
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+
+.cpId {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cpUplus {
+  font-size: 15px;
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.cpName {
+  font-size: 17px;
+  font-weight: 650;
+  margin: 4px 0 2px;
+  letter-spacing: 0.01em;
+  word-break: break-word;
+}
+
+.cpSection {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.cpNav {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 12px;
+}
+
+.cpNav button {
+  font: 11px var(--mono);
+  color: var(--muted);
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--panel-border);
+}
+
+.cpNav button:hover {
+  color: var(--text);
+  background: var(--hover);
+}
+
+.rows {
+  margin: 0;
+}
+
+.callout {
+  margin: 0 22px 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--panel-border);
+  color: var(--muted);
+}
+
+.callout b {
+  color: var(--text);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 8px;
+}
+
+.chip {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 12px;
+}
+
+.chip.prop {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.notes {
+  margin: 6px 0 8px;
+  padding-left: 18px;
+  color: var(--text);
+}
+
+.notes li {
+  margin: 2px 0;
+}
+
+.related {
+  margin-bottom: 6px;
+}
+
+.relatedLabel {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.charChip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  padding: 4px 10px 4px 4px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--panel-border);
+  text-align: left;
+}
+
+.charChip:hover {
+  border-color: rgba(124, 180, 255, 0.5);
+  background: rgba(124, 180, 255, 0.08);
+}
+
+.charChip .ccGlyph {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 19px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 5px;
+  flex: none;
+}
+
+.ccText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-size: 11px;
+}
+
+.ccText :global(.mono) {
+  color: var(--accent);
+}
+
+.ccName {
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 260px;
+}
+
+.unihanDef {
+  font-size: 15px;
+  margin: 0 0 8px;
+}
+
+.cpLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.cpLinks a {
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  text-decoration: none;
+  color: var(--muted);
+  border: 1px solid var(--panel-border);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.cpLinks a:hover {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+/* Overview */
+.ovHero {
+  padding: 24px 22px 12px;
+}
+
+.ovTitle {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.ovHero p {
+  margin: 6px 0;
+}
+
+.ovHero b {
+  color: var(--text);
+}
+
+.planeList,
+.blockList {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0 -8px 10px;
+}
+
+.planeRow,
+.blockRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  text-align: left;
+}
+
+.planeRow:hover,
+.blockRow:hover {
+  background: var(--hover);
+}
+
+.planeRow:global(.current),
+.blockRow:global(.current) {
+  background: rgba(124, 180, 255, 0.12);
+}
+
+.planeNum {
+  width: 20px;
+  font: 600 12px var(--mono);
+  color: var(--muted);
+  text-align: right;
+}
+
+.planeName {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.planeBar {
+  width: 60px;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.planeBar span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #5b8def, #b58ad6);
+}
+
+.planeCount {
+  width: 56px;
+  text-align: right;
+  font: 11px var(--mono);
+  color: var(--muted);
+}
+
+.planeGrid {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.planeTile {
+  position: relative;
+  overflow: hidden;
+  height: 28px;
+  border-radius: 6px;
+  font: 600 11.5px var(--mono);
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--panel-border);
+}
+
+.planeTile:hover {
+  color: var(--text);
+  background: var(--hover);
+}
+
+.planeTile:global(.empty) {
+  color: var(--faint);
+  background: transparent;
+}
+
+.planeTile:global(.current) {
+  color: var(--text);
+  border-color: rgba(124, 180, 255, 0.6);
+  background: rgba(124, 180, 255, 0.14);
+}
+
+.planeTileFill {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #5b8def, #b58ad6);
+}
+
+.sectionList {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 2px 0 6px 14px;
+  padding-left: 8px;
+  border-left: 2px solid;
+}
+
+.sectionRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  text-align: left;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.sectionRow:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.sectionRow:global(.current) {
+  background: rgba(124, 180, 255, 0.12);
+  color: var(--text);
+}
+
+.blockName {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.blockItem {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.blockItem .blockRow {
+  padding-right: 58px;
+}
+
+.infoBtn {
+  position: absolute;
+  right: 2px;
+  top: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font:
+    italic 600 12px Georgia,
+    serif;
+  color: var(--muted);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.blockItem:hover .infoBtn,
+.blockItem:global(.open) .infoBtn,
+.infoBtn:focus-visible {
+  opacity: 1;
+}
+
+.infoBtn:hover,
+.blockItem:global(.open) .infoBtn {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.blockAbout {
+  margin: 4px 0 8px 8px;
+}
+
+.infoBtn.chartBtn {
+  right: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+}
+
+.blockItem .infoBtn.chartBtn:global(.on) {
+  opacity: 1;
+  color: var(--text);
+  background: rgba(124, 180, 255, 0.18);
+}

@@ -1,6 +1,7 @@
 import { planeName, uplus, type UnicodeData } from "../data/unicode"
 import type { Here } from "../map/MapView"
 import type { CodePoint, Plane, BlockIndex } from "../units"
+import styles from "./Breadcrumb.module.css"
 
 export const Breadcrumb = ({
   data,
@@ -31,11 +32,11 @@ export const Breadcrumb = ({
   const section =
     cp !== undefined && (selected !== undefined || (here?.k ?? 0) > 10) ? data.sectionRange(cp) : undefined
   return (
-    <nav className="breadcrumb">
+    <nav className={styles.breadcrumb}>
       <button onClick={onOverview}>All planes</button>
       {plane !== undefined && (
         <>
-          <span className="sep">›</span>
+          <span className={styles.sep}>›</span>
           <button
             onClick={() => onPlane(plane)}
             title={planeName(plane)[0]}
@@ -51,23 +52,23 @@ export const Breadcrumb = ({
       )}
       {block && (
         <>
-          <span className="sep">›</span>
+          <span className={styles.sep}>›</span>
           <button
             onClick={() => onBlock(bi)}
             onMouseEnter={() => onPreview({ s: block.s, e: block.e, name: block.name })}
             onMouseLeave={() => onPreview(undefined)}
           >
-            <span className="crumb-dot" style={{ background: data.regionOf(block).color }} />
+            <span className={styles.crumbDot} style={{ background: data.regionOf(block).color }} />
             {block.name}
           </button>
         </>
       )}
       {section && (
         <>
-          <span className="sep">›</span>
+          <span className={styles.sep}>›</span>
           <button
             onClick={() => onRange(section[0], section[1])}
-            className="crumb-section"
+            className={styles.crumbSection}
             onMouseEnter={() => onPreview({ s: section[0], e: section[1], name: section[2] })}
             onMouseLeave={() => onPreview(undefined)}
           >
@@ -77,8 +78,8 @@ export const Breadcrumb = ({
       )}
       {selected !== undefined && (
         <>
-          <span className="sep">›</span>
-          <span className="crumb-current mono">{uplus(selected)}</span>
+          <span className={styles.sep}>›</span>
+          <span className={`${styles.crumbCurrent} mono`}>{uplus(selected)}</span>
         </>
       )}
     </nav>

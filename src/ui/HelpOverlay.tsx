@@ -1,3 +1,4 @@
+import styles from "./HelpOverlay.module.css"
 const KEYS: [string, string][] = [
   ["Drag / two-finger scroll", "Pan"],
   ["Pinch / mouse wheel", "Zoom"],
@@ -22,14 +23,14 @@ const KEYS: [string, string][] = [
 
 export const HelpOverlay = ({ onClose }: { onClose: () => void }) => (
   <div
-    className="help-backdrop"
+    className={styles.helpBackdrop}
     role="presentation"
     onClick={(e) => {
       if (e.target === e.currentTarget) onClose()
     }}
   >
-    <div className="help panel">
-      <div className="help-title">Getting around</div>
+    <div className={`${styles.help} panel`}>
+      <div className={styles.helpTitle}>Getting around</div>
       <dl>
         {KEYS.map(([k, v]) => (
           <div key={k}>

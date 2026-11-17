@@ -1,4 +1,5 @@
 import { hex, uplus, type Block, type UnicodeData } from "../../data/unicode"
+import styles from "./chart.module.css"
 
 export const ChartHeader = ({
   data,
@@ -15,8 +16,8 @@ export const ChartHeader = ({
   onZoom: (factor: number) => void
   onClose: () => void
 }) => (
-  <header className="chart-head">
-    <div className="chart-title">
+  <header className={styles.chartHead}>
+    <div className={styles.chartTitle}>
       <span className="swatch" style={{ background: data.regionOf(block).color }} />
       <h2>{block.name}</h2>
       <span className="muted mono small">
@@ -27,7 +28,7 @@ export const ChartHeader = ({
         {sectionCount > 1 && ` · ${sectionCount} sections`}
       </span>
     </div>
-    <div className="chart-actions">
+    <div className={styles.chartActions}>
       <button title="Smaller" onClick={() => onZoom(1 / 1.25)}>
         −
       </button>
@@ -42,7 +43,7 @@ export const ChartHeader = ({
       >
         Official chart ↗
       </a>
-      <button className="chart-close" title="Back to the map (Esc)" onClick={onClose}>
+      <button className={styles.chartClose} title="Back to the map (Esc)" onClick={onClose}>
         Back to map
       </button>
     </div>

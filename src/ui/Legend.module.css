@@ -1,0 +1,145 @@
+.modeTabs {
+  display: flex;
+  padding: 4px;
+  gap: 2px;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.modeTabs button {
+  flex: 1;
+  padding: 6px 0;
+  border-radius: 6px;
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 12px;
+}
+
+.modeTabs button:hover {
+  color: var(--text);
+  background: var(--hover);
+}
+
+.modeTabs button:global(.active) {
+  background: rgba(124, 180, 255, 0.16);
+  color: var(--text);
+}
+
+.legendHead {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 8px 12px 4px;
+}
+
+.legendDesc {
+  color: var(--muted);
+  font-size: 11.5px;
+  flex: 1;
+}
+
+:global(.legend).collapsed {
+  width: auto;
+}
+
+:global(.legend).collapsed .modeTabs {
+  border-bottom: 0;
+}
+
+:global(.legend).collapsed .modeTabs button {
+  flex: none;
+  padding: 6px 9px;
+}
+
+.modeTabs .legendToggle {
+  flex: none;
+  width: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+:global(.legend).collapsed .modeTabs .legendToggle {
+  padding: 6px 0;
+  width: 28px;
+}
+
+.legendFilter {
+  margin: 4px 10px;
+  padding: 6px 9px;
+  border-radius: 6px;
+  border: 1px solid var(--panel-border);
+  background: rgba(0, 0, 0, 0.25);
+  outline: none;
+}
+
+.legendPins {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 12px;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.legendBody {
+  overflow-y: auto;
+  padding: 2px 6px 8px;
+}
+
+.legendGroupLabel {
+  color: var(--faint);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 8px 6px 3px;
+  font-weight: 600;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 6px;
+  border-radius: 6px;
+  text-align: left;
+}
+
+.legendItem:hover {
+  background: var(--hover);
+}
+
+.legendItem.pinned {
+  background: rgba(124, 180, 255, 0.14);
+}
+
+.legendLabel {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.legendSub {
+  color: var(--faint);
+  margin-left: 6px;
+  font-size: 11px;
+}
+
+.legendCount {
+  color: var(--muted);
+  font: 11px var(--mono);
+}
+
+:global(.detail-scroll)::-webkit-scrollbar,
+.legendBody::-webkit-scrollbar,
+:global(.search-results)::-webkit-scrollbar {
+  width: 8px;
+}
+
+:global(.detail-scroll)::-webkit-scrollbar-thumb,
+.legendBody::-webkit-scrollbar-thumb,
+:global(.search-results)::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}

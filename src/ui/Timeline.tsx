@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { type UnicodeData, VERSION_YEARS } from "../data/unicode"
 import { versionStats } from "../data/versionStats"
 import { required } from "../required"
+import styles from "./Timeline.module.css"
 
 /**
  * Scrub through Unicode's history: the map shows only what had been encoded by the chosen version.
@@ -47,9 +48,9 @@ export const Timeline = ({
 
   return (
     <div className="timeline panel">
-      <div className="tl-row">
+      <div className={styles.tlRow}>
         <button
-          className="tl-play"
+          className={styles.tlPlay}
           onClick={() => setPlaying((p) => !p)}
           title={playing ? "Pause" : "Play from the start"}
         >
@@ -67,8 +68,8 @@ export const Timeline = ({
             </svg>
           )}
         </button>
-        <div className="tl-track">
-          <div className="tl-bars" aria-hidden>
+        <div className={styles.tlTrack}>
+          <div className={styles.tlBars} aria-hidden>
             {stats.added.slice(1).map((n, i) => (
               <span
                 key={i}
@@ -91,20 +92,20 @@ export const Timeline = ({
             aria-label="Unicode version"
           />
         </div>
-        <button className="tl-close link" onClick={onClose} title="Close the timeline (t)">
+        <button className={`${styles.tlClose} link`} onClick={onClose} title="Close the timeline (t)">
           ×
         </button>
       </div>
-      <div className="tl-info">
-        <span className="tl-version">
-          Unicode {version} <span className="tl-year">{VERSION_YEARS[version] ?? ""}</span>
+      <div className={styles.tlInfo}>
+        <span className={styles.tlVersion}>
+          Unicode {version} <span className={styles.tlYear}>{VERSION_YEARS[version] ?? ""}</span>
         </span>
-        <span className="tl-stat">
+        <span className={styles.tlStat}>
           <b>{(stats.total[value] ?? 0).toLocaleString()}</b> characters ·{" "}
           <b>+{(stats.added[value] ?? 0).toLocaleString()}</b> new
         </span>
         {nb.length > 0 && (
-          <span className="tl-blocks" title={nb.map((b) => b.name).join(", ")}>
+          <span className={styles.tlBlocks} title={nb.map((b) => b.name).join(", ")}>
             New blocks:{" "}
             {nb
               .slice(0, 3)

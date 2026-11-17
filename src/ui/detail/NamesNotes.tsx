@@ -2,6 +2,7 @@ import type { Detail, UnicodeData } from "../../data/unicode"
 import { Section, Rows, Row } from "./Rows"
 import { Linkified } from "./Linkified"
 import type { CodePoint } from "../../units"
+import styles from "./detail.module.css"
 
 const ALIAS_LABELS: Record<string, string> = {
   correction: "Corrected name",
@@ -44,16 +45,16 @@ export const NamesNotes = ({
         </Rows>
       )}
       {d.alsoKnownAs && (
-        <div className="chips text">
+        <div className={`${styles.chips} text`}>
           {d.alsoKnownAs.map((a) => (
-            <span key={a} className="chip">
+            <span key={a} className={styles.chip}>
               {a}
             </span>
           ))}
         </div>
       )}
       {d.notes && (
-        <ul className="notes">
+        <ul className={styles.notes}>
           {d.notes.map((n) => (
             <li key={n}>
               <Linkified text={n} data={data} onSelect={onSelect} />
@@ -62,7 +63,7 @@ export const NamesNotes = ({
         </ul>
       )}
       {d.variations && (
-        <ul className="notes">
+        <ul className={styles.notes}>
           {d.variations.map((n) => (
             <li key={n}>
               <Linkified text={n} data={data} onSelect={onSelect} />

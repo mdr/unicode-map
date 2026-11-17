@@ -4,6 +4,7 @@ import { AboutCards, blockScript } from "../About"
 import { Section } from "./Rows"
 import { ChartIcon } from "./ChartIcon"
 import type { DetailProps } from "./detailProps"
+import styles from "./detail.module.css"
 
 export const Overview = ({ data, here, onPlane, onBlock, onPreview, onRange, onChart, chartBlock }: DetailProps) => {
   const planeStats = useMemo(
@@ -26,7 +27,9 @@ export const Overview = ({ data, here, onPlane, onBlock, onPreview, onRange, onC
   // Keep the block you're in visible in the list as you move between blocks.
   const listRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    listRef.current?.querySelector(".block-row.current")?.scrollIntoView({ block: "start", behavior: "smooth" })
+    listRef.current
+      ?.querySelector(`.${styles.blockRow}.current`)
+      ?.scrollIntoView({ block: "start", behavior: "smooth" })
   }, [currentBlock])
   /** Chart sections per block, for the current block's row to expand into. */
   const sectionsByBlock = useMemo(() => {
@@ -40,8 +43,8 @@ export const Overview = ({ data, here, onPlane, onBlock, onPreview, onRange, onC
   return (
     <div className="detail-scroll">
       {plane === undefined && (
-        <div className="ov-hero">
-          <div className="ov-title">The Unicode code space</div>
+        <div className={styles.ovHero}>
+          <div className={styles.ovTitle}>The Unicode code space</div>
           <p className="muted">
             {MAX_CP.toLocaleString()} code points in 17 planes. Unicode {data.meta.version} assigns{" "}
             <b>{total.toLocaleString()}</b> of them across <b>{data.meta.blocks.length}</b> blocks and{" "}
@@ -55,11 +58,11 @@ export const Overview = ({ data, here, onPlane, onBlock, onPreview, onRange, onC
       <Section title="Planes">
         {plane !== undefined ? (
           // Inside a plane, the planes shrink to a row of numbered tiles, leaving room for its blocks.
-          <div className="plane-grid">
+          <div className={styles.planeGrid}>
             {planeStats.map((n, p) => (
               <button
                 key={p}
-                className={`plane-tile ${plane === p ? "current" : ""} ${n ? "" : "empty"}`}
+                className={`${styles.planeTile} ${plane === p ? "current" : ""} ${n ? "" : "empty"}`}
                 title={`Plane ${p}: ${planeName(p)[0]} · ${n ? `${n.toLocaleString()} assigned` : "nothing assigned"}`}
                 onClick={() => {
                   onPreview(undefined)
@@ -71,16 +74,16 @@ export const Overview = ({ data, here, onPlane, onBlock, onPreview, onRange, onC
                 onMouseLeave={() => onPreview(undefined)}
               >
                 {p}
-                <span className="plane-tile-fill" style={{ width: `${(n / 65536) * 100}%` }} />
+                <span className={styles.planeTileFill} style={{ width: `${(n / 65536) * 100}%` }} />
               </button>
             ))}
           </div>
         ) : (
-          <div className="plane-list">
+          <div className={styles.planeList}>
             {planeStats.map((n, p) => (
               <button
                 key={p}
-                className="plane-row"
+                className={styles.planeRow}
                 onClick={() => {
                   onPreview(undefined)
                   onPlane(p)
@@ -90,18 +93,18 @@ export const Overview = ({ data, here, onPlane, onBlock, onPreview, onRange, onC
                 }
                 onMouseLeave={() => onPreview(undefined)}
               >
-                <span className="plane-num">{p}</span>
-                <span className="plane-name">
+                <span className={styles.planeNum}>{p}</span>
+                <span className={styles.planeName}>
                   {planeName(p)[0]}
                   <span className="muted small mono">
                     {" "}
                     {hex(p << 16)}–{hex((p << 16) | 0xffff)}
                   </span>
                 </span>
-                <span className="plane-bar">
+                <span className={styles.planeBar}>
                   <span style={{ width: `${(n / 65536) * 100}%` }} />
                 </span>
-                <span className="plane-count">{n ? n.toLocaleString() : "—"}</span>
+                <span className={styles.planeCount}>{n ? n.toLocaleString() : "—"}</span>
               </button>
             ))}
           </div>
@@ -109,13 +112,13 @@ export const Overview = ({ data, here, onPlane, onBlock, onPreview, onRange, onC
       </Section>
       {plane !== undefined && (
         <Section title={`Blocks in plane ${plane} · ${planeName(plane)[0]}`}>
-          <div className="block-list" ref={listRef}>
+          <div className={styles.blockList} ref={listRef}>
             {data.meta.blocks
               .map((b, i) =>
                 b.s >> 16 === plane ? (
-                  <div key={i} className={`block-item ${aboutOpen === i ? "open" : ""}`}>
+                  <div key={i} className={`${styles.blockItem} ${aboutOpen === i ? "open" : ""}`}>
                     <button
-                      className={`block-row ${currentBlock === i ? "current" : ""}`}
+                      className={`${styles.blockRow} ${currentBlock === i ? "current" : ""}`}
                       onClick={() => {
                         onPreview(undefined)
                         onBlock(i)
@@ -124,18 +127,18 @@ export const Overview = ({ data, here, onPlane, onBlock, onPreview, onRange, onC
                       onMouseLeave={() => onPreview(undefined)}
                     >
                       <span className="swatch" style={{ background: data.regionOf(b).color }} />
-                      <span className="block-name">{b.name}</span>
+                      <span className={styles.blockName}>{b.name}</span>
                       <span className="muted small mono">{hex(b.s)}</span>
                     </button>
                     <button
-                      className={`info-btn chart-btn ${chartBlock === i ? "on" : ""}`}
+                      className={`${styles.infoBtn} ${styles.chartBtn} ${chartBlock === i ? "on" : ""}`}
                       title={`Open ${b.name} as a code chart (c)`}
                       onClick={() => onChart(i)}
                     >
                       <ChartIcon />
                     </button>
                     <button
-                      className="info-btn"
+                      className={styles.infoBtn}
                       title={`About ${b.name}`}
                       aria-expanded={aboutOpen === i}
                       onClick={() => setAboutOpen(aboutOpen === i ? undefined : i)}
@@ -149,7 +152,7 @@ export const Overview = ({ data, here, onPlane, onBlock, onPreview, onRange, onC
                 if (!row) return []
                 const about =
                   aboutOpen === i ? (
-                    <div key={`a${i}`} className="block-about">
+                    <div key={`a${i}`} className={styles.blockAbout}>
                       <AboutCards data={data} script={blockScript(data, i)} block={i} />
                     </div>
                   ) : undefined
@@ -161,13 +164,13 @@ export const Overview = ({ data, here, onPlane, onBlock, onPreview, onRange, onC
                   ...(about ? [about] : []),
                   <div
                     key={`s${i}`}
-                    className="section-list"
+                    className={styles.sectionList}
                     style={{ borderColor: data.regionOf(data.blockAt(i)).color }}
                   >
                     {secs.map(([a, e, title]) => (
                       <button
                         key={a}
-                        className={`section-row ${currentSection?.[0] === a ? "current" : ""}`}
+                        className={`${styles.sectionRow} ${currentSection?.[0] === a ? "current" : ""}`}
                         title={title}
                         onClick={() => {
                           onPreview(undefined)
@@ -176,7 +179,7 @@ export const Overview = ({ data, here, onPlane, onBlock, onPreview, onRange, onC
                         onMouseEnter={() => onPreview({ s: a, e, name: title })}
                         onMouseLeave={() => onPreview(undefined)}
                       >
-                        <span className="block-name">{title}</span>
+                        <span className={styles.blockName}>{title}</span>
                         <span className="muted small mono">{hex(a)}</span>
                       </button>
                     ))}

@@ -3,6 +3,7 @@ import { hex, type UnicodeData } from "../../data/unicode"
 import { required } from "../../required"
 import { Glyph } from "../Glyph"
 import type { CodePoint, BlockIndex } from "../../units"
+import styles from "./chart.module.css"
 
 /** The block's characters by name, grouped under their sections, like a code chart's names list. */
 export const NamesList = ({
@@ -25,7 +26,7 @@ export const NamesList = ({
   const b = required(data.meta.blocks[bi], "names list block")
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    ref.current?.querySelector(".names-row.selected")?.scrollIntoView({ block: "nearest" })
+    ref.current?.querySelector(`.${styles.namesRow}.${styles.selected}`)?.scrollIntoView({ block: "nearest" })
   }, [selected])
   const rows = []
   let si = 0
@@ -35,7 +36,7 @@ export const NamesList = ({
     // A section's heading goes at its start, or at the block's start if it began before it.
     if (sec && (sec[0] === cp || (cp === b.s && sec[0] < cp)))
       rows.push(
-        <div key={`h${cp}`} className="names-head">
+        <div key={`h${cp}`} className={styles.namesHead}>
           {sec[2]}
         </div>
       )
@@ -43,19 +44,19 @@ export const NamesList = ({
     rows.push(
       <button
         key={cp}
-        className={`names-row ${cp === selected ? "selected" : ""}`}
+        className={`${styles.namesRow} ${cp === selected ? styles.selected : ""}`}
         onClick={() => onSelect(cp)}
         onMouseEnter={() => onHoverCp(cp)}
         onMouseLeave={() => onHoverCp(undefined)}
       >
-        <span className="names-hex">{hex(cp)}</span>
-        <Glyph data={data} cp={cp} className="names-glyph" />
-        <span className="names-name">{data.name(cp)}</span>
+        <span className={styles.namesHex}>{hex(cp)}</span>
+        <Glyph data={data} cp={cp} className={styles.namesGlyph} />
+        <span className={styles.namesName}>{data.name(cp)}</span>
       </button>
     )
   }
   return (
-    <div className="names-list" style={style} ref={ref}>
+    <div className={styles.namesList} style={style} ref={ref}>
       {rows}
     </div>
   )

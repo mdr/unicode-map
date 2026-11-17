@@ -1,0 +1,134 @@
+/* Property highlight ------------------------------------------------------- */
+.pf {
+  position: relative;
+  flex: none;
+}
+
+.pfButton {
+  display: flex;
+  align-items: center;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  backdrop-filter: blur(12px);
+  color: var(--muted);
+  max-width: 300px;
+}
+
+.pfButton:global(.on) {
+  border-color: rgba(124, 180, 255, 0.55);
+  color: var(--text);
+  background: rgba(40, 62, 98, 0.85);
+}
+
+.pfButton:not(:global(.on)) :global(.pf-open):hover {
+  color: var(--text);
+}
+
+.pfValue {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pfGroup {
+  color: var(--muted);
+}
+
+.pfClear {
+  padding: 6px 10px 6px 2px;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--muted);
+}
+
+.pfClear:hover {
+  color: var(--text);
+}
+
+.pfPop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 340px;
+  background: var(--panel-solid);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+}
+
+.pfInput {
+  padding: 8px 10px;
+  margin-bottom: 4px;
+  border-radius: 7px;
+  border: 1px solid var(--panel-border);
+  background: rgba(0, 0, 0, 0.25);
+  outline: none;
+}
+
+.pfInput:focus {
+  border-color: rgba(124, 180, 255, 0.6);
+}
+
+.pfList {
+  max-height: min(60vh, 460px);
+  overflow-y: auto;
+}
+
+.pfHead {
+  color: var(--faint);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 9px 8px 3px;
+  font-weight: 600;
+}
+
+.pfItem {
+  display: flex;
+  width: 100%;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  text-align: left;
+}
+
+.pfItem:global(.active) {
+  background: rgba(124, 180, 255, 0.14);
+}
+
+.pfItem:global(.current) .pfLabel {
+  color: var(--accent);
+}
+
+.pfLabel {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pfCount {
+  color: var(--muted);
+  font: 11px var(--mono);
+}
+
+.pfEmpty {
+  padding: 10px;
+  color: var(--muted);
+}
+
+.pfList::-webkit-scrollbar {
+  width: 8px;
+}
+
+.pfList::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+}

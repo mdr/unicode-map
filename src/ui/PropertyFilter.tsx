@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { loadProps, type PropOption } from "../data/props"
+import styles from "./PropertyFilter.module.css"
 
 /** "Highlight characters with a property": a button that opens a searchable list of properties. */
 export const PropertyFilter = ({
@@ -45,7 +46,7 @@ export const PropertyFilter = ({
 
   useEffect(() => setActive(0), [q])
   useEffect(() => {
-    list.current?.querySelector(".pf-item.active")?.scrollIntoView({ block: "nearest" })
+    list.current?.querySelector(`.${styles.pfItem}.active`)?.scrollIntoView({ block: "nearest" })
   }, [active])
 
   const pick = (o: PropOption) => {
@@ -66,8 +67,8 @@ export const PropertyFilter = ({
 
   let lastGroup = ""
   return (
-    <div className="pf" ref={root}>
-      <div className={`pf-button ${value ? "on" : ""}`}>
+    <div className={styles.pf} ref={root}>
+      <div className={`${styles.pfButton} ${value ? "on" : ""}`}>
         <button className="pf-open" onClick={() => setOpen((o) => !o)} title="Highlight characters with a property (p)">
           <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden>
             <path
@@ -79,47 +80,47 @@ export const PropertyFilter = ({
             />
           </svg>
           {value ? (
-            <span className="pf-value">
-              {value.group !== "Binary properties" && <span className="pf-group">{value.group}:</span>}
+            <span className={styles.pfValue}>
+              {value.group !== "Binary properties" && <span className={styles.pfGroup}>{value.group}:</span>}
               {value.label}
-              <span className="pf-count">{value.count.toLocaleString()}</span>
+              <span className={styles.pfCount}>{value.count.toLocaleString()}</span>
             </span>
           ) : (
             <span>Highlight</span>
           )}
         </button>
         {value && (
-          <button className="pf-clear" title="Clear highlight" onClick={() => onChange(undefined)}>
+          <button className={styles.pfClear} title="Clear highlight" onClick={() => onChange(undefined)}>
             ×
           </button>
         )}
       </div>
       {open && (
-        <div className="pf-pop panel">
+        <div className={`${styles.pfPop} panel`}>
           <input
             ref={input}
             id="property-input"
-            className="pf-input"
+            className={styles.pfInput}
             placeholder="Emoji, Math, Dash, Right To Left, Wide…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={onKey}
           />
-          <div className="pf-list" ref={list}>
-            {!options && <div className="pf-empty">Loading…</div>}
-            {options && !filtered.length && <div className="pf-empty">No matching properties</div>}
+          <div className={styles.pfList} ref={list}>
+            {!options && <div className={styles.pfEmpty}>Loading…</div>}
+            {options && !filtered.length && <div className={styles.pfEmpty}>No matching properties</div>}
             {filtered.map((o, i) => {
               const head = o.group !== lastGroup ? (lastGroup = o.group) : undefined
               return (
                 <div key={o.key}>
-                  {head && <div className="pf-head">{head}</div>}
+                  {head && <div className={styles.pfHead}>{head}</div>}
                   <button
-                    className={`pf-item ${i === active ? "active" : ""} ${value?.key === o.key ? "current" : ""}`}
+                    className={`${styles.pfItem} ${i === active ? "active" : ""} ${value?.key === o.key ? "current" : ""}`}
                     onMouseEnter={() => setActive(i)}
                     onClick={() => pick(o)}
                   >
-                    <span className="pf-label">{o.label}</span>
-                    <span className="pf-count">{o.count.toLocaleString()}</span>
+                    <span className={styles.pfLabel}>{o.label}</span>
+                    <span className={styles.pfCount}>{o.count.toLocaleString()}</span>
                   </button>
                 </div>
               )

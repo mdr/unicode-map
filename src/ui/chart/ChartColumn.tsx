@@ -3,6 +3,7 @@ import { type ColorMode, cpColor } from "../../map/colorModes"
 import { Glyph } from "../Glyph"
 import { HEAD } from "./chartLayout"
 import type { CodePoint } from "../../units"
+import styles from "./chart.module.css"
 
 /** One column of a code chart: 16 code points sharing all but their last hex digit. */
 export const ChartColumn = ({
@@ -39,22 +40,22 @@ export const ChartColumn = ({
 }) => {
   const showHex = cell >= 62
   return (
-    <div className="chart-col" style={{ left, width: cell, top }}>
-      <div className="chart-col-head" style={{ height: HEAD }}>
+    <div className={styles.chartCol} style={{ left, width: cell, top }}>
+      <div className={styles.chartColHead} style={{ height: HEAD }}>
         {hex(base).slice(0, -1)}
       </div>
-      <div className="chart-col-cells" style={{ gridTemplateRows: `repeat(16, ${cell}px)` }}>
+      <div className={styles.chartColCells} style={{ gridTemplateRows: `repeat(16, ${cell}px)` }}>
         {Array.from({ length: 16 }, (_, row) => {
           const cp = base + row
           const inBlock = cp >= block.s && cp <= block.e
           const assigned = inBlock && data.isAssigned(cp)
           const classes = [
-            "chart-cell",
+            styles.chartCell,
             assigned ? "" : "empty",
-            cp === selected ? "selected" : "",
-            cp === outlined ? "hl" : "",
+            cp === selected ? styles.selected : "",
+            cp === outlined ? styles.hl : "",
             lit && (cp < lit[0] || cp > lit[1]) ? "dim" : "",
-            sectionStarts.has(cp) && cp !== block.s ? "sec-start" : ""
+            sectionStarts.has(cp) && cp !== block.s ? styles.secStart : ""
           ]
           return (
             <button
@@ -68,8 +69,10 @@ export const ChartColumn = ({
               onMouseMove={(e) => inBlock && onHover(cp, e.clientX, e.clientY)}
               onMouseLeave={() => onHover(-1, 0, 0)}
             >
-              {assigned && <Glyph data={data} cp={cp} className={`chart-glyph ${showHex ? "raised" : ""}`} />}
-              {inBlock && showHex && <span className="chart-hex">{hex(cp)}</span>}
+              {assigned && (
+                <Glyph data={data} cp={cp} className={`${styles.chartGlyph} ${showHex ? styles.raised : ""}`} />
+              )}
+              {inBlock && showHex && <span className={styles.chartHex}>{hex(cp)}</span>}
             </button>
           )
         })}

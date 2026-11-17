@@ -1,5 +1,20 @@
-import { defineConfig } from "vite-plus"
+import { defineConfig, type Plugin } from "vite-plus"
 import react from "@vitejs/plugin-react"
+import { generateAll, writeDeclaration } from "./scripts/css-module-types.ts"
+
+// Keeps the CSS modules' declarations (see scripts/css-module-types.ts) current while editing.
+const cssModuleTypes: Plugin = {
+  name: "css-module-types",
+  apply: "serve",
+  buildStart() {
+    generateAll()
+  },
+  watchChange(file, { event }) {
+    if (!file.endsWith(".module.css")) return
+    if (event === "delete") generateAll()
+    else writeDeclaration(file)
+  }
+}
 
 const noReexports = [
   { selector: "ExportAllDeclaration", message: "Don't re-export; import from the defining module." },
@@ -25,7 +40,7 @@ const noFunctionExpressionConsts = [
 ]
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), cssModuleTypes],
   // Relative asset URLs so the built site works from any path (e.g. GitHub Pages).
   base: "./",
   server: {

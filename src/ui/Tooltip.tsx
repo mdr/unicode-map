@@ -2,6 +2,7 @@ import { uplus, type UnicodeData } from "../data/unicode"
 import { Glyph } from "./Glyph"
 import { type ColorMode, cpColor } from "../map/colorModes"
 import type { CodePoint } from "../units"
+import styles from "./Tooltip.module.css"
 
 export const Tooltip = ({
   data,
@@ -26,17 +27,17 @@ export const Tooltip = ({
     top: Math.min(y + 16, window.innerHeight - 120)
   }
   return (
-    <div className="tooltip" style={style}>
-      <div className="tt-glyph" style={{ borderColor: cpColor(mode, cp) }}>
+    <div className={styles.tooltip} style={style}>
+      <div className={styles.ttGlyph} style={{ borderColor: cpColor(mode, cp) }}>
         {assigned && <Glyph data={data} cp={cp} />}
       </div>
-      <div className="tt-main">
-        <div className="tt-name">{data.name(cp)}</div>
-        <div className="tt-sub">
+      <div className={styles.ttMain}>
+        <div className={styles.ttName}>{data.name(cp)}</div>
+        <div className={styles.ttSub}>
           <span className="mono">{uplus(cp)}</span>
           {assigned && <> · {data.gc(cp).name}</>}
         </div>
-        <div className="tt-sub">
+        <div className={styles.ttSub}>
           {block ? block.name : "No block"}
           {section && <> › {section}</>}
         </div>

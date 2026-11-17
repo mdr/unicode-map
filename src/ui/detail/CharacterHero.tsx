@@ -3,6 +3,7 @@ import { type ColorMode, cpColor } from "../../map/colorModes"
 import { Glyph } from "../Glyph"
 import { CopyButton } from "./CopyButton"
 import type { CodePoint } from "../../units"
+import styles from "./detail.module.css"
 
 export const CharacterHero = ({
   data,
@@ -23,18 +24,18 @@ export const CharacterHero = ({
   const gc = data.gc(cp)
   const block = data.block(cp)
   return (
-    <div className="cp-hero" style={{ ["--accent" as string]: cpColor(mode, cp) }}>
-      <button className="close" onClick={onClose} title="Close (Esc)">
+    <div className={styles.cpHero} style={{ ["--accent" as string]: cpColor(mode, cp) }}>
+      <button className={styles.close} onClick={onClose} title="Close (Esc)">
         ×
       </button>
-      <div className="cp-glyph">{assigned && <Glyph data={data} cp={cp} />}</div>
-      <div className="cp-id">
-        <span className="mono cp-uplus">{uplus(cp)}</span>
+      <div className={styles.cpGlyph}>{assigned && <Glyph data={data} cp={cp} />}</div>
+      <div className={styles.cpId}>
+        <span className={`mono ${styles.cpUplus}`}>{uplus(cp)}</span>
         <CopyButton text={String.fromCodePoint(cp)} label="Copy character" disabled={gc.code === "Cs"} />
       </div>
-      <h1 className="cp-name">{data.name(cp)}</h1>
-      {d.section && <div className="cp-section">{d.section}</div>}
-      <div className="cp-nav">
+      <h1 className={styles.cpName}>{data.name(cp)}</h1>
+      {d.section && <div className={styles.cpSection}>{d.section}</div>}
+      <div className={styles.cpNav}>
         <button onClick={() => cp > 0 && onSelect(cp - 1)} title="Previous (←)">
           ‹ {hex(Math.max(0, cp - 1))}
         </button>
@@ -42,7 +43,7 @@ export const CharacterHero = ({
           {hex(Math.min(MAX_CP - 1, cp + 1))} ›
         </button>
       </div>
-      <div className="cp-links">
+      <div className={styles.cpLinks}>
         <a
           href={`https://util.unicode.org/UnicodeJsps/character.jsp?a=${hex(cp)}`}
           target="_blank"

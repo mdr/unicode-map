@@ -7,6 +7,7 @@ import { GUTTER, HEAD, LANE, sectionLabels, visibleColumns } from "./chartLayout
 import { NamesList } from "./NamesList"
 import { useChartScroller } from "./useChartScroller"
 import type { CodePoint, BlockIndex } from "../../units"
+import styles from "./chart.module.css"
 
 /**
  * A block laid out like Unicode's code charts: columns of 16 code points, one hex "decade" per
@@ -97,7 +98,7 @@ export const ChartView = ({
   const namesW = Math.min(560, box.w - gridW - 8)
 
   return (
-    <div className="chart-view">
+    <div className={styles.chartView}>
       <ChartHeader
         data={data}
         block={b}
@@ -106,16 +107,16 @@ export const ChartView = ({
         onZoom={(factor) => zoomBy(factor)}
         onClose={onClose}
       />
-      <div className="chart-body">
-        <div className="chart-scroll" ref={scroller} onScroll={(e) => setScrollLeft(e.currentTarget.scrollLeft)}>
-          <div className="chart-inner" style={{ width: gridW, height: band + HEAD + 16 * c }}>
+      <div className={styles.chartBody}>
+        <div className={styles.chartScroll} ref={scroller} onScroll={(e) => setScrollLeft(e.currentTarget.scrollLeft)}>
+          <div className={styles.chartInner} style={{ width: gridW, height: band + HEAD + 16 * c }}>
             {/* Sections: a band over the columns they cover, in up to three lanes. */}
             {secLabels
               .filter(({ a, z }) => z >= from && a <= to)
               .map(({ s, e, title, a, z, lane }) => (
                 <button
                   key={s}
-                  className={`chart-sec ${lit?.[0] === s && lit[1] === e ? "on" : ""}`}
+                  className={`${styles.chartSec} ${lit?.[0] === s && lit[1] === e ? "on" : ""}`}
                   style={{ left: colX(a) + 1, width: (z - a + 1) * c - 2, top: 2 + lane * LANE }}
                   title={`${title} · ${uplus(s)}–${uplus(e)}`}
                   onMouseEnter={() => setHoverSec([s, e])}
@@ -156,7 +157,7 @@ export const ChartView = ({
           />
         )}
         {/* Row digits, fixed at the left while the columns scroll under them. */}
-        <div className="chart-rows" style={{ top: band + HEAD, width: GUTTER }}>
+        <div className={styles.chartRows} style={{ top: band + HEAD, width: GUTTER }}>
           {Array.from({ length: 16 }, (_, r) => (
             <div key={r} style={{ height: c }}>
               {r.toString(16).toUpperCase()}

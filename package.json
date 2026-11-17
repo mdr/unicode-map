@@ -12,16 +12,16 @@
     "tiles": "node scripts/build_tiles.ts",
     "about": "node scripts/build_about.ts",
     "dev": "vp dev",
-    "build": "tsc --noEmit && vp build",
+    "build": "node scripts/css-module-types.ts && tsc --noEmit && vp build",
     "preview": "vp preview",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "node scripts/css-module-types.ts && tsc --noEmit",
     "test": "vp test run",
     "lint": "vp lint",
     "lint:fix": "vp lint --fix",
     "format": "vp fmt",
     "format:check": "vp fmt --check",
     "knip": "knip",
-    "check": "vp check && knip && vp test run"
+    "check": "node scripts/css-module-types.ts && vp check && knip && vp test run"
   },
   "dependencies": {
     "d3-interpolate": "^3.0.2",

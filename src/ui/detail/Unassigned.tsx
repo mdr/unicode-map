@@ -1,11 +1,12 @@
 import type { UnicodeData } from "../../data/unicode"
 import type { CodePoint } from "../../units"
+import styles from "./detail.module.css"
 
 export const Unassigned = ({ data, cp }: { data: UnicodeData; cp: CodePoint }) => {
   const nonchar = data.nonchar[cp]
   const block = data.block(cp)
   return (
-    <div className="callout">
+    <div className={styles.callout}>
       {nonchar ? (
         <>
           <b>Noncharacter.</b> Permanently reserved for internal use by applications; it will never be assigned a

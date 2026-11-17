@@ -1,5 +1,6 @@
 import type { Detail, UnicodeData } from "../../data/unicode"
 import { Section, Rows, Row } from "./Rows"
+import styles from "./detail.module.css"
 
 export const Properties = ({
   data,
@@ -39,9 +40,9 @@ export const Properties = ({
         </Row>
       </Rows>
       {d.props && (
-        <div className="chips text">
+        <div className={`${styles.chips} text`}>
           {d.props.map((i) => (
-            <span key={i} className="chip prop">
+            <span key={i} className={`${styles.chip} ${styles.prop}`}>
               {data.meta.binaryProps[i]?.replace(/_/g, " ")}
             </span>
           ))}

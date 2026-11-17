@@ -1,6 +1,7 @@
 import { type Detail, hex, planeName, type UnicodeData, VERSION_YEARS } from "../../data/unicode"
 import { Section, Rows, Row } from "./Rows"
 import type { CodePoint, Plane, BlockIndex } from "../../units"
+import styles from "./detail.module.css"
 
 export const WhereItLives = ({
   data,
@@ -53,7 +54,7 @@ export const WhereItLives = ({
         )}
         {region && (
           <Row label="Region">
-            <span className="swatch inline" style={{ background: region.color }} /> {region.name}
+            <span className={`swatch ${styles.inline}`} style={{ background: region.color }} /> {region.name}
           </Row>
         )}
         {assigned && (

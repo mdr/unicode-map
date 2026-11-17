@@ -1,0 +1,137 @@
+.tlRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tlPlay {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(124, 180, 255, 0.18);
+  color: var(--text);
+}
+
+.tlPlay:hover {
+  background: rgba(124, 180, 255, 0.3);
+}
+
+.tlTrack {
+  position: relative;
+  flex: 1;
+  height: 34px;
+}
+
+.tlBars {
+  position: absolute;
+  inset: 0 7px 12px;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.tlBars span {
+  flex: 1;
+  border-radius: 2px 2px 0 0;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.tlBars span:global(.in) {
+  background: linear-gradient(180deg, #8ab4ff, #5b8def);
+}
+
+.tlTrack input {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  margin: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  height: 14px;
+}
+
+.tlTrack input::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.tlTrack input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5.5px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(91, 141, 239, 0.6);
+  cursor: grab;
+}
+
+.tlTrack input::-moz-range-track {
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.tlTrack input::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(91, 141, 239, 0.6);
+}
+
+.tlClose {
+  flex: none;
+  color: var(--muted);
+  font-size: 18px;
+  padding: 0 4px;
+  align-self: flex-start;
+}
+
+.tlInfo {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  margin-top: 6px;
+  padding-left: 42px;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.tlVersion {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.tlYear {
+  color: var(--muted);
+  font-weight: 500;
+  margin-left: 4px;
+}
+
+.tlStat {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.tlStat b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.tlBlocks {
+  color: var(--muted);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}

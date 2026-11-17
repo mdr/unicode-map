@@ -1,0 +1,71 @@
+/* About: script and block descriptions ------------------------------------- */
+.about {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.aboutCard {
+  padding: 10px 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.aboutCard h3 {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.aboutDesc {
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.aboutFacts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 6px 0 8px;
+  font-size: 12px;
+}
+
+.aboutTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.aboutTag {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(124, 180, 255, 0.1);
+  color: #b9d3f7;
+  font-size: 11px;
+}
+
+.aboutLangs {
+  line-height: 1.5;
+}
+
+.aboutText {
+  margin: 6px 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: #c9cfda;
+}
+
+.aboutMore {
+  font-size: 12px;
+  color: var(--accent);
+}
+
+.aboutMore:hover {
+  text-decoration: underline;
+}
+
+.aboutCredit {
+  line-height: 1.4;
+}

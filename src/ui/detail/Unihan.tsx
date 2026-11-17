@@ -3,6 +3,7 @@ import { Glyph } from "../Glyph"
 import { Section, Rows, Row } from "./Rows"
 import { Related } from "./Related"
 import type { CodePoint } from "../../units"
+import styles from "./detail.module.css"
 
 export const Unihan = ({
   data,
@@ -27,7 +28,7 @@ export const Unihan = ({
   ]
   return (
     <Section title="CJK ideograph (Unihan)">
-      {u.def && <p className="unihan-def">“{u.def}”</p>}
+      {u.def && <p className={styles.unihanDef}>“{u.def}”</p>}
       <Rows>
         {readings
           .filter(([, v]) => v)

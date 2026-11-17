@@ -1,4 +1,5 @@
 import type { ReactNode } from "react"
+import styles from "./detail.module.css"
 
 /** The detail panel's layout: titled sections of label–value rows. */
 export const Section = ({ title, children }: { title: string; children: ReactNode }) => (
@@ -8,7 +9,7 @@ export const Section = ({ title, children }: { title: string; children: ReactNod
   </section>
 )
 
-export const Rows = ({ children }: { children: ReactNode }) => <dl className="rows">{children}</dl>
+export const Rows = ({ children }: { children: ReactNode }) => <dl className={styles.rows}>{children}</dl>
 
 export const Row = ({ label, children }: { label: string; children: ReactNode }) => (
   <div className="row">

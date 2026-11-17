@@ -10,6 +10,7 @@ import {
 } from "../data/about"
 import { hex, type UnicodeData } from "../data/unicode"
 import type { CodePoint, BlockIndex } from "../units"
+import styles from "./About.module.css"
 
 const useAbout = () => {
   const [about, setAbout] = useState<AboutData>()
@@ -48,16 +49,16 @@ const ScriptFacts = ({ info }: { info: ScriptInfo }) => {
   const langs = info.languages ?? []
   const more = (info.languageCount ?? langs.length) - langs.length
   return (
-    <div className="about-facts">
-      <div className="about-tags">
+    <div className={styles.aboutFacts}>
+      <div className={styles.aboutTags}>
         {tags.map((t) => (
-          <span key={t as string} className="about-tag">
+          <span key={t as string} className={styles.aboutTag}>
             {t}
           </span>
         ))}
       </div>
       {langs.length > 0 && (
-        <div className="about-langs">
+        <div className={styles.aboutLangs}>
           <span className="muted">Writes </span>
           {langs.map((l, i) => (
             <span key={l.name}>
@@ -75,8 +76,8 @@ const ScriptFacts = ({ info }: { info: ScriptInfo }) => {
 
 const ArticleText = ({ a }: { a: Article }) => (
   <>
-    <p className="about-text">{a.extract}</p>
-    <a className="about-more" href={a.url} target="_blank" rel="noreferrer">
+    <p className={styles.aboutText}>{a.extract}</p>
+    <a className={styles.aboutMore} href={a.url} target="_blank" rel="noreferrer">
       More on Wikipedia ↗
     </a>
   </>
@@ -97,26 +98,26 @@ export const AboutCards = ({ data, script, block }: { data: UnicodeData; script?
   if (!about) return undefined
   if (!sa && !info && !ba) return undefined
   return (
-    <div className="about">
+    <div className={styles.about}>
       {sc && (sa !== undefined || info !== undefined) && (
-        <div className="about-card">
+        <div className={styles.aboutCard}>
           <h3>
             {scriptName} <span className="muted">script</span>
           </h3>
-          {sa?.description && <div className="about-desc">{sa.description}</div>}
+          {sa?.description && <div className={styles.aboutDesc}>{sa.description}</div>}
           {info && <ScriptFacts info={info} />}
           {sa && <ArticleText a={sa} />}
         </div>
       )}
       {b && ba && ba.url !== sa?.url && (
-        <div className="about-card">
+        <div className={styles.aboutCard}>
           <h3>
             {b.name} <span className="muted">block</span>
           </h3>
           <ArticleText a={ba} />
         </div>
       )}
-      <div className="about-credit muted small">
+      <div className={`${styles.aboutCredit} muted small`}>
         Summaries from {about.source} (fetched {about.fetched}); script facts from Unicode CLDR.
       </div>
     </div>
@@ -153,13 +154,13 @@ export const CharAboutCard = ({ cp }: { cp: CodePoint }) => {
   return (
     <section className="section">
       <h2>This character</h2>
-      <div className="about char-about">
-        <div className="about-card">
+      <div className={`${styles.about} char-about`}>
+        <div className={styles.aboutCard}>
           <h3>{a.title}</h3>
-          {a.description && <div className="about-desc">{a.description}</div>}
+          {a.description && <div className={styles.aboutDesc}>{a.description}</div>}
           <ArticleText a={a} />
         </div>
-        <div className="about-credit muted small">
+        <div className={`${styles.aboutCredit} muted small`}>
           From {about.source} (fetched {about.fetched}).
         </div>
       </div>

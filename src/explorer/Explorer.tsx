@@ -20,6 +20,7 @@ import { MapControls } from "./MapControls"
 import { neighbourBlock, stepCodePoint } from "./navigation"
 import { useKeyboard } from "./useKeyboard"
 import type { CodePoint, Plane, BlockIndex } from "../units"
+import styles from "./Explorer.module.css"
 
 export const Explorer = ({ data }: { data: UnicodeData }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -299,15 +300,15 @@ export const Explorer = ({ data }: { data: UnicodeData }) => {
   })
 
   return (
-    <div className={`app ${pure ? "pure" : ""} ${chart ? "charting" : ""}`}>
+    <div className={`app ${pure ? "pure" : ""} ${chart ? styles.charting : ""}`}>
       <div className="map-area">
         <canvas ref={canvasRef} className="map-canvas" />
-        <div className="top-bar">
-          <div className="brand">
-            <span className="brand-mark">U+</span>
+        <div className={styles.topBar}>
+          <div className={styles.brand}>
+            <span className={styles.brandMark}>U+</span>
             <div>
-              <div className="brand-title">Unicode Map</div>
-              <div className="brand-sub">Unicode {data.meta.version}</div>
+              <div className={styles.brandTitle}>Unicode Map</div>
+              <div className={styles.brandSub}>Unicode {data.meta.version}</div>
             </div>
           </div>
           <SearchBox data={data} onPickCp={(cp) => select(cp, { zoom: true })} onPickBlock={(i) => flyToBlock(i)} />
@@ -344,7 +345,7 @@ export const Explorer = ({ data }: { data: UnicodeData }) => {
           <Timeline data={data} value={asOf} onChange={setAsOf} onClose={() => setAsOf(undefined)} />
         )}
         {pure && (
-          <button className={`pure-hint ${pureHint ? "show" : ""}`} onClick={() => setPure(false)}>
+          <button className={`${styles.pureHint} ${pureHint ? "show" : ""}`} onClick={() => setPure(false)}>
             Pure view · press <kbd>Z</kbd> or <kbd>Esc</kbd> to leave
           </button>
         )}

@@ -3,6 +3,7 @@ import { search, type SearchResult, SearchResultType } from "../data/search"
 import { uplus, type UnicodeData } from "../data/unicode"
 import { Glyph } from "./Glyph"
 import type { CodePoint, BlockIndex } from "../units"
+import styles from "./SearchBox.module.css"
 
 export const SearchBox = ({
   data,
@@ -38,9 +39,9 @@ export const SearchBox = ({
   }
 
   return (
-    <div className="search">
+    <div className={styles.search}>
       <svg
-        className="search-icon"
+        className={styles.searchIcon}
         width="15"
         height="15"
         viewBox="0 0 16 16"
@@ -80,14 +81,14 @@ export const SearchBox = ({
           }
         }}
       />
-      <kbd className="search-kbd">/</kbd>
+      <kbd className={styles.searchKbd}>/</kbd>
       {open && q.trim() && (
         <div className="search-results" role="listbox" ref={listRef}>
-          {results.length === 0 && <div className="search-empty">No matches</div>}
+          {results.length === 0 && <div className={styles.searchEmpty}>No matches</div>}
           {results.map((r, i) => (
             <div
               key={r.type === SearchResultType.CODE_POINT ? `c${r.cp}` : `b${r.index}`}
-              className={`search-result ${i === active ? "active" : ""}`}
+              className={`${styles.searchResult} ${i === active ? "active" : ""}`}
               role="option"
               tabIndex={-1}
               aria-selected={i === active}
@@ -99,12 +100,12 @@ export const SearchBox = ({
             >
               {r.type === SearchResultType.CODE_POINT ? (
                 <>
-                  <span className="sr-glyph">
+                  <span className={styles.srGlyph}>
                     <Glyph data={data} cp={r.cp} />
                   </span>
-                  <span className="sr-main">
-                    <span className="sr-name">{data.name(r.cp)}</span>
-                    <span className="sr-sub">
+                  <span className={styles.srMain}>
+                    <span className={styles.srName}>{data.name(r.cp)}</span>
+                    <span className={styles.srSub}>
                       {uplus(r.cp)} · {data.block(r.cp)?.name ?? "No block"}
                       {r.why ? ` · ${r.why}` : ""}
                     </span>
@@ -112,12 +113,15 @@ export const SearchBox = ({
                 </>
               ) : (
                 <>
-                  <span className="sr-glyph sr-block" style={{ background: data.regionOf(r.block).color }}>
+                  <span
+                    className={`${styles.srGlyph} ${styles.srBlock}`}
+                    style={{ background: data.regionOf(r.block).color }}
+                  >
                     ▦
                   </span>
-                  <span className="sr-main">
-                    <span className="sr-name">{r.block.name}</span>
-                    <span className="sr-sub">
+                  <span className={styles.srMain}>
+                    <span className={styles.srName}>{r.block.name}</span>
+                    <span className={styles.srSub}>
                       Block · {uplus(r.block.s)}–{uplus(r.block.e)} · {r.block.assigned.toLocaleString()} assigned
                     </span>
                   </span>

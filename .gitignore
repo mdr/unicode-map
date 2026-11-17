@@ -7,3 +7,5 @@ public/data/
 public/tiles/
 public/fonts
 .cache/
+# generated CSS module declarations
+*.module.css.d.ts
