@@ -88,6 +88,13 @@ export const ChartView = ({
   /** The section being pointed out: hovered in the band, else the focused one. */
   const [hoverSec, setHoverSec] = useState<[number, number]>()
   const lit = hoverSec ?? focus
+  // Draw again as fonts arrive: oversized glyphs are measured, and shrunk, once their font has loaded.
+  const [, setFontsLoaded] = useState(0)
+  useEffect(() => {
+    const onLoaded = (): void => setFontsLoaded((n) => n + 1)
+    document.fonts.addEventListener("loadingdone", onLoaded)
+    return () => document.fonts.removeEventListener("loadingdone", onLoaded)
+  }, [])
   /** A code point hovered in the names list, outlined in the grid. */
   const [hoverCp, setHoverCp] = useState<number>()
 

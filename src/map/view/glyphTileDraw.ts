@@ -1,6 +1,7 @@
 import { displayString, type UnicodeData } from "../../data/unicode"
 import { drawSpecial } from "./text"
 import type { CodePoint, Plane } from "../../units"
+import { glyphScale } from "./glyphFit"
 
 /** Smallest size glyphs are drawn at; smaller tiles are drawn at this size and scaled down. */
 const GLYPH_DRAW_MIN = 6
@@ -36,8 +37,11 @@ const drawTileRow = (
       lastFont = ""
       continue
     }
-    const font = `${res * 0.5}px ${data.glyphFamily(cp)}`
+    const family = data.glyphFamily(cp)
+    const font = `${res * 0.5}px ${family}`
     if (font !== lastFont) c.font = lastFont = font
+    const scale = glyphScale(c, cp, str, res * 0.5)
+    if (scale < 1) c.font = lastFont = `${res * 0.5 * scale}px ${family}`
     c.globalAlpha = 1
     c.fillText(str, x * res + res / 2, y * res + res * 0.53)
   }
