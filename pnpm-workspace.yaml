@@ -1,0 +1,24 @@
+# pnpm settings. pnpm >= 10 reads these from here, not from .npmrc.
+#
+# node and pnpm come from the Nix flake. `pmOnFail: ignore` stops pnpm downloading and switching to
+# whatever version package.json#packageManager or devEngines might name. `engineStrict` makes a node or
+# pnpm major mismatch a hard error, so drift outside `nix develop` fails loudly.
+pmOnFail: ignore
+engineStrict: true
+
+# Set explicitly so pnpm enforces it strictly; the built-in default isn't strict.
+minimumReleaseAge: 2880
+
+# Build scripts are opt-in; esbuild needs its postinstall to place its binary.
+allowBuilds:
+  esbuild: true
+catalog:
+  vite: npm:@voidzero-dev/vite-plus-core@1.6.0
+  vite-plus: 1.6.0
+overrides:
+  vite@*: "catalog:"
+peerDependencyRules:
+  allowAny:
+    - vite
+  allowedVersions:
+    vite: "*"

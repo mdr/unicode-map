@@ -145,10 +145,18 @@
         {
           default = pkgs.mkShell {
             packages = [
-              pkgs.nodejs_22
-              pkgs.pnpm
+              pkgs.nodejs_24
+              # nixpkgs' pnpm bundles its own Node; build it on the shell's Node major so there is one Node here.
+              (pkgs.pnpm_11.override { nodejs-slim = pkgs.nodejs-slim_24; })
               (pkgs.python3.withPackages (ps: [ ps.fonttools ]))
+              pkgs.go-task # `task`: the menu of what to run (Taskfile.yml)
             ];
+            # Corepack ships inside Node and will download package managers on demand; keep it inert so
+            # pnpm always comes from the Nix store above.
+            COREPACK_ENABLE_STRICT = "0";
+            COREPACK_ENABLE_AUTO_PIN = "0";
+            COREPACK_ENABLE_DOWNLOAD_PROMPT = "0";
+            COREPACK_ENABLE_NETWORK = "0";
             UNICODE_VERSION = unicodeVersion;
             UCD_DIR = p.ucd;
             UNIHAN_DIR = p.unihan;
@@ -157,9 +165,7 @@
             FONTS_DIR = p.fonts;
             shellHook = ''
               echo "unicode-map dev shell — Unicode ${unicodeVersion}"
-              echo "  pnpm install   # once"
-              echo "  pnpm data      # build public/data from the UCD and link fonts"
-              echo "  pnpm dev       # start the dev server"
+              echo "  task --list    # what can be run"
             '';
           };
         }
