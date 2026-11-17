@@ -101,8 +101,11 @@ pure view draws them in the browser instead, which is slower to fill in.
   character's name. `--report` writes what it kept and dropped to `.cache/about/` for review.
 - **`src/map/colorModes.ts`** defines the colour modes: region, general category, script,
   age and assigned.
+- **`src/explorer/`** ties the map and the interface together: the app's state, the URL,
+  and the key bindings (`keyActions.ts` maps keys to actions, as pure functions with tests).
 - **`src/ui/*`** holds the React UI: search, property highlight, legend, timeline,
-  breadcrumb, detail panel and tooltip.
+  breadcrumb and tooltip, with the detail panel in `src/ui/detail/` (a component per
+  section) and chart view in `src/ui/chart/`.
 
 ## Upgrading Unicode
 
