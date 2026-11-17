@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
-import { hex, uplus, UnicodeData } from "../data/unicode"
-import { ColorMode, cpColor } from "../map/colorModes"
+import { hex, uplus, type UnicodeData } from "../data/unicode"
+import { type ColorMode, cpColor } from "../map/colorModes"
 import { Glyph } from "./Glyph"
 
 /**
@@ -169,7 +169,10 @@ export function ChartView({
       const startsSection = sections.some(([s]) => s === cp) && cp !== b.s
       const dim = lit && (cp < lit[0] || cp > lit[1])
       cells.push(
-        <div
+        <button
+          type="button"
+          // Arrow keys move through the chart, so cells stay out of the tab order.
+          tabIndex={-1}
           key={r}
           className={`chart-cell ${isAssigned ? "" : "empty"} ${cp === selected ? "selected" : ""} ${cp === hoverCp ? "hl" : ""} ${dim ? "dim" : ""} ${startsSection ? "sec-start" : ""}`}
           style={isAssigned ? { ["--tint" as string]: cpColor(mode, cp), fontSize: fontPx } : undefined}
@@ -179,7 +182,7 @@ export function ChartView({
         >
           {isAssigned && <Glyph data={data} cp={cp} className={`chart-glyph ${showHex ? "raised" : ""}`} />}
           {inBlock && showHex && <span className="chart-hex">{hex(cp)}</span>}
-        </div>
+        </button>
       )
     }
     columns.push(
@@ -303,7 +306,7 @@ function NamesList({
   for (let cp = b.s; cp <= b.e; cp++) {
     while (si < sections.length && sections[si][1] < cp) si++
     const sec = sections[si]
-    if (sec && sec[0] === cp)
+    if (sec?.[0] === cp)
       rows.push(
         <div key={`h${cp}`} className="names-head">
           {sec[2]}

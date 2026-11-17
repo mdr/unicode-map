@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { ColorMode, ModeId, MODES } from "../map/colorModes"
+import { type ColorMode, type ModeId, MODES } from "../map/colorModes"
 
 export function Legend({
   mode,
@@ -55,6 +55,7 @@ export function Legend({
         <button
           className="legend-toggle"
           title={open ? "Hide the key" : "Show the key: what the colours mean"}
+          aria-label={open ? "Hide the key" : "Show the key"}
           aria-expanded={open}
           onClick={() => setOpen(!open)}
         >

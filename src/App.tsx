@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { UnicodeData } from "./data/unicode"
-import { getMode, ModeId, MODES } from "./map/colorModes"
-import { Camera, Here, MapView } from "./map/MapView"
+import { getMode, type ModeId, MODES } from "./map/colorModes"
+import { type Camera, type Here, MapView } from "./map/MapView"
 import { planeRect } from "./map/layout"
 import { SearchBox } from "./ui/SearchBox"
 import { Legend } from "./ui/Legend"
@@ -13,13 +13,13 @@ import { HelpOverlay } from "./ui/HelpOverlay"
 import { PropertyFilter } from "./ui/PropertyFilter"
 import { Timeline } from "./ui/Timeline"
 import { ChartView } from "./ui/ChartView"
-import { loadProps, maskOf, PropOption } from "./data/props"
+import { loadProps, maskOf, type PropOption } from "./data/props"
 
 export function App() {
   const [data, setData] = useState<UnicodeData | null>(null)
   const [error, setError] = useState<string | null>(null)
   useEffect(() => {
-    UnicodeData.load().then(setData, (e) => setError(String(e)))
+    UnicodeData.load().then(setData, (e: unknown) => setError(String(e)))
   }, [])
   if (error)
     return (
@@ -134,7 +134,7 @@ function Explorer({ data }: { data: UnicodeData }) {
 
   // Property highlight
   useEffect(() => {
-    if (initial.prop) loadProps().then((opts) => setProp(opts.find((o) => o.key === initial.prop) ?? null))
+    if (initial.prop) void loadProps().then((opts) => setProp(opts.find((o) => o.key === initial.prop) ?? null))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   useEffect(() => {
@@ -223,7 +223,7 @@ function Explorer({ data }: { data: UnicodeData }) {
     }
     window.addEventListener("popstate", onPop)
     return () => window.removeEventListener("popstate", onPop)
-  }, [])
+  }, [data.meta.blocks])
 
   const flyToBlock = useCallback(
     (index: number) => {
@@ -370,7 +370,7 @@ function Explorer({ data }: { data: UnicodeData }) {
           setGlyphTexture((g) => !g)
           break
         case "p":
-          ;(document.querySelector(".pf-open") as HTMLButtonElement | null)?.click()
+          document.querySelector<HTMLElement>(".pf-open")?.click()
           break
         case "/":
           e.preventDefault()
@@ -434,6 +434,7 @@ function Explorer({ data }: { data: UnicodeData }) {
           </button>
           <button
             title="Timeline: Unicode through the versions (t)"
+            aria-label="Timeline"
             className={asOf !== null ? "on" : ""}
             onClick={toggleTimeline}
           >
@@ -442,7 +443,7 @@ function Explorer({ data }: { data: UnicodeData }) {
               <path d="M8 4.6V8l2.4 1.6" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
           </button>
-          <button title="Pure view: just the characters (z)" onClick={() => setPure(true)}>
+          <button title="Pure view: just the characters (z)" aria-label="Pure view" onClick={() => setPure(true)}>
             <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
               <path
                 d="M1.5 8C3 5 5.3 3.5 8 3.5S13 5 14.5 8C13 11 10.7 12.5 8 12.5S3 11 1.5 8Z"

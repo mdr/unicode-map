@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { search, SearchResult } from "../data/search"
-import { uplus, UnicodeData } from "../data/unicode"
+import { search, type SearchResult } from "../data/search"
+import { uplus, type UnicodeData } from "../data/unicode"
 import { Glyph } from "./Glyph"
 
 export function SearchBox({
@@ -81,12 +81,15 @@ export function SearchBox({
       />
       <kbd className="search-kbd">/</kbd>
       {open && q.trim() && (
-        <div className="search-results" ref={listRef}>
+        <div className="search-results" role="listbox" ref={listRef}>
           {results.length === 0 && <div className="search-empty">No matches</div>}
           {results.map((r, i) => (
             <div
               key={r.kind === "cp" ? `c${r.cp}` : `b${r.index}`}
               className={`search-result ${i === active ? "active" : ""}`}
+              role="option"
+              tabIndex={-1}
+              aria-selected={i === active}
               onMouseDown={(e) => {
                 e.preventDefault()
                 pick(r)

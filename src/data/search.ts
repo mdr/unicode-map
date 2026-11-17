@@ -1,4 +1,4 @@
-import { Block, MAX_CP, UnicodeData } from "./unicode"
+import { type Block, MAX_CP, type UnicodeData } from "./unicode"
 
 export type SearchResult = { kind: "cp"; cp: number; why?: string } | { kind: "block"; block: Block; index: number }
 
@@ -16,7 +16,7 @@ export function search(data: UnicodeData, raw: string, limit = 60): SearchResult
   }
 
   // Pasted characters: anything outside printable ASCII, or a single character.
-  const chars = [...q]
+  const chars = Array.from(q)
   if (chars.some((c) => c.codePointAt(0)! > 0x7e) || chars.length === 1) {
     for (const c of chars.slice(0, 40))
       pushCp(c.codePointAt(0)!, chars.length > 1 ? "in pasted text" : "pasted character")
@@ -24,9 +24,9 @@ export function search(data: UnicodeData, raw: string, limit = 60): SearchResult
   }
 
   // Code point notation
-  const m = q.match(CP_PATTERN)
+  const m = CP_PATTERN.exec(q)
   if (m) pushCp(parseInt(m[1], 16), "code point")
-  const dec = q.match(/^&#(\d+);?$/)
+  const dec = /^&#(\d+);?$/.exec(q)
   if (dec) pushCp(parseInt(dec[1], 10), "decimal code point")
 
   const lower = q.toLowerCase()
@@ -39,7 +39,7 @@ export function search(data: UnicodeData, raw: string, limit = 60): SearchResult
     .slice(0, 6)
 
   // Algorithmic names, e.g. "CJK UNIFIED IDEOGRAPH-4E00"
-  const alg = lower.match(/-([0-9a-f]{4,6})$/)
+  const alg = /-([0-9a-f]{4,6})$/.exec(lower)
   if (alg) {
     const cp = parseInt(alg[1], 16)
     if (data.name(cp).toLowerCase() === lower) pushCp(cp, "name")

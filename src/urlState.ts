@@ -1,4 +1,4 @@
-import { ModeId, MODES } from "./map/colorModes"
+import { type ModeId, MODES } from "./map/colorModes"
 import type { Camera } from "./map/MapView"
 
 export interface UrlState {
@@ -20,7 +20,7 @@ export function readHash(): UrlState {
   const h = decodeURIComponent(location.hash.slice(1))
   const out: UrlState = {}
   for (const part of h.split("&")) {
-    const cpm = part.match(/^U\+([0-9A-Fa-f]{1,6})$/)
+    const cpm = /^U\+([0-9A-Fa-f]{1,6})$/.exec(part)
     if (cpm) {
       const cp = parseInt(cpm[1], 16)
       if (cp <= 0x10ffff) out.cp = cp

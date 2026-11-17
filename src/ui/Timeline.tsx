@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { UnicodeData, VERSION_YEARS } from "../data/unicode"
+import { type UnicodeData, VERSION_YEARS } from "../data/unicode"
 
 /**
  * Scrub through Unicode's history: the map shows only what had been encoded by the chosen version.
@@ -34,7 +34,10 @@ export function Timeline({
         n = 0
       for (let cp = b.s; cp <= b.e; cp++) {
         if (!data.isAssigned(cp)) continue
-        if (data.ageIdx[cp] < first) ((first = data.ageIdx[cp]), (n = 0))
+        if (data.ageIdx[cp] < first) {
+          first = data.ageIdx[cp]
+          n = 0
+        }
         if (data.ageIdx[cp] === first) n++
       }
       if (first !== Infinity) newBlocks[first].push({ name: b.name, count: n })

@@ -1,12 +1,20 @@
 import { useEffect, useState } from "react"
-import { AboutData, Article, CharAboutData, loadAbout, loadCharAbout, PSEUDO_SCRIPTS, ScriptInfo } from "../data/about"
-import { hex, UnicodeData } from "../data/unicode"
+import {
+  type AboutData,
+  type Article,
+  type CharAboutData,
+  loadAbout,
+  loadCharAbout,
+  PSEUDO_SCRIPTS,
+  type ScriptInfo
+} from "../data/about"
+import { hex, type UnicodeData } from "../data/unicode"
 
 function useAbout() {
   const [about, setAbout] = useState<AboutData | null>(null)
   useEffect(() => {
     let live = true
-    loadAbout().then((a) => live && setAbout(a))
+    void loadAbout().then((a) => live && setAbout(a))
     return () => {
       live = false
     }
@@ -91,7 +99,7 @@ export function AboutCards({ data, script, block }: { data: UnicodeData; script?
   if (!sa && !info && !ba) return null
   return (
     <div className="about">
-      {sc && (sa || info) && (
+      {sc && (sa !== undefined || info !== undefined) && (
         <div className="about-card">
           <h3>
             {scriptName} <span className="muted">script</span>
@@ -136,7 +144,7 @@ export function CharAboutCard({ cp }: { cp: number }) {
   const [about, setAbout] = useState<CharAboutData | null>(null)
   useEffect(() => {
     let live = true
-    loadCharAbout().then((a) => live && setAbout(a))
+    void loadCharAbout().then((a) => live && setAbout(a))
     return () => {
       live = false
     }
@@ -153,7 +161,7 @@ export function CharAboutCard({ cp }: { cp: number }) {
           <ArticleText a={a} />
         </div>
         <div className="about-credit muted small">
-          From {about!.source} (fetched {about!.fetched}).
+          From {about.source} (fetched {about.fetched}).
         </div>
       </div>
     </section>

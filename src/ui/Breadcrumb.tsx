@@ -1,4 +1,4 @@
-import { planeName, uplus, UnicodeData } from "../data/unicode"
+import { planeName, uplus, type UnicodeData } from "../data/unicode"
 import type { Here } from "../map/MapView"
 
 export function Breadcrumb({

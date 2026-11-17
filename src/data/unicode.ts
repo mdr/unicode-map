@@ -15,11 +15,11 @@ export interface Region {
   name: string
   color: string
 }
-export interface ValueInfo {
+interface ValueInfo {
   code: string
   name: string
 }
-export interface ScriptInfo extends ValueInfo {
+interface ScriptInfo extends ValueInfo {
   region: number
 }
 
@@ -90,7 +90,7 @@ export interface Detail {
   font?: number
 }
 
-export const PLANE_NAMES: Record<number, [string, string]> = {
+const PLANE_NAMES: Record<number, [string, string]> = {
   0: ["Basic Multilingual Plane", "BMP"],
   1: ["Supplementary Multilingual Plane", "SMP"],
   2: ["Supplementary Ideographic Plane", "SIP"],
@@ -180,7 +180,7 @@ export class UnicodeData {
 
   static async load(): Promise<UnicodeData> {
     const [meta, names] = await Promise.all([
-      fetch("./data/meta.json").then((r) => r.json()),
+      fetch("./data/meta.json").then((r) => r.json() as Promise<Meta>),
       fetch("./data/names.txt").then((r) => r.text())
     ])
     return new UnicodeData(meta, names)

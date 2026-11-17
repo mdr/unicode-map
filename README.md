@@ -7,17 +7,24 @@ from the 17 planes down to individual characters.
 
 ## Running it
 
-Everything comes from the Nix flake: Node, pnpm, Python with fontTools, the Unicode data
-files and the fonts.
+Everything comes from the Nix flake: Node, pnpm, Python with fontTools, `task`, the Unicode
+data files and the fonts. `task --list` shows what can be run.
 
 ```sh
 nix develop          # or `direnv allow` (there's an .envrc)
-pnpm install         # once
-pnpm data            # compile the UCD into public/data and link the fonts (~30s)
-pnpm tiles           # optional: pre-build pure view's glyph tiles into public/tiles (~1 min)
-pnpm about           # rarely: refresh the Wikipedia summaries in src/data/about*.json (committed)
-pnpm dev             # http://localhost:5173
+task install         # once
+task data            # compile the UCD into public/data and link the fonts (~30s)
+task tiles           # optional: pre-build pure view's glyph tiles into public/tiles (~1 min)
+task about           # rarely: refresh the Wikipedia summaries in src/data/about*.json (committed)
+task dev             # http://localhost:5173
+task check           # formatting, lint, types, unused code and unit tests, as CI runs them
+task fix             # format, and apply automatic lint fixes
 ```
+
+[Vite+](https://viteplus.dev) (`vp`) runs the dev server, build, formatter (no semicolons, no
+trailing commas, 120 columns), linter (oxlint, type-aware) and tests (Vitest), all configured in
+`vite.config.ts`. knip finds unused files, exports and dependencies. To skip the formatting commit
+in `git blame`, run `git config blame.ignoreRevsFile .git-blame-ignore-revs` once.
 
 Re-run `pnpm data` after changing `scripts/build_data.py` or bumping the Unicode version,
 and `pnpm tiles` after that or after changing the fonts. `pnpm tiles` draws the tiles with the
@@ -107,8 +114,9 @@ pure view draws them in the browser instead, which is slower to fill in.
 
 ## Publishing
 
-`.github/workflows/pages.yml` builds the site (data, tiles, then Vite) on every push to
-`main` and publishes it to GitHub Pages.
+`.github/workflows/pages.yml` runs `pnpm check` on every push and pull request. On `main`, it
+also builds the site (data, tiles, then Vite) and, once the checks pass, publishes it to GitHub
+Pages.
 
 ## Licence
 

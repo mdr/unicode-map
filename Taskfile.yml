@@ -1,0 +1,62 @@
+# The menu of what can be run in this repository: `task --list`. Run inside
+# `nix develop`, which provides `task`, e.g. `nix develop -c task check`.
+version: "3"
+
+tasks:
+  default:
+    desc: List the tasks
+    silent: true
+    cmds:
+      - task --list
+
+  # ----------------------------------------------------------- developing
+
+  install:
+    desc: Install the JavaScript dependencies (once, and after the lockfile changes)
+    cmds:
+      - pnpm install
+
+  dev:
+    desc: Run the site at http://localhost:5173, reloading on changes
+    cmds:
+      - pnpm dev
+
+  # ------------------------------------------------------------- building
+
+  data:
+    desc: Compile the Unicode data into public/data and link the fonts (~30s)
+    cmds:
+      - pnpm data
+
+  tiles:
+    desc: Pre-build pure view's glyph tiles into public/tiles with headless Chrome (~1 min)
+    cmds:
+      - pnpm tiles
+
+  about:
+    desc: Refresh the Wikipedia summaries in src/data/about*.json (committed; rarely needed)
+    cmds:
+      - pnpm about {{.CLI_ARGS}}
+
+  build:
+    desc: Build the site into dist/
+    cmds:
+      - pnpm build
+
+  # ------------------------------------------------------------- checking
+
+  check:
+    desc: Everything CI checks, bar the build - formatting, lint, types, unused code and the unit tests
+    cmds:
+      - pnpm check
+
+  fix:
+    desc: Format, and apply the lint fixes that can be made automatically
+    cmds:
+      - pnpm format
+      - pnpm lint:fix
+
+  test:
+    desc: The unit tests (task test -- layout for those matching a name)
+    cmds:
+      - pnpm test {{.CLI_ARGS}}

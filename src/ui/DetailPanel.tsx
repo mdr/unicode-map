@@ -1,6 +1,15 @@
-import { ReactNode, useEffect, useMemo, useRef, useState } from "react"
-import { Detail, displayString, hex, MAX_CP, planeName, uplus, UnicodeData, VERSION_YEARS } from "../data/unicode"
-import { ColorMode, cpColor } from "../map/colorModes"
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
+import {
+  type Detail,
+  displayString,
+  hex,
+  MAX_CP,
+  planeName,
+  uplus,
+  type UnicodeData,
+  VERSION_YEARS
+} from "../data/unicode"
+import { type ColorMode, cpColor } from "../map/colorModes"
 import { Glyph } from "./Glyph"
 import { AboutCards, blockScript, CharAboutCard } from "./About"
 import type { Here } from "../map/MapView"
@@ -112,7 +121,7 @@ function Overview({ data, here, onPlane, onBlock, onPreview, onRange, onChart, c
             {planeStats.map((n, p) => (
               <button
                 key={p}
-                className={`plane-row ${plane === p ? "current" : ""}`}
+                className="plane-row"
                 onClick={() => {
                   onPreview(null)
                   onPlane(p)
@@ -230,7 +239,7 @@ function CodePointDetail({ data, mode, cp, onSelect, onBlock, onPlane, onClose, 
   useEffect(() => {
     let live = true
     setDetail(null)
-    data.detail(cp).then((d) => live && setDetail(d))
+    void data.detail(cp).then((d) => live && setDetail(d))
     return () => {
       live = false
     }
@@ -369,7 +378,7 @@ function CodePointDetail({ data, mode, cp, onSelect, onBlock, onPlane, onClose, 
         </Section>
       )}
 
-      {(d.aliases || d.alsoKnownAs || d.formalAlias || d.notes || d.variations) && (
+      {[d.aliases, d.alsoKnownAs, d.formalAlias, d.notes, d.variations].some(Boolean) && (
         <Section title="Names & notes">
           {d.aliases && (
             <Rows>
@@ -421,10 +430,7 @@ function CodePointDetail({ data, mode, cp, onSelect, onBlock, onPlane, onClose, 
 
       {d.unihan && <Unihan data={data} u={d.unihan} onSelect={onSelect} />}
 
-      {(d.seeAlso ||
-        d.confusables ||
-        d.confusableWith ||
-        d.decomp ||
+      {([d.seeAlso, d.confusables, d.confusableWith, d.decomp].some(Boolean) ||
         d.upper !== undefined ||
         d.lower !== undefined ||
         d.title !== undefined) && (
@@ -717,7 +723,7 @@ function CopyButton({
       title={label}
       disabled={disabled}
       onClick={() => {
-        navigator.clipboard.writeText(text).then(() => {
+        void navigator.clipboard.writeText(text).then(() => {
           setDone(true)
           setTimeout(() => setDone(false), 1000)
         })

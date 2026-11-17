@@ -141,33 +141,43 @@
         pkgs:
         let
           p = self.packages.${pkgs.stdenv.hostPlatform.system};
-        in
-        {
-          default = pkgs.mkShell {
-            packages = [
-              pkgs.nodejs_24
-              # nixpkgs' pnpm bundles its own Node; build it on the shell's Node major so there is one Node here.
-              (pkgs.pnpm_11.override { nodejs-slim = pkgs.nodejs-slim_24; })
-              (pkgs.python3.withPackages (ps: [ ps.fonttools ]))
-              pkgs.go-task # `task`: the menu of what to run (Taskfile.yml)
-            ];
-            # Corepack ships inside Node and will download package managers on demand; keep it inert so
-            # pnpm always comes from the Nix store above.
+          node = [
+            pkgs.nodejs_24
+            # nixpkgs' pnpm bundles its own Node; build it on the shell's Node major so there is one Node here.
+            (pkgs.pnpm_11.override { nodejs-slim = pkgs.nodejs-slim_24; })
+          ];
+          # Corepack ships inside Node and will download package managers on demand; keep it inert so
+          # pnpm always comes from the Nix store above.
+          corepackOff = {
             COREPACK_ENABLE_STRICT = "0";
             COREPACK_ENABLE_AUTO_PIN = "0";
             COREPACK_ENABLE_DOWNLOAD_PROMPT = "0";
             COREPACK_ENABLE_NETWORK = "0";
-            UNICODE_VERSION = unicodeVersion;
-            UCD_DIR = p.ucd;
-            UNIHAN_DIR = p.unihan;
-            CONFUSABLES = p.confusables;
-            CLDR_DIR = p.cldr;
-            FONTS_DIR = p.fonts;
-            shellHook = ''
-              echo "unicode-map dev shell — Unicode ${unicodeVersion}"
-              echo "  task --list    # what can be run"
-            '';
           };
+        in
+        {
+          default = pkgs.mkShell (
+            corepackOff
+            // {
+              packages = node ++ [
+                (pkgs.python3.withPackages (ps: [ ps.fonttools ]))
+                pkgs.go-task # `task`: the menu of what to run (Taskfile.yml)
+              ];
+              UNICODE_VERSION = unicodeVersion;
+              UCD_DIR = p.ucd;
+              UNIHAN_DIR = p.unihan;
+              CONFUSABLES = p.confusables;
+              CLDR_DIR = p.cldr;
+              FONTS_DIR = p.fonts;
+              shellHook = ''
+                echo "unicode-map dev shell — Unicode ${unicodeVersion}"
+                echo "  task --list    # what can be run"
+              '';
+            }
+          );
+
+          # What `pnpm check` needs and nothing else: no fonts or Unicode data to build.
+          ci = pkgs.mkShell (corepackOff // { packages = node; });
         }
       );
 

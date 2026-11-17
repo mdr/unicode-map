@@ -1,10 +1,10 @@
-import { MAX_CP, UnicodeData, VERSION_YEARS } from "../data/unicode"
+import { MAX_CP, type UnicodeData, VERSION_YEARS } from "../data/unicode"
 
 export type RGB = [number, number, number]
 
 export type ModeId = "region" | "gc" | "script" | "age" | "assigned"
 
-export interface LegendItem {
+interface LegendItem {
   key: string
   label: string
   sublabel?: string
@@ -12,7 +12,7 @@ export interface LegendItem {
   values: number[]
   count: number
 }
-export interface LegendGroup {
+interface LegendGroup {
   label?: string
   items: LegendItem[]
 }
@@ -51,11 +51,11 @@ const V_NONCHAR = 1
 const SPECIAL_COLORS: RGB[] = [PLANE_BG, [58, 31, 42]]
 const OFFSET = 2
 
-export function hexToRgb(h: string): RGB {
+function hexToRgb(h: string): RGB {
   const n = parseInt(h.slice(1), 16)
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
 }
-export function rgbToCss([r, g, b]: RGB) {
+function rgbToCss([r, g, b]: RGB) {
   return `rgb(${r}, ${g}, ${b})`
 }
 
@@ -69,10 +69,10 @@ function rgbToHsl([r, g, b]: RGB): [number, number, number] {
   if (max === min) return [0, 0, l]
   const d = max - min
   const s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
-  let h = max === r ? (g - b) / d + (g < b ? 6 : 0) : max === g ? (b - r) / d + 2 : (r - g) / d + 4
+  const h = max === r ? (g - b) / d + (g < b ? 6 : 0) : max === g ? (b - r) / d + 2 : (r - g) / d + 4
   return [h * 60, s, l]
 }
-export function hslToRgb(h: number, s: number, l: number): RGB {
+function hslToRgb(h: number, s: number, l: number): RGB {
   h = ((h % 360) + 360) % 360
   const c = (1 - Math.abs(2 * l - 1)) * s
   const x = c * (1 - Math.abs(((h / 60) % 2) - 1))
@@ -149,14 +149,10 @@ function build(
   }
 }
 
-function countBy(data: UnicodeData, arr: Uint8Array | Int16Array, n: number) {
-  const counts = new Array(n).fill(0)
+function countBy(data: UnicodeData, arr: Uint8Array | Int16Array, n: number): number[] {
+  const counts = new Array<number>(n).fill(0)
   for (let cp = 0; cp < MAX_CP; cp++) if (data.gcIdx[cp] !== data.gcCn && arr[cp] >= 0) counts[arr[cp]]++
   return counts
-}
-
-export function regionBlockColor(data: UnicodeData, blockIndex: number): RGB {
-  return regionColors(data)[blockIndex]
 }
 
 let regionColorCache: RGB[] | null = null
@@ -245,7 +241,7 @@ function gcMode(data: UnicodeData): ColorMode {
     label,
     items: gcs
       .map((g, i) => ({ g, i }))
-      .filter(({ g }) => g.code[0] === prefix && g.code !== "Cn")
+      .filter(({ g }) => g.code.startsWith(prefix) && g.code !== "Cn")
       .map(({ g, i }) => ({
         key: g.code,
         label: g.name,

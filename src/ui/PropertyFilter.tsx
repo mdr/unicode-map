@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { loadProps, PropOption } from "../data/props"
+import { loadProps, type PropOption } from "../data/props"
 
 /** "Highlight characters with a property": a button that opens a searchable list of properties. */
 export function PropertyFilter({
@@ -15,9 +15,14 @@ export function PropertyFilter({
   const [active, setActive] = useState(0)
   const root = useRef<HTMLDivElement>(null)
   const list = useRef<HTMLDivElement>(null)
+  const input = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    if (open && !options) loadProps().then(setOptions)
+    if (open) input.current?.focus()
+  }, [open])
+
+  useEffect(() => {
+    if (open && !options) void loadProps().then(setOptions)
   }, [open, options])
 
   useEffect(() => {
@@ -92,7 +97,7 @@ export function PropertyFilter({
       {open && (
         <div className="pf-pop panel">
           <input
-            autoFocus
+            ref={input}
             id="property-input"
             className="pf-input"
             placeholder="Emoji, Math, Dash, Right To Left, Wide…"

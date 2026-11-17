@@ -1,9 +1,10 @@
-# Builds the site and publishes it to GitHub Pages on every push to main.
-name: Pages
+# Checks every push and pull request; on main, also builds the site and publishes it to GitHub Pages.
+name: CI
 
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -17,7 +18,19 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Formatting, lint, types, unused code and unit tests.
+  check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: DeterminateSystems/nix-installer-action@v23
+      - name: Install dependencies
+        run: nix develop .#ci -c pnpm install --frozen-lockfile
+      - name: Check
+        run: nix develop .#ci -c pnpm check
+
   build:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
@@ -44,7 +57,7 @@ jobs:
           path: dist
 
   deploy:
-    needs: build
+    needs: [check, build]
     runs-on: ubuntu-24.04
     environment:
       name: github-pages

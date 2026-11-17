@@ -1,6 +1,6 @@
 import { interpolateZoom } from "d3-interpolate"
-import { displayString, hex, planeName, UnicodeData, uplus } from "../data/unicode"
-import { ColorMode, PLANE_BG, RGB } from "./colorModes"
+import { displayString, hex, planeName, type UnicodeData, uplus } from "../data/unicode"
+import { type ColorMode, PLANE_BG, type RGB } from "./colorModes"
 import {
   cellToCp,
   cpToCell,
@@ -10,7 +10,7 @@ import {
   planeOrigin,
   rangeOutline,
   rangeRect,
-  Rect,
+  type Rect,
   WORLD
 } from "./layout"
 
@@ -74,7 +74,7 @@ interface GlyphLevel {
   prebuilt: boolean
 }
 /** Exported for scripts/build_tiles.mjs, which pre-builds the levels marked so. */
-export const GLYPH_LEVELS: GlyphLevel[] = [
+const GLYPH_LEVELS: GlyphLevel[] = [
   // Below a few pixels a glyph is a smudge, but how much ink it has still shows: dense ideographs
   // bright, marks and punctuation faint, emoji in colour. That texture is the point of this level.
   { res: 2, span: 128, prebuilt: true },
@@ -217,7 +217,7 @@ export class MapView {
     this.resizeObs.observe(canvas)
     this.resize()
     this.bindInput()
-    document.fonts.load(`16px "UMap Last Resort"`, "A").then(() => {
+    void document.fonts.load(`16px "UMap Last Resort"`, "A").then(() => {
       this.lastResortReady = true
       this.invalidate()
     })
@@ -355,7 +355,7 @@ export class MapView {
     const b = this.data.meta.blocks.find((b) => b.s === s && b.e === e)
     if (b) return b.name
     const sec = this.data.sectionRange(s)
-    return sec && sec[0] === s && sec[1] === e ? sec[2] : uplus(s)
+    return sec?.[0] === s && sec[1] === e ? sec[2] : uplus(s)
   }
 
   /** Dim everything outside a per-code-point mask (property highlight). */
@@ -816,13 +816,7 @@ export class MapView {
           const v = valueOf[cp]
           const sx = this.sx(o.x + lx)
           if (!this.exists(cp)) {
-            if (
-              !this.pure &&
-              this.highlight &&
-              this.valueOn[v] &&
-              !data.isAssigned(cp) &&
-              (!this.mask || this.mask[cp])
-            ) {
+            if (!this.pure && this.highlight && this.valueOn[v] && !data.isAssigned(cp) && this.mask?.[cp] !== 0) {
               // Highlighted reserved code point / noncharacter: shown lit, like its cell colour.
               ctx.globalAlpha = 1
               ctx.fillStyle = this.fullColors[v]
@@ -1135,7 +1129,7 @@ export class MapView {
     const o = planeOrigin(s >> 16)
     const r0 = (s >> 8) & 255,
       r1 = (e >> 8) & 255
-    if (sticky === false) {
+    if (!sticky) {
       // Pinned to the range's first cell: it scrolls away with it.
       const y = this.sy(o.y + r0),
         x = this.sx(o.x + (s & 255))
@@ -1688,7 +1682,7 @@ export class MapView {
     try {
       const r = await fetch("./tiles/manifest.json")
       if (!r.ok) return
-      const m: { version: string; tiles: string[] } = await r.json()
+      const m = (await r.json()) as { version: string; tiles: string[] }
       this.staticTiles = new Set(m.tiles)
       this.staticTilesVersion = m.version
       // Forget tiles drawn here at pre-built levels, in favour of the files.
@@ -1929,8 +1923,6 @@ export class MapView {
     this.cb.onHover(cp, clientX, clientY)
   }
 }
-
-export { rangeRect }
 
 /** Zoom (CSS px per cell) at which block clicks land: glyph cards are fully drawn. */
 const READ_K = 40

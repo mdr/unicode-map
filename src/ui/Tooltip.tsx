@@ -1,6 +1,6 @@
-import { uplus, UnicodeData } from "../data/unicode"
+import { uplus, type UnicodeData } from "../data/unicode"
 import { Glyph } from "./Glyph"
-import { ColorMode, cpColor } from "../map/colorModes"
+import { type ColorMode, cpColor } from "../map/colorModes"
 
 export function Tooltip({
   data,

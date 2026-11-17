@@ -2,10 +2,10 @@
 // World coordinates are in cell units.
 
 export const PLANE_SIZE = 256
-export const PLANE_GAP = 40
-export const PLANE_COLS = 6
+const PLANE_GAP = 40
+const PLANE_COLS = 6
 export const PLANE_COUNT = 17
-export const PLANE_STRIDE = PLANE_SIZE + PLANE_GAP
+const PLANE_STRIDE = PLANE_SIZE + PLANE_GAP
 
 export interface Rect {
   x: number

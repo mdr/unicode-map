@@ -22,8 +22,14 @@ const KEYS: [string, string][] = [
 
 export function HelpOverlay({ onClose }: { onClose: () => void }) {
   return (
-    <div className="help-backdrop" onClick={onClose}>
-      <div className="help panel" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="help-backdrop"
+      role="presentation"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <div className="help panel">
         <div className="help-title">Getting around</div>
         <dl>
           {KEYS.map(([k, v]) => (
