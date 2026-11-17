@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { AboutData, Article, loadAbout, PSEUDO_SCRIPTS, ScriptInfo } from "../data/about";
-import { UnicodeData } from "../data/unicode";
+import { AboutData, Article, CharAboutData, loadAbout, loadCharAbout, PSEUDO_SCRIPTS, ScriptInfo } from "../data/about";
+import { hex, UnicodeData } from "../data/unicode";
 
 function useAbout() {
   const [about, setAbout] = useState<AboutData | null>(null);
@@ -123,4 +123,31 @@ export function blockScript(data: UnicodeData, block: number): string | undefine
   let best: string | undefined, n = 0;
   for (const [code, c] of counts) if (c > n) [best, n] = [code, c];
   return best;
+}
+
+/** The Wikipedia summary of a character that has an article of its own, if it has one. */
+export function CharAboutCard({ cp }: { cp: number }) {
+  const [about, setAbout] = useState<CharAboutData | null>(null);
+  useEffect(() => {
+    let live = true;
+    loadCharAbout().then((a) => live && setAbout(a));
+    return () => {
+      live = false;
+    };
+  }, []);
+  const a = about?.chars[hex(cp)];
+  if (!a) return null;
+  return (
+    <section className="section">
+      <h2>This character</h2>
+      <div className="about char-about">
+        <div className="about-card">
+          <h3>{a.title}</h3>
+          {a.description && <div className="about-desc">{a.description}</div>}
+          <ArticleText a={a} />
+        </div>
+        <div className="about-credit muted small">From {about!.source} (fetched {about!.fetched}).</div>
+      </div>
+    </section>
+  );
 }

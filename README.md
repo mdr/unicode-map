@@ -15,7 +15,7 @@ nix develop          # or `direnv allow` (there's an .envrc)
 pnpm install         # once
 pnpm data            # compile the UCD into public/data and link the fonts (~30s)
 pnpm tiles           # optional: pre-build pure view's glyph tiles into public/tiles (~1 min)
-pnpm about           # rarely: refresh the Wikipedia summaries in src/data/about.json (committed)
+pnpm about           # rarely: refresh the Wikipedia summaries in src/data/about*.json (committed)
 pnpm dev             # http://localhost:5173
 ```
 
@@ -86,6 +86,11 @@ pure view draws them in the browser instead, which is slower to fill in.
   fetches again. The app shows them as "About" cards (for a selected character, and from the ⓘ
   on block rows in the sidebar), with facts per script from CLDR (`CLDR_DIR`, pinned in the
   flake): how widely it's used, where it comes from, direction, case, and its main languages.
+  It also writes `src/data/about-chars.json`: summaries of the ~2,400 characters with an
+  English Wikipedia article of their own (Wikidata's "Unicode hex codepoint" and "Unicode
+  character" links), keeping only articles whose short description says they're about a
+  character, not something it depicts (🦦 → Otter), and checking the script against the
+  character's name. `--report` writes what it kept and dropped to `.cache/about/` for review.
 - **`src/map/colorModes.ts`** defines the colour modes: region, general category, script,
   age and assigned.
 - **`src/ui/*`** holds the React UI: search, property highlight, legend, timeline,

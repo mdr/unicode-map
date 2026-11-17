@@ -11,10 +11,10 @@ time, pinned by hash in `flake.nix`.
   **Unicode CLDR 49**: © Unicode, Inc. Used under the
   [Unicode License v3](https://www.unicode.org/license.txt). The site's `data/` files are
   derived from them.
-- **Script and block summaries** (`src/data/about.json`): from
+- **Script, block and character summaries** (`src/data/about.json`, `src/data/about-chars.json`): from
   [English Wikipedia](https://en.wikipedia.org/), under
   [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Each summary links to
-  its article, whose history lists the authors. This file is CC BY-SA 4.0, not MIT.
+  its article, whose history lists the authors. These files are CC BY-SA 4.0, not MIT.
 
 ## Fonts
 

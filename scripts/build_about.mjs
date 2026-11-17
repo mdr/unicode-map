@@ -17,6 +17,7 @@ import { join } from "node:path";
 const UA = "unicode-map-about/1.0";
 const CACHE = ".cache/about";
 const OUT = "src/data/about.json";
+const CHARS_OUT = "src/data/about-chars.json";
 const refresh = process.argv.includes("--refresh");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -134,6 +135,98 @@ for (const b of meta.blocks) {
   if (p && /unicode block/i.test(p.extract.slice(0, 400))) blocks[b.name] = entry(p);
 }
 console.log(`Blocks: ${Object.keys(blocks).length} of ${meta.blocks.length}`);
+
+// --- Characters with an article of their own --------------------------------------------------
+// Wikidata links characters to articles through "Unicode hex codepoint" (P4213) and "Unicode
+// character" (P487). Many of those links are to the thing a character depicts (🦦 → Otter) or
+// redirect to a general article shared by many characters (⊺ → Transpose); keep only articles
+// that read as being about a character, and that no more than a few characters share.
+const charSparql = `SELECT ?cp ?char ?article WHERE {
+  { ?item wdt:P4213 ?cp } UNION { ?item wdt:P487 ?char }
+  ?article schema:about ?item ; schema:isPartOf <https://en.wikipedia.org/> .
+}`;
+const wdc = await getJson("https://query.wikidata.org/sparql?format=json&query=" + encodeURIComponent(charSparql));
+const titlesByCp = new Map();
+for (const b of wdc.results.bindings) {
+  let cp;
+  if (b.cp) cp = parseInt(b.cp.value.replace(/^U\+/i, ""), 16);
+  else if ([...b.char.value].length === 1) cp = b.char.value.codePointAt(0);
+  if (!Number.isInteger(cp) || cp < 0 || cp > 0x10ffff) continue;
+  const title = decodeURIComponent(b.article.value.replace("https://en.wikipedia.org/wiki/", "")).replace(/_/g, " ");
+  if (!titlesByCp.has(cp)) titlesByCp.set(cp, new Set());
+  titlesByCp.get(cp).add(title);
+}
+const charIntros = await intros([...new Set([...titlesByCp.values()].flatMap((t) => [...t]))]);
+// What a character article says it is, in its short description or first sentence.
+const CHARACTER_WORDS =
+  /\b(letters?|symbols?|signs?|characters?|glyphs?|diacritics?|diacritical|punctuation|marks?|kana|radicals?|emoji|numerals?|ligatures?|digraphs?|logograms?|hieroglyphs?|cuneiform|braille|accents?|typographic|graphemes?|syllables?|syllabograms?|runes?|vowel points?|niqqud|ideographs?|hanzi|kanji|codepoints?|unicode|alphabet|abjad|abugida)\b/i;
+// A short description naming something else that a character stands for, not the character.
+const NOT_CHARACTER = /\b(chemical element|flags?|used as a symbol|natural number|integer|set theory|chess piece|card|block)\b/i;
+// Without a short description, the first sentence has to say plainly that it's a character.
+const IS_A_CHARACTER =
+  /\b(is|was) (a|an|the)\b[^.]{0,80}\b(letter|character|symbol|sign|glyph|diacritic|punctuation mark|ligature|digraph|numeral|kana|radical|emoji|rune|hieroglyph)\b/i;
+const isAboutCharacter = (p) =>
+  p.description
+    ? CHARACTER_WORDS.test(p.description) && !NOT_CHARACTER.test(p.description)
+    : IS_A_CHARACTER.test(trim(p.extract).split(/(?<=\.)\s/)[0]);
+// Wikidata has the odd wrong link (the item for the Cyrillic letter ӆ also lists a Latin "A").
+// When an article's description names a script, the character's name must mention it too.
+const charNames = new Map(
+  readFileSync("public/data/names.txt", "utf8")
+    .split("\n")
+    .map((l) => l.split("\t"))
+    // code point, name, aliases (controls have only aliases)
+    .map(([h, name, aliases]) => [parseInt(h, 16), name || (aliases ?? "").split("|")[0]]),
+);
+const scriptWords = meta.scripts
+  .map((sc) => sc.name)
+  .filter((n) => n.length >= 4 && !["Common", "Inherited", "Unknown"].includes(n));
+const sameScript = (cp, p) => {
+  const name = charNames.get(cp);
+  if (!name) return true;
+  const named = scriptWords.filter((w) => new RegExp(`\\b${w}\\b`, "i").test(p.description ?? ""));
+  return !named.length || named.some((w) => name.includes(w.toUpperCase()));
+};
+const blockAndScriptUrls = new Set([...Object.values(scripts), ...Object.values(blocks)].map((a) => a.url));
+const candidates2 = new Map();
+const uses = new Map();
+for (const [cp, titles] of titlesByCp) {
+  for (const t of titles) {
+    const p = charIntros.get(t);
+    if (!p) continue;
+    candidates2.set(cp, [...(candidates2.get(cp) ?? []), p]);
+    uses.set(p.title, (uses.get(p.title) ?? new Set()).add(cp));
+  }
+}
+const chars = {};
+const dropped = [];
+for (const [cp, pages] of [...candidates2].sort((a, b) => a[0] - b[0])) {
+  // A letter's article is shared by its variants (hiragana and katakana, fullwidth, maths
+  // styles); one shared much more widely is about something general.
+  // Shared more widely than that, it goes to the first of them: the plain letter, not 𝐈 or ı.
+  const ok = pages.filter(
+    (p) =>
+      (uses.get(p.title).size <= 12 || Math.min(...uses.get(p.title)) === cp) &&
+      !blockAndScriptUrls.has(entry(p).url) &&
+      isAboutCharacter(p) &&
+      sameScript(cp, p),
+  );
+  const key = cp.toString(16).toUpperCase().padStart(4, "0");
+  // With several, the one more characters share is the canonical article (A → "A", not a stray
+  // link to a Cyrillic letter).
+  if (ok.length) chars[key] = entry(ok.sort((a, b) => uses.get(b.title).size - uses.get(a.title).size)[0]);
+  else dropped.push(`${key} ${pages.map((p) => `${p.title} (${p.description ?? "-"}; ${uses.get(p.title).size})`).join(" | ")}`);
+}
+console.log(`Characters: ${Object.keys(chars).length} with an article of their own, of ${candidates2.size} linked`);
+if (process.argv.includes("--report")) {
+  writeFileSync(".cache/about/chars-kept.txt", Object.entries(chars).map(([k, a]) => `${k} ${a.title} (${a.description ?? "-"})`).join("\n"));
+  writeFileSync(".cache/about/chars-dropped.txt", dropped.join("\n"));
+}
+writeFileSync(
+  CHARS_OUT,
+  JSON.stringify({ source: "English Wikipedia, CC BY-SA 4.0", fetched: new Date().toISOString().slice(0, 10), chars }) + "\n",
+);
+console.log(`Wrote ${CHARS_OUT}`);
 
 writeFileSync(
   OUT,

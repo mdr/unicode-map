@@ -2,7 +2,7 @@ import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Detail, displayString, hex, MAX_CP, planeName, uplus, UnicodeData, VERSION_YEARS } from "../data/unicode";
 import { ColorMode, cpColor } from "../map/colorModes";
 import { Glyph } from "./Glyph";
-import { AboutCards, blockScript } from "./About";
+import { AboutCards, blockScript, CharAboutCard } from "./About";
 import type { Here } from "../map/MapView";
 
 interface Props {
@@ -276,6 +276,7 @@ function CodePointDetail({ data, mode, cp, onSelect, onBlock, onPlane, onClose, 
       </div>
 
       {!assigned && <Unassigned data={data} cp={cp} />}
+      {assigned && <CharAboutCard cp={cp} />}
 
       <Section title="Where it lives">
         <Rows>
