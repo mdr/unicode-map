@@ -99,9 +99,7 @@ const PLANE_NAMES: Record<number, [string, string]> = {
   15: ["Supplementary Private Use Area-A", "SPUA-A"],
   16: ["Supplementary Private Use Area-B", "SPUA-B"]
 }
-export function planeName(p: number): [string, string] {
-  return PLANE_NAMES[p] ?? ["Unassigned plane", ""]
-}
+export const planeName = (p: number): [string, string] => PLANE_NAMES[p] ?? ["Unassigned plane", ""]
 
 export const VERSION_YEARS: Record<string, number> = {
   "1.1": 1993,
@@ -186,17 +184,17 @@ export class UnicodeData {
     return new UnicodeData(meta, names)
   }
 
-  isAssigned(cp: number) {
+  isAssigned(cp: number): boolean {
     return this.gcIdx[cp] !== this.gcCn
   }
 
-  gc(cp: number) {
+  gc(cp: number): ValueInfo {
     return this.meta.gc[this.gcIdx[cp]]
   }
-  script(cp: number) {
+  script(cp: number): ScriptInfo {
     return this.meta.scripts[this.scriptIdx[cp]]
   }
-  age(cp: number) {
+  age(cp: number): string {
     return this.meta.ages[this.ageIdx[cp]]
   }
   block(cp: number): Block | undefined {
@@ -224,7 +222,7 @@ export class UnicodeData {
   }
 
   /** Whether name() is a real Unicode name rather than a code point label. */
-  hasName(cp: number) {
+  hasName(cp: number): boolean {
     return !this.name(cp).startsWith("<")
   }
 
@@ -284,7 +282,7 @@ export class UnicodeData {
   }
 }
 
-function expandRuns(runs: number[], out: Uint8Array) {
+const expandRuns = (runs: number[], out: Uint8Array): void => {
   for (let i = 0; i < runs.length; i += 2) {
     const start = runs[i]
     const end = i + 2 < runs.length ? runs[i + 2] : MAX_CP
@@ -292,15 +290,12 @@ function expandRuns(runs: number[], out: Uint8Array) {
   }
 }
 
-export function hex(cp: number) {
-  return cp.toString(16).toUpperCase().padStart(4, "0")
-}
-export function uplus(cp: number) {
-  return "U+" + hex(cp)
-}
+export const hex = (cp: number): string => cp.toString(16).toUpperCase().padStart(4, "0")
+
+export const uplus = (cp: number): string => "U+" + hex(cp)
 
 /** The string to draw for a code point (marks get a dotted-circle base). */
-export function displayString(data: UnicodeData, cp: number): string | null {
+export const displayString = (data: UnicodeData, cp: number): string | undefined => {
   const gc = data.gc(cp).code
   if (
     gc === "Cn" ||
@@ -312,9 +307,9 @@ export function displayString(data: UnicodeData, cp: number): string | null {
     gc === "Zp" ||
     gc === "Zs"
   ) {
-    return null
+    return undefined
   }
-  if (data.abbr(cp)) return null // invisible, e.g. variation selectors: drawn as a label
+  if (data.abbr(cp)) return undefined // invisible, e.g. variation selectors: drawn as a label
   const ch = String.fromCodePoint(cp)
   if (gc === "Mn" || gc === "Me" || gc === "Mc") return data.markBase(cp) + ch
   return ch

@@ -19,9 +19,9 @@ interface PropsFile {
   }[]
 }
 
-let loading: Promise<PropOption[]> | null = null
+let loading: Promise<PropOption[]> | undefined = undefined
 
-export function loadProps(): Promise<PropOption[]> {
+export const loadProps = (): Promise<PropOption[]> => {
   loading ??= fetch("./data/props.json")
     .then((r) => r.json() as Promise<PropsFile>)
     .then((f) => [
@@ -45,7 +45,7 @@ export function loadProps(): Promise<PropOption[]> {
   return loading
 }
 
-export function maskOf(opt: PropOption): Uint8Array {
+export const maskOf = (opt: PropOption): Uint8Array => {
   const m = new Uint8Array(MAX_CP)
   for (const [a, b] of opt.ranges) m.fill(1, a, b + 1)
   return m

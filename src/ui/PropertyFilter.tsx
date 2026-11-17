@@ -2,15 +2,15 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { loadProps, type PropOption } from "../data/props"
 
 /** "Highlight characters with a property": a button that opens a searchable list of properties. */
-export function PropertyFilter({
+export const PropertyFilter = ({
   value,
   onChange
 }: {
-  value: PropOption | null
-  onChange: (p: PropOption | null) => void
-}) {
+  value: PropOption | undefined
+  onChange: (p: PropOption | undefined) => void
+}) => {
   const [open, setOpen] = useState(false)
-  const [options, setOptions] = useState<PropOption[] | null>(null)
+  const [options, setOptions] = useState<PropOption[]>()
   const [q, setQ] = useState("")
   const [active, setActive] = useState(0)
   const root = useRef<HTMLDivElement>(null)
@@ -89,7 +89,7 @@ export function PropertyFilter({
           )}
         </button>
         {value && (
-          <button className="pf-clear" title="Clear highlight" onClick={() => onChange(null)}>
+          <button className="pf-clear" title="Clear highlight" onClick={() => onChange(undefined)}>
             ×
           </button>
         )}
@@ -109,7 +109,7 @@ export function PropertyFilter({
             {!options && <div className="pf-empty">Loading…</div>}
             {options && !filtered.length && <div className="pf-empty">No matching properties</div>}
             {filtered.map((o, i) => {
-              const head = o.group !== lastGroup ? (lastGroup = o.group) : null
+              const head = o.group !== lastGroup ? (lastGroup = o.group) : undefined
               return (
                 <div key={o.key}>
                   {head && <div className="pf-head">{head}</div>}

@@ -1,5 +1,5 @@
 // Descriptions of scripts and blocks: Wikipedia summaries (src/data/about.json, from
-// scripts/build_about.mjs) and CLDR facts (meta.scriptInfo, from scripts/build_data.py).
+// scripts/build_about.ts) and CLDR facts (meta.scriptInfo, from scripts/build_data.py).
 
 export interface Article {
   title: string
@@ -24,9 +24,9 @@ export interface ScriptInfo {
   languageCount?: number
 }
 
-let loading: Promise<AboutData> | null = null
+let loading: Promise<AboutData> | undefined = undefined
 /** The Wikipedia summaries, loaded (as their own chunk) on first use. */
-export function loadAbout(): Promise<AboutData> {
+export const loadAbout = (): Promise<AboutData> => {
   loading ??= import("./about.json").then((m) => m.default as AboutData)
   return loading
 }
@@ -37,12 +37,12 @@ export interface CharAboutData {
   /** Keyed by code point in hex, as in "20AC". */
   chars: Record<string, Article>
 }
-let loadingChars: Promise<CharAboutData> | null = null
+let loadingChars: Promise<CharAboutData> | undefined = undefined
 /**
  * Summaries of the characters that have an English Wikipedia article of their own (about 2,400),
- * from scripts/build_about.mjs. Loaded as their own chunk the first time a character is shown.
+ * from scripts/build_about.ts. Loaded as their own chunk the first time a character is shown.
  */
-export function loadCharAbout(): Promise<CharAboutData> {
+export const loadCharAbout = (): Promise<CharAboutData> => {
   loadingChars ??= import("./about-chars.json").then((m) => m.default as CharAboutData)
   return loadingChars
 }

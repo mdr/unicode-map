@@ -10,8 +10,8 @@ import {
 } from "../data/about"
 import { hex, type UnicodeData } from "../data/unicode"
 
-function useAbout() {
-  const [about, setAbout] = useState<AboutData | null>(null)
+const useAbout = () => {
+  const [about, setAbout] = useState<AboutData>()
   useEffect(() => {
     let live = true
     void loadAbout().then((a) => live && setAbout(a))
@@ -29,7 +29,7 @@ const USAGE: Record<ScriptInfo["usage"], string> = {
   rare: "Historic, specialised or little used"
 }
 
-function people(n: number) {
+const people = (n: number) => {
   if (n >= 1e9) return `${(n / 1e9).toFixed(1)} bn`
   if (n >= 1e6) return `${Math.round(n / 1e6)} m`
   if (n >= 1e3) return `${Math.round(n / 1e3)} k`
@@ -37,7 +37,7 @@ function people(n: number) {
 }
 
 /** Facts about a script from CLDR, as a few short lines. */
-function ScriptFacts({ info }: { info: ScriptInfo }) {
+const ScriptFacts = ({ info }: { info: ScriptInfo }) => {
   const tags = [
     USAGE[info.usage],
     info.origin && `From ${info.origin}`,
@@ -72,22 +72,20 @@ function ScriptFacts({ info }: { info: ScriptInfo }) {
   )
 }
 
-function ArticleText({ a }: { a: Article }) {
-  return (
-    <>
-      <p className="about-text">{a.extract}</p>
-      <a className="about-more" href={a.url} target="_blank" rel="noreferrer">
-        More on Wikipedia ↗
-      </a>
-    </>
-  )
-}
+const ArticleText = ({ a }: { a: Article }) => (
+  <>
+    <p className="about-text">{a.extract}</p>
+    <a className="about-more" href={a.url} target="_blank" rel="noreferrer">
+      More on Wikipedia ↗
+    </a>
+  </>
+)
 
 /**
  * What a script and a block are: CLDR facts and a Wikipedia summary for the script, and the
  * block's own summary where it has one (and it isn't just the script's article again).
  */
-export function AboutCards({ data, script, block }: { data: UnicodeData; script?: string; block?: number }) {
+export const AboutCards = ({ data, script, block }: { data: UnicodeData; script?: string; block?: number }) => {
   const about = useAbout()
   const sc = script && !PSEUDO_SCRIPTS.has(script) ? script : undefined
   const scriptName = sc ? data.meta.scripts.find((s) => s.code === sc)?.name : undefined
@@ -95,8 +93,8 @@ export function AboutCards({ data, script, block }: { data: UnicodeData; script?
   const sa = sc ? about?.scripts[sc] : undefined
   const b = block !== undefined && block >= 0 ? data.meta.blocks[block] : undefined
   const ba = b ? about?.blocks[b.name] : undefined
-  if (!about) return null
-  if (!sa && !info && !ba) return null
+  if (!about) return undefined
+  if (!sa && !info && !ba) return undefined
   return (
     <div className="about">
       {sc && (sa !== undefined || info !== undefined) && (
@@ -125,7 +123,7 @@ export function AboutCards({ data, script, block }: { data: UnicodeData; script?
 }
 
 /** The main script of a block: the commonest real script among its assigned characters. */
-export function blockScript(data: UnicodeData, block: number): string | undefined {
+export const blockScript = (data: UnicodeData, block: number): string | undefined => {
   const b = data.meta.blocks[block]
   const counts = new Map<string, number>()
   for (let cp = b.s; cp <= b.e; cp++) {
@@ -140,8 +138,8 @@ export function blockScript(data: UnicodeData, block: number): string | undefine
 }
 
 /** The Wikipedia summary of a character that has an article of its own, if it has one. */
-export function CharAboutCard({ cp }: { cp: number }) {
-  const [about, setAbout] = useState<CharAboutData | null>(null)
+export const CharAboutCard = ({ cp }: { cp: number }) => {
+  const [about, setAbout] = useState<CharAboutData>()
   useEffect(() => {
     let live = true
     void loadCharAbout().then((a) => live && setAbout(a))
@@ -150,7 +148,7 @@ export function CharAboutCard({ cp }: { cp: number }) {
     }
   }, [])
   const a = about?.chars[hex(cp)]
-  if (!a) return null
+  if (!a) return undefined
   return (
     <section className="section">
       <h2>This character</h2>

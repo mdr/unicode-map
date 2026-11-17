@@ -19,12 +19,39 @@ const CACHE = ".cache/about"
 const OUT = "src/data/about.json"
 const CHARS_OUT = "src/data/about-chars.json"
 const refresh = process.argv.includes("--refresh")
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
+
+/** A Wikipedia article's intro, as the query API returns it. */
+interface Page {
+  title: string
+  description?: string
+  extract: string
+}
+interface QueryResponse {
+  query: {
+    normalized?: { from: string; to: string }[]
+    redirects?: { from: string; to: string }[]
+    pages: (Partial<Page> & { title: string; missing?: boolean })[]
+  }
+}
+interface SparqlResponse<Row extends string> {
+  results: { bindings: Partial<Record<Row, { value: string }>>[] }
+}
+interface Article {
+  title: string
+  url: string
+  description?: string
+  extract: string
+}
+interface Meta {
+  scripts: { code: string; name: string }[]
+  blocks: { name: string }[]
+}
 
 /** GET a JSON URL, from the cache if we have it; backs off and retries when rate limited. */
-async function getJson(url) {
+const getJson = async (url: string): Promise<unknown> => {
   const file = join(CACHE, createHash("sha1").update(url).digest("hex") + ".json")
-  if (!refresh && existsSync(file)) return JSON.parse(readFileSync(file, "utf8"))
+  if (!refresh && existsSync(file)) return JSON.parse(readFileSync(file, "utf8")) as unknown
   for (let attempt = 0; ; attempt++) {
     const r = await fetch(url, { headers: { "User-Agent": UA, Accept: "application/json" } })
     if ((r.status === 429 || r.status >= 500) && attempt < 5) {
@@ -34,7 +61,7 @@ async function getJson(url) {
       continue
     }
     if (!r.ok) throw new Error(`${r.status} for ${url}`)
-    const json = await r.json()
+    const json: unknown = await r.json()
     mkdirSync(CACHE, { recursive: true })
     writeFileSync(file, JSON.stringify(json))
     await sleep(200) // be gentle
@@ -43,15 +70,15 @@ async function getJson(url) {
 }
 
 /** Intro text, short description and canonical title for up to 20 titles at a time. */
-async function intros(titles) {
-  const out = new Map()
+const intros = async (titles: string[]): Promise<Map<string, Page>> => {
+  const out = new Map<string, Page>()
   for (let i = 0; i < titles.length; i += 20) {
     const batch = titles.slice(i, i + 20)
     const url =
       "https://en.wikipedia.org/w/api.php?action=query&format=json&formatversion=2&redirects=1" +
       "&prop=extracts|description&exintro=1&explaintext=1&exlimit=20&titles=" +
       encodeURIComponent(batch.join("|"))
-    const q = (await getJson(url)).query
+    const q = ((await getJson(url)) as QueryResponse).query
     // Follow normalisation and redirects back to the titles we asked for.
     const final = new Map(batch.map((t) => [t, t]))
     for (const n of q.normalized ?? []) for (const [k, v] of final) if (v === n.from) final.set(k, n.to)
@@ -66,7 +93,7 @@ async function intros(titles) {
 }
 
 /** The first paragraph, cut at a sentence end if it's long. */
-function trim(text) {
+const trim = (text: string): string => {
   let t = text.split("\n").find((l) => l.trim()) ?? ""
   t = t.replace(/\s+/g, " ").trim()
   if (t.length <= 700) return t
@@ -75,35 +102,38 @@ function trim(text) {
   return end > 200 ? cut.slice(0, end + 1) : cut + "…"
 }
 
-const entry = (p) => ({
+const entry = (p: Page): Article => ({
   title: p.title,
   url: "https://en.wikipedia.org/wiki/" + encodeURIComponent(p.title.replace(/ /g, "_")),
   ...(p.description ? { description: p.description } : {}),
   extract: trim(p.extract)
 })
 
-const meta = JSON.parse(readFileSync("public/data/meta.json", "utf8"))
+const meta = JSON.parse(readFileSync("public/data/meta.json", "utf8")) as Meta
 
 // --- Scripts, via Wikidata --------------------------------------------------------------------
 const sparql = `SELECT ?code ?article WHERE {
   ?item wdt:P506 ?code .
   ?article schema:about ?item ; schema:isPartOf <https://en.wikipedia.org/> .
 }`
-const wd = await getJson("https://query.wikidata.org/sparql?format=json&query=" + encodeURIComponent(sparql))
-const candidates = new Map()
+const wd = (await getJson(
+  "https://query.wikidata.org/sparql?format=json&query=" + encodeURIComponent(sparql)
+)) as SparqlResponse<"code" | "article">
+const articleTitle = (url: string): string =>
+  decodeURIComponent(url.replace("https://en.wikipedia.org/wiki/", "")).replace(/_/g, " ")
+const candidates = new Map<string, string[]>()
 for (const b of wd.results.bindings) {
+  if (!b.code || !b.article) continue
   const code = b.code.value
-  const title = decodeURIComponent(b.article.value.replace("https://en.wikipedia.org/wiki/", "")).replace(/_/g, " ")
-  if (!candidates.has(code)) candidates.set(code, [])
-  candidates.get(code).push(title)
+  candidates.set(code, [...(candidates.get(code) ?? []), articleTitle(b.article.value)])
 }
 // Several items can share a code (a script and a variant of it); prefer the article named after
 // the script, then one that's about a writing system.
 const words = /\b(script|alphabet|abjad|abugida|syllabary|writing|characters|hieroglyphs|numerals|symbols|notation)\b/i
-const scriptTitles = new Map()
+const scriptTitles = new Map<string, string>()
 for (const s of meta.scripts) {
   const titles = candidates.get(s.code) ?? []
-  const score = (t) =>
+  const score = (t: string): number =>
     (t.toLowerCase().startsWith(s.name.toLowerCase()) ? 2 : 0) + (words.test(t) ? 1 : 0) - t.length / 1000
   const best = [...titles].sort((a, b) => score(b) - score(a))[0]
   if (best) scriptTitles.set(s.code, best)
@@ -116,10 +146,11 @@ const guesses = unlinked.flatMap((s) => [`${s.name} alphabet`, `${s.name} script
 const guessed = await intros(guesses)
 for (const s of unlinked) {
   const hit = [`${s.name} alphabet`, `${s.name} script`].find((t) => guessed.has(t))
-  if (hit) scriptTitles.set(s.code, guessed.get(hit).title)
+  const page = hit === undefined ? undefined : guessed.get(hit)
+  if (page) scriptTitles.set(s.code, page.title)
 }
 const scriptIntros = await intros([...new Set(scriptTitles.values())])
-const scripts = {}
+const scripts: Record<string, Article> = {}
 for (const [code, title] of scriptTitles) {
   const p = scriptIntros.get(title)
   if (p) scripts[code] = entry(p)
@@ -132,7 +163,7 @@ console.log(
 
 // --- Blocks, via their "(Unicode block)" articles ----------------------------------------------
 const blockIntros = await intros(meta.blocks.map((b) => `${b.name} (Unicode block)`))
-const blocks = {}
+const blocks: Record<string, Article> = {}
 for (const b of meta.blocks) {
   const p = blockIntros.get(`${b.name} (Unicode block)`)
   // A redirect can land on a general article; keep only ones about the block.
@@ -149,16 +180,17 @@ const charSparql = `SELECT ?cp ?char ?article WHERE {
   { ?item wdt:P4213 ?cp } UNION { ?item wdt:P487 ?char }
   ?article schema:about ?item ; schema:isPartOf <https://en.wikipedia.org/> .
 }`
-const wdc = await getJson("https://query.wikidata.org/sparql?format=json&query=" + encodeURIComponent(charSparql))
-const titlesByCp = new Map()
+const wdc = (await getJson(
+  "https://query.wikidata.org/sparql?format=json&query=" + encodeURIComponent(charSparql)
+)) as SparqlResponse<"cp" | "char" | "article">
+const titlesByCp = new Map<number, Set<string>>()
 for (const b of wdc.results.bindings) {
-  let cp
+  if (!b.article) continue
+  let cp: number | undefined
   if (b.cp) cp = parseInt(b.cp.value.replace(/^U\+/i, ""), 16)
-  else if ([...b.char.value].length === 1) cp = b.char.value.codePointAt(0)
-  if (!Number.isInteger(cp) || cp < 0 || cp > 0x10ffff) continue
-  const title = decodeURIComponent(b.article.value.replace("https://en.wikipedia.org/wiki/", "")).replace(/_/g, " ")
-  if (!titlesByCp.has(cp)) titlesByCp.set(cp, new Set())
-  titlesByCp.get(cp).add(title)
+  else if (b.char && Array.from(b.char.value).length === 1) cp = b.char.value.codePointAt(0)
+  if (cp === undefined || !Number.isInteger(cp) || cp < 0 || cp > 0x10ffff) continue
+  titlesByCp.set(cp, (titlesByCp.get(cp) ?? new Set()).add(articleTitle(b.article.value)))
 }
 const charIntros = await intros([...new Set([...titlesByCp.values()].flatMap((t) => [...t]))])
 // What a character article says it is, in its short description or first sentence.
@@ -170,10 +202,10 @@ const NOT_CHARACTER =
 // Without a short description, the first sentence has to say plainly that it's a character.
 const IS_A_CHARACTER =
   /\b(is|was) (a|an|the)\b[^.]{0,80}\b(letter|character|symbol|sign|glyph|diacritic|punctuation mark|ligature|digraph|numeral|kana|radical|emoji|rune|hieroglyph)\b/i
-const isAboutCharacter = (p) =>
+const isAboutCharacter = (p: Page): boolean =>
   p.description
     ? CHARACTER_WORDS.test(p.description) && !NOT_CHARACTER.test(p.description)
-    : IS_A_CHARACTER.test(trim(p.extract).split(/(?<=\.)\s/)[0])
+    : IS_A_CHARACTER.test(trim(p.extract).split(/(?<=\.)\s/)[0] ?? "")
 // Wikidata has the odd wrong link (the item for the Cyrillic letter ӆ also lists a Latin "A").
 // When an article's description names a script, the character's name must mention it too.
 const charNames = new Map(
@@ -181,20 +213,23 @@ const charNames = new Map(
     .split("\n")
     .map((l) => l.split("\t"))
     // code point, name, aliases (controls have only aliases)
-    .map(([h, name, aliases]) => [parseInt(h, 16), name || (aliases ?? "").split("|")[0]])
+    .map(([h = "", name, aliases]): [number, string | undefined] => [
+      parseInt(h, 16),
+      name || (aliases ?? "").split("|")[0]
+    ])
 )
 const scriptWords = meta.scripts
   .map((sc) => sc.name)
   .filter((n) => n.length >= 4 && !["Common", "Inherited", "Unknown"].includes(n))
-const sameScript = (cp, p) => {
+const sameScript = (cp: number, p: Page): boolean => {
   const name = charNames.get(cp)
   if (!name) return true
   const named = scriptWords.filter((w) => new RegExp(`\\b${w}\\b`, "i").test(p.description ?? ""))
   return !named.length || named.some((w) => name.includes(w.toUpperCase()))
 }
 const blockAndScriptUrls = new Set([...Object.values(scripts), ...Object.values(blocks)].map((a) => a.url))
-const candidates2 = new Map()
-const uses = new Map()
+const candidates2 = new Map<number, Page[]>()
+const uses = new Map<string, Set<number>>()
 for (const [cp, titles] of titlesByCp) {
   for (const t of titles) {
     const p = charIntros.get(t)
@@ -203,15 +238,16 @@ for (const [cp, titles] of titlesByCp) {
     uses.set(p.title, (uses.get(p.title) ?? new Set()).add(cp))
   }
 }
-const chars = {}
-const dropped = []
+const chars: Record<string, Article> = {}
+const dropped: string[] = []
+const sharedBy = (p: Page): Set<number> => uses.get(p.title) ?? new Set()
 for (const [cp, pages] of [...candidates2].sort((a, b) => a[0] - b[0])) {
   // A letter's article is shared by its variants (hiragana and katakana, fullwidth, maths
   // styles); one shared much more widely is about something general.
   // Shared more widely than that, it goes to the first of them: the plain letter, not 𝐈 or ı.
   const ok = pages.filter(
     (p) =>
-      (uses.get(p.title).size <= 12 || Math.min(...uses.get(p.title)) === cp) &&
+      (sharedBy(p).size <= 12 || Math.min(...sharedBy(p)) === cp) &&
       !blockAndScriptUrls.has(entry(p).url) &&
       isAboutCharacter(p) &&
       sameScript(cp, p)
@@ -219,11 +255,9 @@ for (const [cp, pages] of [...candidates2].sort((a, b) => a[0] - b[0])) {
   const key = cp.toString(16).toUpperCase().padStart(4, "0")
   // With several, the one more characters share is the canonical article (A → "A", not a stray
   // link to a Cyrillic letter).
-  if (ok.length) chars[key] = entry(ok.sort((a, b) => uses.get(b.title).size - uses.get(a.title).size)[0])
+  if (ok.length) chars[key] = entry(ok.sort((a, b) => sharedBy(b).size - sharedBy(a).size)[0])
   else
-    dropped.push(
-      `${key} ${pages.map((p) => `${p.title} (${p.description ?? "-"}; ${uses.get(p.title).size})`).join(" | ")}`
-    )
+    dropped.push(`${key} ${pages.map((p) => `${p.title} (${p.description ?? "-"}; ${sharedBy(p).size})`).join(" | ")}`)
 }
 console.log(`Characters: ${Object.keys(chars).length} with an article of their own, of ${candidates2.size} linked`)
 if (process.argv.includes("--report")) {
@@ -251,7 +285,7 @@ writeFileSync(
       scripts,
       blocks
     },
-    null,
+    undefined,
     1
   ) + "\n"
 )

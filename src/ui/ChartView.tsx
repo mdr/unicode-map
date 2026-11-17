@@ -8,7 +8,7 @@ import { Glyph } from "./Glyph"
  * column (U+1800–180F, U+1810–181F…), read down then across. Replaces the map while it's open.
  * Only the columns in view are rendered, so even CJK Unified Ideographs (1,300+ columns) is quick.
  */
-export function ChartView({
+export const ChartView = ({
   data,
   mode,
   block: bi,
@@ -24,13 +24,13 @@ export function ChartView({
   block: number
   /** A range to scroll to and point out (a section), if any. */
   focus?: [number, number]
-  selected: number | null
+  selected: number | undefined
   onSelect: (cp: number) => void
   onHover: (cp: number, x: number, y: number) => void
   /** Reports the code point at the middle of the visible columns as you scroll. */
   onView: (cp: number) => void
   onClose: () => void
-}) {
+}) => {
   const b = data.meta.blocks[bi]
   const first = b.s & ~15
   const cols = ((b.e | 15) - first + 1) / 16
@@ -79,12 +79,12 @@ export function ChartView({
   const BAND = lanes ? LANE * lanes + 4 : 0
 
   // Keep the column under the pointer still while zooming.
-  const anchor = useRef<{ col: number; px: number } | null>(null)
+  const anchor = useRef<{ col: number; px: number } | undefined>(null)
   useLayoutEffect(() => {
     const a = anchor.current
     if (!a || !scroller.current) return
     scroller.current.scrollLeft = a.col * c + GUTTER - a.px
-    anchor.current = null
+    anchor.current = undefined
   }, [c])
   const zoomBy = (f: number, px = box.w / 2) => {
     anchor.current = { col: (scrollLeft + px - GUTTER) / c, px }
@@ -108,7 +108,7 @@ export function ChartView({
     return () => el.removeEventListener("wheel", onWheel)
   })
 
-  const inBlock = (cp: number | null): cp is number => cp !== null && cp >= b.s && cp <= b.e
+  const inBlock = (cp: number | undefined): cp is number => cp !== undefined && cp >= b.s && cp <= b.e
   /** Scroll a code point's column into view, a column in from the left if it has to move. */
   const reveal = (cp: number, always: boolean) => {
     const el = scroller.current
@@ -140,16 +140,15 @@ export function ChartView({
   }, [scrollLeft, c, box.w, bi])
 
   /** The section being pointed out: hovered in the band, else the focused one. */
-  const [hoverSec, setHoverSec] = useState<[number, number] | null>(null)
-  const lit = hoverSec ?? focus ?? null
+  const [hoverSec, setHoverSec] = useState<[number, number]>()
+  const lit = hoverSec ?? focus ?? undefined
   /** A code point hovered in the names list, outlined in the grid. */
-  const [hoverCp, setHoverCp] = useState<number | null>(null)
+  const [hoverCp, setHoverCp] = useState<number>()
 
   const c0 = Math.max(0, Math.floor((scrollLeft - GUTTER) / c) - 3)
   const c1 = Math.min(cols - 1, Math.ceil((scrollLeft + box.w) / c) + 3)
-  function colX(col: number) {
-    return GUTTER + col * c
-  }
+  const colX = (col: number) => GUTTER + col * c
+
   // When the whole block fits with room to spare, the space beside it holds a names list, like
   // the facing pages of the printed charts.
   const gridW = colX(cols) + 24
@@ -236,7 +235,7 @@ export function ChartView({
           <div className="chart-inner" style={{ width: colX(cols) + 24, height: BAND + HEAD + 16 * c }}>
             {/* Sections: a band over the columns they cover, alternating between two lanes. */}
             {secLabels.map(({ s, e, title, a, z, lane }) => {
-              if (z < c0 || a > c1) return null
+              if (z < c0 || a > c1) return undefined
               const on = lit && lit[0] === s && lit[1] === e
               return (
                 <button
@@ -245,7 +244,7 @@ export function ChartView({
                   style={{ left: colX(a) + 1, width: (z - a + 1) * c - 2, top: 2 + lane * LANE }}
                   title={`${title} · ${uplus(s)}–${uplus(e)}`}
                   onMouseEnter={() => setHoverSec([s, e])}
-                  onMouseLeave={() => setHoverSec(null)}
+                  onMouseLeave={() => setHoverSec(undefined)}
                 >
                   <span style={{ position: "sticky", left: GUTTER + 6 }}>{title}</span>
                 </button>
@@ -279,7 +278,7 @@ export function ChartView({
 }
 
 /** The block's characters by name, grouped under their sections, like a code chart's names list. */
-function NamesList({
+const NamesList = ({
   data,
   block: bi,
   sections,
@@ -291,11 +290,11 @@ function NamesList({
   data: UnicodeData
   block: number
   sections: [number, number, string][]
-  selected: number | null
+  selected: number | undefined
   style: React.CSSProperties
   onSelect: (cp: number) => void
-  onHoverCp: (cp: number | null) => void
-}) {
+  onHoverCp: (cp: number | undefined) => void
+}) => {
   const b = data.meta.blocks[bi]
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -325,7 +324,7 @@ function NamesList({
         className={`names-row ${cp === selected ? "selected" : ""}`}
         onClick={() => onSelect(cp)}
         onMouseEnter={() => onHoverCp(cp)}
-        onMouseLeave={() => onHoverCp(null)}
+        onMouseLeave={() => onHoverCp(undefined)}
       >
         <span className="names-hex">{hex(cp)}</span>
         <Glyph data={data} cp={cp} className="names-glyph" />

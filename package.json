@@ -9,8 +9,8 @@
   },
   "scripts": {
     "data": "python3 scripts/build_data.py",
-    "tiles": "node scripts/build_tiles.mjs",
-    "about": "node scripts/build_about.mjs",
+    "tiles": "node scripts/build_tiles.ts",
+    "about": "node scripts/build_about.ts",
     "dev": "vp dev",
     "build": "tsc --noEmit && vp build",
     "preview": "vp preview",

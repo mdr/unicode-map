@@ -1,4 +1,4 @@
-import { type ModeId, MODES } from "./map/colorModes"
+import { ModeId } from "./map/colorModes"
 import type { Camera } from "./map/MapView"
 
 export interface UrlState {
@@ -15,8 +15,18 @@ export interface UrlState {
   chart?: number
 }
 
+// How each colour mode is written in the URL; region, the default, is left out.
+const MODE_IN_URL: Record<ModeId, string> = {
+  [ModeId.REGION]: "region",
+  [ModeId.GENERAL_CATEGORY]: "gc",
+  [ModeId.SCRIPT]: "script",
+  [ModeId.AGE]: "age",
+  [ModeId.ASSIGNED]: "assigned"
+}
+const MODE_FROM_URL = new Map(Object.entries(MODE_IN_URL).map(([mode, text]) => [text, mode as ModeId]))
+
 // Hash format: #U+2603&mode=gc&view=1234.5,567.25,40
-export function readHash(): UrlState {
+export const readHash = (): UrlState => {
   const h = decodeURIComponent(location.hash.slice(1))
   const out: UrlState = {}
   for (const part of h.split("&")) {
@@ -31,7 +41,7 @@ export function readHash(): UrlState {
       continue
     }
     const [k, v] = part.split("=")
-    if (k === "mode" && MODES.some((m) => m.id === v)) out.mode = v as ModeId
+    if (k === "mode" && v) out.mode = MODE_FROM_URL.get(v)
     if (k === "prop" && v) out.prop = v
     if (k === "asof" && v) out.asOf = v
     if (k === "chart" && /^[0-9A-Fa-f]{1,6}$/.test(v ?? "")) out.chart = parseInt(v, 16)
@@ -43,10 +53,10 @@ export function readHash(): UrlState {
   return out
 }
 
-export function writeHash(s: UrlState, push: boolean) {
+export const writeHash = (s: UrlState, push: boolean): void => {
   const parts: string[] = []
   if (s.cp !== undefined) parts.push("U+" + s.cp.toString(16).toUpperCase().padStart(4, "0"))
-  if (s.mode && s.mode !== "region") parts.push(`mode=${s.mode}`)
+  if (s.mode && s.mode !== ModeId.REGION) parts.push(`mode=${MODE_IN_URL[s.mode]}`)
   if (s.prop) parts.push(`prop=${s.prop}`)
   if (s.asOf) parts.push(`asof=${s.asOf}`)
   if (s.pure) parts.push("pure")
@@ -54,6 +64,6 @@ export function writeHash(s: UrlState, push: boolean) {
   if (s.view) parts.push(`view=${s.view.cx.toFixed(1)},${s.view.cy.toFixed(1)},${+s.view.k.toPrecision(3)}`)
   const hash = "#" + parts.join("&")
   if (hash === location.hash) return
-  if (push) history.pushState(null, "", hash)
-  else history.replaceState(null, "", hash)
+  if (push) history.pushState(undefined, "", hash)
+  else history.replaceState(undefined, "", hash)
 }

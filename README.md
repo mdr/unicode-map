@@ -86,8 +86,8 @@ pure view draws them in the browser instead, which is slower to fill in.
   they're recoloured with each cell's ink, dark or light to suit its colour as on the cards,
   from a per-plane ink bitmap that also fades dimmed characters and hides ones newer than the
   timeline's version.
-- **`scripts/build_tiles.mjs`** pre-builds those tiles.
-- **`scripts/build_about.mjs`** fetches short descriptions of scripts and blocks from English
+- **`scripts/build_tiles.ts`** pre-builds those tiles.
+- **`scripts/build_about.ts`** fetches short descriptions of scripts and blocks from English
   Wikipedia into `src/data/about.json`, which is committed so builds never contact Wikipedia.
   Scripts are matched to articles through Wikidata (ISO 15924 code to article), blocks through
   their "(Unicode block)" articles. Raw responses are cached in `.cache/about`; `--refresh`

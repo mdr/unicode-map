@@ -17,34 +17,32 @@ import type { Here } from "../map/MapView"
 interface Props {
   data: UnicodeData
   mode: ColorMode
-  cp: number | null
-  here: Here | null
+  cp: number | undefined
+  here: Here | undefined
   onSelect: (cp: number) => void
   onBlock: (i: number) => void
   onPlane: (p: number) => void
   onClose: () => void
-  /** Point a range out on the map while hovering it (null to stop). */
-  onPreview: (r: { s: number; e: number; name: string } | null) => void
+  /** Point a range out on the map while hovering it (undefined to stop). */
+  onPreview: (r: { s: number; e: number; name: string } | undefined) => void
   /** Fly to a code point range (a chart section). */
   onRange: (s: number, e: number) => void
   /** Open a block as a code chart. */
   onChart: (block: number) => void
   /** The block whose chart is open, if any. */
-  chartBlock: number | null
+  chartBlock: number | undefined
 }
 
-export function DetailPanel(props: Props) {
-  return (
-    <aside className="detail">
-      {props.cp === null ? <Overview {...props} /> : <CodePointDetail {...props} cp={props.cp} />}
-    </aside>
-  )
-}
+export const DetailPanel = (props: Props) => (
+  <aside className="detail">
+    {props.cp === undefined ? <Overview {...props} /> : <CodePointDetail {...props} cp={props.cp} />}
+  </aside>
+)
 
 // ---------------------------------------------------------------------------
 // Nothing selected: overview of the code space and the plane in view
 
-function Overview({ data, here, onPlane, onBlock, onPreview, onRange, onChart, chartBlock }: Props) {
+const Overview = ({ data, here, onPlane, onBlock, onPreview, onRange, onChart, chartBlock }: Props) => {
   const planeStats = useMemo(
     () =>
       Array.from({ length: 17 }, (_, p) => {
@@ -56,11 +54,11 @@ function Overview({ data, here, onPlane, onBlock, onPreview, onRange, onChart, c
   )
   const total = planeStats.reduce((a, b) => a + b, 0)
   // Don't leave the map dimmed if this panel goes away under the pointer (e.g. on selecting).
-  useEffect(() => () => onPreview(null), [onPreview])
-  const plane = here && here.cp >= 0 && here.k > 1.6 ? here.cp >> 16 : null
-  const currentBlock = plane !== null && here!.k > 2.5 ? data.blockIdx[here!.cp] : -1
+  useEffect(() => () => onPreview(undefined), [onPreview])
+  const plane = here && here.cp >= 0 && here.k > 1.6 ? here.cp >> 16 : undefined
+  const currentBlock = plane !== undefined && here!.k > 2.5 ? data.blockIdx[here!.cp] : -1
   /** The block whose "About" is open in the list. */
-  const [aboutOpen, setAboutOpen] = useState<number | null>(null)
+  const [aboutOpen, setAboutOpen] = useState<number>()
   const currentSection = currentBlock >= 0 && here!.k > 10 ? data.sectionRange(here!.cp) : undefined
   // Keep the block you're in visible in the list as you move between blocks.
   const listRef = useRef<HTMLDivElement>(null)
@@ -80,7 +78,7 @@ function Overview({ data, here, onPlane, onBlock, onPreview, onRange, onChart, c
   }, [data])
   return (
     <div className="detail-scroll">
-      {plane === null && (
+      {plane === undefined && (
         <div className="ov-hero">
           <div className="ov-title">The Unicode code space</div>
           <p className="muted">
@@ -94,7 +92,7 @@ function Overview({ data, here, onPlane, onBlock, onPreview, onRange, onChart, c
         </div>
       )}
       <Section title="Planes">
-        {plane !== null ? (
+        {plane !== undefined ? (
           // Inside a plane, the planes shrink to a row of numbered tiles, leaving room for its blocks.
           <div className="plane-grid">
             {planeStats.map((n, p) => (
@@ -103,13 +101,13 @@ function Overview({ data, here, onPlane, onBlock, onPreview, onRange, onChart, c
                 className={`plane-tile ${plane === p ? "current" : ""} ${n ? "" : "empty"}`}
                 title={`Plane ${p}: ${planeName(p)[0]} · ${n ? `${n.toLocaleString()} assigned` : "nothing assigned"}`}
                 onClick={() => {
-                  onPreview(null)
+                  onPreview(undefined)
                   onPlane(p)
                 }}
                 onMouseEnter={() =>
                   onPreview({ s: p << 16, e: (p << 16) | 0xffff, name: `Plane ${p} · ${planeName(p)[0]}` })
                 }
-                onMouseLeave={() => onPreview(null)}
+                onMouseLeave={() => onPreview(undefined)}
               >
                 {p}
                 <span className="plane-tile-fill" style={{ width: `${(n / 65536) * 100}%` }} />
@@ -123,13 +121,13 @@ function Overview({ data, here, onPlane, onBlock, onPreview, onRange, onChart, c
                 key={p}
                 className="plane-row"
                 onClick={() => {
-                  onPreview(null)
+                  onPreview(undefined)
                   onPlane(p)
                 }}
                 onMouseEnter={() =>
                   onPreview({ s: p << 16, e: (p << 16) | 0xffff, name: `Plane ${p} · ${planeName(p)[0]}` })
                 }
-                onMouseLeave={() => onPreview(null)}
+                onMouseLeave={() => onPreview(undefined)}
               >
                 <span className="plane-num">{p}</span>
                 <span className="plane-name">
@@ -148,7 +146,7 @@ function Overview({ data, here, onPlane, onBlock, onPreview, onRange, onChart, c
           </div>
         )}
       </Section>
-      {plane !== null && (
+      {plane !== undefined && (
         <Section title={`Blocks in plane ${plane} · ${planeName(plane)[0]}`}>
           <div className="block-list" ref={listRef}>
             {data.meta.blocks
@@ -158,11 +156,11 @@ function Overview({ data, here, onPlane, onBlock, onPreview, onRange, onChart, c
                     <button
                       className={`block-row ${currentBlock === i ? "current" : ""}`}
                       onClick={() => {
-                        onPreview(null)
+                        onPreview(undefined)
                         onBlock(i)
                       }}
                       onMouseEnter={() => onPreview({ s: b.s, e: b.e, name: b.name })}
-                      onMouseLeave={() => onPreview(null)}
+                      onMouseLeave={() => onPreview(undefined)}
                     >
                       <span className="swatch" style={{ background: data.meta.regions[b.region].color }} />
                       <span className="block-name">{b.name}</span>
@@ -179,12 +177,12 @@ function Overview({ data, here, onPlane, onBlock, onPreview, onRange, onChart, c
                       className="info-btn"
                       title={`About ${b.name}`}
                       aria-expanded={aboutOpen === i}
-                      onClick={() => setAboutOpen(aboutOpen === i ? null : i)}
+                      onClick={() => setAboutOpen(aboutOpen === i ? undefined : i)}
                     >
                       i
                     </button>
                   </div>
-                ) : null
+                ) : undefined
               )
               .flatMap((row, i) => {
                 if (!row) return []
@@ -193,7 +191,7 @@ function Overview({ data, here, onPlane, onBlock, onPreview, onRange, onChart, c
                     <div key={`a${i}`} className="block-about">
                       <AboutCards data={data} script={blockScript(data, i)} block={i} />
                     </div>
-                  ) : null
+                  ) : undefined
                 // The block you're in opens up into its chart sections.
                 const secs = i === currentBlock ? sectionsByBlock.get(i) : undefined
                 if (!secs) return about ? [row, about] : [row]
@@ -211,11 +209,11 @@ function Overview({ data, here, onPlane, onBlock, onPreview, onRange, onChart, c
                         className={`section-row ${currentSection?.[0] === a ? "current" : ""}`}
                         title={title}
                         onClick={() => {
-                          onPreview(null)
+                          onPreview(undefined)
                           onRange(a, e)
                         }}
                         onMouseEnter={() => onPreview({ s: a, e, name: title })}
-                        onMouseLeave={() => onPreview(null)}
+                        onMouseLeave={() => onPreview(undefined)}
                       >
                         <span className="block-name">{title}</span>
                         <span className="muted small mono">{hex(a)}</span>
@@ -234,11 +232,11 @@ function Overview({ data, here, onPlane, onBlock, onPreview, onRange, onChart, c
 // ---------------------------------------------------------------------------
 // A single code point
 
-function CodePointDetail({ data, mode, cp, onSelect, onBlock, onPlane, onClose, onChart }: Props & { cp: number }) {
-  const [detail, setDetail] = useState<Detail | undefined | null>(null)
+const CodePointDetail = ({ data, mode, cp, onSelect, onBlock, onPlane, onClose, onChart }: Props & { cp: number }) => {
+  const [detail, setDetail] = useState<Detail | undefined>()
   useEffect(() => {
     let live = true
-    setDetail(null)
+    setDetail(undefined)
     void data.detail(cp).then((d) => live && setDetail(d))
     return () => {
       live = false
@@ -487,7 +485,7 @@ function CodePointDetail({ data, mode, cp, onSelect, onBlock, onPlane, onClose, 
             <Row label="Rendered with">
               {font ? (
                 font.family
-              ) : detail === null ? (
+              ) : detail === undefined ? (
                 "…"
               ) : (
                 <span className="muted">No Noto glyph — Last Resort placeholder</span>
@@ -509,7 +507,7 @@ function CodePointDetail({ data, mode, cp, onSelect, onBlock, onPlane, onClose, 
   )
 }
 
-function Unassigned({ data, cp }: { data: UnicodeData; cp: number }) {
+const Unassigned = ({ data, cp }: { data: UnicodeData; cp: number }) => {
   const nonchar = data.nonchar[cp]
   const block = data.block(cp)
   return (
@@ -532,7 +530,7 @@ function Unassigned({ data, cp }: { data: UnicodeData; cp: number }) {
   )
 }
 
-function Unihan({
+const Unihan = ({
   data,
   u,
   onSelect
@@ -540,7 +538,7 @@ function Unihan({
   data: UnicodeData
   u: NonNullable<Detail["unihan"]>
   onSelect: (cp: number) => void
-}) {
+}) => {
   const readings: [string, string | undefined][] = [
     ["Mandarin", u.mandarin],
     ["Cantonese", u.cantonese],
@@ -585,7 +583,7 @@ function Unihan({
   )
 }
 
-function Encodings({ cp }: { cp: number }) {
+const Encodings = ({ cp }: { cp: number }) => {
   const ch = String.fromCodePoint(cp)
   const utf8 = [...new TextEncoder().encode(ch)].map((b) => b.toString(16).toUpperCase().padStart(2, "0")).join(" ")
   const utf16 =
@@ -620,27 +618,23 @@ function Encodings({ cp }: { cp: number }) {
 // ---------------------------------------------------------------------------
 // Bits
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="section">
-      <h2>{title}</h2>
-      {children}
-    </section>
-  )
-}
-function Rows({ children }: { children: ReactNode }) {
-  return <dl className="rows">{children}</dl>
-}
-function Row({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="row">
-      <dt>{label}</dt>
-      <dd>{children}</dd>
-    </div>
-  )
-}
+const Section = ({ title, children }: { title: string; children: ReactNode }) => (
+  <section className="section">
+    <h2>{title}</h2>
+    {children}
+  </section>
+)
 
-function Related({
+const Rows = ({ children }: { children: ReactNode }) => <dl className="rows">{children}</dl>
+
+const Row = ({ label, children }: { label: string; children: ReactNode }) => (
+  <div className="row">
+    <dt>{label}</dt>
+    <dd>{children}</dd>
+  </div>
+)
+
+const Related = ({
   label,
   cps,
   data,
@@ -650,8 +644,8 @@ function Related({
   cps: number[]
   data: UnicodeData
   onSelect: (cp: number) => void
-}) {
-  if (!cps.length) return null
+}) => {
+  if (!cps.length) return undefined
   return (
     <div className="related">
       <div className="related-label">{label}</div>
@@ -664,20 +658,18 @@ function Related({
   )
 }
 
-function CharChip({ cp, data, onSelect }: { cp: number; data: UnicodeData; onSelect: (cp: number) => void }) {
-  return (
-    <button className="char-chip" onClick={() => onSelect(cp)} title={`${uplus(cp)} ${data.name(cp)}`}>
-      <Glyph data={data} cp={cp} className="cc-glyph" />
-      <span className="cc-text">
-        <span className="mono">{uplus(cp)}</span>
-        <span className="cc-name">{data.name(cp)}</span>
-      </span>
-    </button>
-  )
-}
+const CharChip = ({ cp, data, onSelect }: { cp: number; data: UnicodeData; onSelect: (cp: number) => void }) => (
+  <button className="char-chip" onClick={() => onSelect(cp)} title={`${uplus(cp)} ${data.name(cp)}`}>
+    <Glyph data={data} cp={cp} className="cc-glyph" />
+    <span className="cc-text">
+      <span className="mono">{uplus(cp)}</span>
+      <span className="cc-name">{data.name(cp)}</span>
+    </span>
+  </button>
+)
 
 /** Turn code point references like "2026" or "(name - 2026)" inside NamesList notes into links. */
-function Linkified({ text, data, onSelect }: { text: string; data: UnicodeData; onSelect: (cp: number) => void }) {
+const Linkified = ({ text, data, onSelect }: { text: string; data: UnicodeData; onSelect: (cp: number) => void }) => {
   const parts = text.split(/\b([0-9A-F]{4,6})\b/)
   return (
     <>
@@ -705,7 +697,7 @@ function Linkified({ text, data, onSelect }: { text: string; data: UnicodeData; 
   )
 }
 
-function CopyButton({
+const CopyButton = ({
   text,
   label,
   small,
@@ -715,7 +707,7 @@ function CopyButton({
   label: string
   small?: boolean
   disabled?: boolean
-}) {
+}) => {
   const [done, setDone] = useState(false)
   return (
     <button
@@ -734,25 +726,20 @@ function CopyButton({
   )
 }
 
-function aliasLabel(t: string) {
-  return (
-    {
-      correction: "Corrected name",
-      control: "Control name",
-      alternate: "Alternate name",
-      figment: "Figment",
-      abbreviation: "Abbreviation"
-    }[t] ?? t
-  )
-}
+const aliasLabel = (t: string) =>
+  ({
+    correction: "Corrected name",
+    control: "Control name",
+    alternate: "Alternate name",
+    figment: "Figment",
+    abbreviation: "Abbreviation"
+  })[t] ?? t
 
 /** A small grid: open as a code chart. */
-function ChartIcon() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 11 11" aria-hidden>
-      {[0, 4, 8].flatMap((x) =>
-        [0, 4, 8].map((y) => <rect key={`${x}${y}`} x={x} y={y} width="3" height="3" rx="0.6" fill="currentColor" />)
-      )}
-    </svg>
-  )
-}
+const ChartIcon = () => (
+  <svg width="11" height="11" viewBox="0 0 11 11" aria-hidden>
+    {[0, 4, 8].flatMap((x) =>
+      [0, 4, 8].map((y) => <rect key={`${x}${y}`} x={x} y={y} width="3" height="3" rx="0.6" fill="currentColor" />)
+    )}
+  </svg>
+)

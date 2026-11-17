@@ -20,35 +20,33 @@ const KEYS: [string, string][] = [
   ["Esc", "Clear selection"]
 ]
 
-export function HelpOverlay({ onClose }: { onClose: () => void }) {
-  return (
-    <div
-      className="help-backdrop"
-      role="presentation"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
-    >
-      <div className="help panel">
-        <div className="help-title">Getting around</div>
-        <dl>
-          {KEYS.map(([k, v]) => (
-            <div key={k}>
-              <dt>{k}</dt>
-              <dd>{v}</dd>
-            </div>
-          ))}
-        </dl>
-        <p className="muted">
-          Zoomed in, <b>white labels are blocks</b> and <b>dark labels are sections</b> within them, as named in the
-          Unicode code charts. Hover over a label for its full name and extent. Click it, or a block in the sidebar, to
-          go to its start, readable and outlined; click again to see all of it. Esc lets it go.
-        </p>
-        <p className="muted">
-          The map lays out all 1,114,112 code points: 17 planes of 65,536, each a 256 × 256 grid with 256 code points
-          per row.
-        </p>
-      </div>
+export const HelpOverlay = ({ onClose }: { onClose: () => void }) => (
+  <div
+    className="help-backdrop"
+    role="presentation"
+    onClick={(e) => {
+      if (e.target === e.currentTarget) onClose()
+    }}
+  >
+    <div className="help panel">
+      <div className="help-title">Getting around</div>
+      <dl>
+        {KEYS.map(([k, v]) => (
+          <div key={k}>
+            <dt>{k}</dt>
+            <dd>{v}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="muted">
+        Zoomed in, <b>white labels are blocks</b> and <b>dark labels are sections</b> within them, as named in the
+        Unicode code charts. Hover over a label for its full name and extent. Click it, or a block in the sidebar, to go
+        to its start, readable and outlined; click again to see all of it. Esc lets it go.
+      </p>
+      <p className="muted">
+        The map lays out all 1,114,112 code points: 17 planes of 65,536, each a 256 × 256 grid with 256 code points per
+        row.
+      </p>
     </div>
-  )
-}
+  </div>
+)

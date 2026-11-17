@@ -14,11 +14,12 @@ export interface Rect {
   h: number
 }
 
-export function planeOrigin(p: number): { x: number; y: number } {
-  return { x: (p % PLANE_COLS) * PLANE_STRIDE, y: Math.floor(p / PLANE_COLS) * PLANE_STRIDE }
-}
+export const planeOrigin = (p: number): { x: number; y: number } => ({
+  x: (p % PLANE_COLS) * PLANE_STRIDE,
+  y: Math.floor(p / PLANE_COLS) * PLANE_STRIDE
+})
 
-export function planeRect(p: number): Rect {
+export const planeRect = (p: number): Rect => {
   const o = planeOrigin(p)
   return { x: o.x, y: o.y, w: PLANE_SIZE, h: PLANE_SIZE }
 }
@@ -30,14 +31,14 @@ export const WORLD: Rect = {
   h: Math.ceil(PLANE_COUNT / PLANE_COLS) * PLANE_STRIDE
 }
 
-export function cpToCell(cp: number): { x: number; y: number } {
+export const cpToCell = (cp: number): { x: number; y: number } => {
   const p = cp >> 16
   const o = planeOrigin(p)
   return { x: o.x + (cp & 0xff), y: o.y + ((cp >> 8) & 0xff) }
 }
 
 /** Code point at world position, or -1 if outside every plane. */
-export function cellToCp(wx: number, wy: number): number {
+export const cellToCp = (wx: number, wy: number): number => {
   const col = Math.floor(wx / PLANE_STRIDE)
   const row = Math.floor(wy / PLANE_STRIDE)
   if (col < 0 || col >= PLANE_COLS || row < 0) return -1
@@ -50,7 +51,7 @@ export function cellToCp(wx: number, wy: number): number {
 }
 
 /** Bounding rectangle of a code point range (in world cells). */
-export function rangeRect(start: number, end: number): Rect {
+export const rangeRect = (start: number, end: number): Rect => {
   const a = cpToCell(start)
   const b = cpToCell(end)
   if (a.y === b.y) return { x: a.x, y: a.y, w: b.x - a.x + 1, h: 1 }
@@ -62,7 +63,7 @@ export function rangeRect(start: number, end: number): Rect {
  * The outline of a code point range as a polygon (list of world points).
  * A range in the linear layout is a partial first row, full middle rows and a partial last row.
  */
-export function rangeOutline(start: number, end: number): [number, number][] {
+export const rangeOutline = (start: number, end: number): [number, number][] => {
   const a = cpToCell(start)
   const b = cpToCell(end)
   const o = planeOrigin(start >> 16)
@@ -90,7 +91,7 @@ export function rangeOutline(start: number, end: number): [number, number][] {
 }
 
 /** The best rectangle inside a range for placing its label. */
-export function labelRect(start: number, end: number): Rect {
+export const labelRect = (start: number, end: number): Rect => {
   const a = cpToCell(start)
   const b = cpToCell(end)
   const o = planeOrigin(start >> 16)

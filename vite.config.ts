@@ -6,6 +6,16 @@ const noReexports = [
   { selector: "ExportNamedDeclaration[source]", message: "Don't re-export; import from the defining module." }
 ]
 
+// React's DOM refs start as null (`useRef<HTMLDivElement>(null)`); that is the one place it is allowed.
+const noNull = [
+  {
+    selector: "Literal[raw='null']:not(CallExpression[callee.name='useRef'] > Literal)",
+    message: "Use undefined, not null."
+  },
+  { selector: "TSNullKeyword", message: "Use undefined, not null." },
+  { selector: "MemberExpression[property.name='toBeNull']", message: "Use toBeUndefined, not toBeNull." }
+]
+
 const noFunctionExpressionConsts = [
   { selector: "VariableDeclarator > FunctionExpression", message: "Use an arrow function: const f = () => {}." }
 ]
@@ -114,8 +124,7 @@ export default defineConfig({
       "sonarjs/cognitive-complexity": ["off", 15],
       "folders/max-entries": ["error", 30],
       "eslint-js/no-restricted-syntax": ["error", ...noReexports, ...noFunctionExpressionConsts],
-      // TODO: "error" with the code conventions pass (arrow functions).
-      "func-style": ["off", "expression"],
+      "func-style": ["error", "expression"],
       "prefer-arrow-callback": "error",
       "arrow-body-style": ["error", "as-needed"],
       "typescript/await-thenable": "error",
@@ -249,8 +258,9 @@ export default defineConfig({
           "no-var": "error",
           // One absence value: undefined, which the language produces anyway. Where an
           // outside API hands back null, convert it on the spot (`?? undefined`).
-          // TODO: add noNull (Whereabouts' "Use undefined, not null" selectors) with the code conventions pass.
-          "eslint-js/no-restricted-syntax": ["error", ...noReexports, ...noFunctionExpressionConsts],
+          // One absence value: undefined, which the language produces anyway. Where an
+          // outside API hands back null, convert it on the spot (`?? undefined`).
+          "eslint-js/no-restricted-syntax": ["error", ...noNull, ...noReexports, ...noFunctionExpressionConsts],
           "no-with": "off",
           "prefer-const": "error",
           "prefer-rest-params": "error",
@@ -261,9 +271,8 @@ export default defineConfig({
         // Components (.tsx) infer their return type.
         files: ["**/*.ts", "**/*.mts", "**/*.cts"],
         rules: {
-          // TODO: "error" with the code conventions pass.
           "typescript/explicit-function-return-type": [
-            "off",
+            "error",
             { allowExpressions: true, allowTypedFunctionExpressions: true, allowHigherOrderFunctions: true }
           ]
         }

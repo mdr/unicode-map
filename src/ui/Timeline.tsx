@@ -5,7 +5,7 @@ import { type UnicodeData, VERSION_YEARS } from "../data/unicode"
  * Scrub through Unicode's history: the map shows only what had been encoded by the chosen version.
  * `value` is an index into meta.ages (1 = Unicode 1.1, last = the current version).
  */
-export function Timeline({
+export const Timeline = ({
   data,
   value,
   onChange,
@@ -15,7 +15,7 @@ export function Timeline({
   value: number
   onChange: (i: number) => void
   onClose: () => void
-}) {
+}) => {
   const ages = data.meta.ages
   const last = ages.length - 1
   const [playing, setPlaying] = useState(false)

@@ -28,7 +28,7 @@ export interface Camera {
 
 export interface MapCallbacks {
   onHover(cp: number, clientX: number, clientY: number): void
-  onSelect(cp: number | null): void
+  onSelect(cp: number | undefined): void
   onCamera(cam: Camera): void
 }
 
@@ -73,8 +73,9 @@ interface GlyphLevel {
   /** Whether `pnpm tiles` pre-builds this level as WebP files. */
   prebuilt: boolean
 }
-/** Exported for scripts/build_tiles.mjs, which pre-builds the levels marked so. */
-const GLYPH_LEVELS: GlyphLevel[] = [
+/** Exported for scripts/build_tiles.ts, which pre-builds the levels marked so. */
+/** @public Also read by scripts/build_tiles.ts, inside the page. */
+export const GLYPH_LEVELS: GlyphLevel[] = [
   // Below a few pixels a glyph is a smudge, but how much ink it has still shows: dense ideographs
   // bright, marks and punctuation faint, emoji in colour. That texture is the point of this level.
   { res: 2, span: 128, prebuilt: true },
@@ -83,7 +84,7 @@ const GLYPH_LEVELS: GlyphLevel[] = [
   { res: 24, span: 16, prebuilt: true },
   { res: 48, span: 16, prebuilt: false }
 ]
-const tileKey = (res: number, p: number, ty: number, tx: number) => `${res}:${p}:${ty}:${tx}`
+const tileKey = (res: number, p: number, ty: number, tx: number): string => `${res}:${p}:${ty}:${tx}`
 /** Pre-built tile files fetched at once. */
 const GLYPH_TILE_LOADS = 12
 /** Zoom (CSS px per code point) where glyph tiles start to fade in, and where they're fully in. */
@@ -99,8 +100,8 @@ const INK_LIGHT: RGB = [238, 241, 246]
 /** Cell colour of assigned code points in pure view. */
 const PURE_CELL: RGB = [52, 58, 71]
 
-const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v))
-const smooth = (a: number, b: number, v: number) => {
+const clamp = (v: number, a: number, b: number): number => Math.max(a, Math.min(b, v))
+const smooth = (a: number, b: number, v: number): number => {
   const t = clamp((v - a) / (b - a), 0, 1)
   return t * t * (3 - 2 * t)
 }
@@ -112,14 +113,14 @@ export class MapView {
   private h = 0
   private dpr = 1
   private mode!: ColorMode
-  private highlight: Set<number> | null = null
+  private highlight: Set<number> | undefined = undefined
   private planeBitmaps: HTMLCanvasElement[] = []
   private fullColors: string[] = []
   private dimColors: string[] = []
   private valueOn = new Uint8Array(0)
   /** Per value: whether text on a card of that colour should be dark (the colour is light). */
   private inkDark: boolean[] = []
-  private mask: Uint8Array | null = null
+  private mask: Uint8Array | undefined = undefined
   private tileBitmaps: HTMLCanvasElement[] = []
   /**
    * Per plane, one pixel per code point: the ink its glyph is drawn in (dark or light to suit the
@@ -131,20 +132,20 @@ export class MapView {
    * Per plane, cells whose glyph is a colour emoji: the texture shows those as drawn rather than
    * recoloured, or they'd become solid ink silhouettes. Null for planes without any.
    */
-  private colourBitmaps: (HTMLCanvasElement | null)[] = []
+  private colourBitmaps: (HTMLCanvasElement | undefined)[] = []
   /** Index of the colour emoji font, if any. */
   private colourFont = -1
   /** Offscreen layer the glyph tiles are drawn into and recoloured on, in the normal view. */
-  private glyphLayer: HTMLCanvasElement | null = null
-  private inkLayer: HTMLCanvasElement | null = null
-  private colourLayer: HTMLCanvasElement | null = null
+  private glyphLayer: HTMLCanvasElement | undefined = undefined
+  private inkLayer: HTMLCanvasElement | undefined = undefined
+  private colourLayer: HTMLCanvasElement | undefined = undefined
   /** Show glyph texture from the tiles when zoomed out in the normal view. */
   private glyphTexture = true
   private tilesOn = false
   private sparseLit: number[] = []
-  private preview: Preview | null = null
+  private preview: Preview | undefined = undefined
   /** A block or section that was clicked: stays pointed out until you click elsewhere or press Esc. */
-  private pinned: Preview | null = null
+  private pinned: Preview | undefined = undefined
   /** Headers drawn in the last frame (screen rects), for hover and click. */
   private headerHits: { r: Rect; s: number; e: number; name: string }[] = []
   /** Whether the current preview comes from hovering a header on the map (not the sidebar). */
@@ -152,24 +153,24 @@ export class MapView {
   /** Pure view: no colour, labels or chrome; just the cells and their glyphs. */
   private pure = false
   /** Pre-rendered glyph tiles (16×16 code points at a few resolutions) for mid zoom in pure view. */
-  private glyphTiles = new Map<string, HTMLCanvasElement | HTMLImageElement | null>()
+  private glyphTiles = new Map<string, HTMLCanvasElement | HTMLImageElement | undefined>()
   private glyphTileBytes = 0
   /** Pre-built tile files ("res/plane/ty-tx"), if there are any, and their version for cache busting. */
-  private staticTiles: Set<string> | null = null
+  private staticTiles: Set<string> | undefined = undefined
   private staticTilesVersion = ""
   private tileLoads = new Set<string>()
-  private blockLit: Uint8Array | null = null
-  private asOf: number | null = null
+  private blockLit: Uint8Array | undefined = undefined
+  private asOf: number | undefined = undefined
   private blockFirstAge: number[]
   private sections: { s: number; e: number; title: string; path: Path2D; plane: number; block: number; bbox: Rect }[]
   private blockBBox: Rect[]
   private sectionFirstAge: number[]
   private blockPaths: Path2D[]
-  private selected: number | null = null
+  private selected: number | undefined = undefined
   private hovered = -1
   private dirty = true
   private raf = 0
-  private anim: { start: number; dur: number; f: (t: number) => Camera } | null = null
+  private anim: { start: number; dur: number; f: (t: number) => Camera } | undefined = undefined
   private loadedRows = new Set<number>()
   private pendingRows = new Set<number>()
   private lastResortReady = false
@@ -206,7 +207,7 @@ export class MapView {
       path.closePath()
       return { s, e, title, path, plane: s >> 16, block: data.blockIdx[s], bbox: rangeRect(s, e) }
     })
-    const firstAge = (a: number, b: number) => {
+    const firstAge = (a: number, b: number): number => {
       let min = Infinity
       for (let cp = a; cp <= b; cp++) if (data.isAssigned(cp) && data.ageIdx[cp] < min) min = data.ageIdx[cp]
       return min
@@ -221,13 +222,13 @@ export class MapView {
       this.lastResortReady = true
       this.invalidate()
     })
-    const loop = (now: number) => {
+    const loop = (now: number): void => {
       this.raf = requestAnimationFrame(loop)
       if (this.anim) {
         const t = clamp((now - this.anim.start) / this.anim.dur, 0, 1)
         const e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
         this.setCamera(this.anim.f(e), false)
-        if (t >= 1) this.anim = null
+        if (t >= 1) this.anim = undefined
       }
       if (this.dirty) {
         this.dirty = false
@@ -237,7 +238,7 @@ export class MapView {
     this.raf = requestAnimationFrame(loop)
   }
 
-  dispose() {
+  dispose(): void {
     cancelAnimationFrame(this.raf)
     this.resizeObs.disconnect()
     this.disposers.forEach((d) => d())
@@ -249,8 +250,8 @@ export class MapView {
   get camera(): Camera {
     return { ...this.cam }
   }
-  get animating() {
-    return this.anim !== null
+  get animating(): boolean {
+    return this.anim !== undefined
   }
   /**
    * The code point at the centre of the visible map area (clear of the floating top bar), or -1
@@ -260,32 +261,32 @@ export class MapView {
     const { cx, cy, k } = this.cam
     return cellToCp(cx + (this.insets.l - this.insets.r) / 2 / k, cy + (this.insets.t - this.insets.b) / 2 / k)
   }
-  get size() {
+  get size(): { w: number; h: number } {
     return { w: this.w, h: this.h }
   }
 
-  setMode(mode: ColorMode) {
+  setMode(mode: ColorMode): void {
     this.mode = mode
     this.rebuildBitmaps()
   }
 
-  setHighlight(values: Set<number> | null) {
+  setHighlight(values: Set<number> | undefined): void {
     this.highlight = values
     this.rebuildBitmaps()
   }
 
-  setGlyphTexture(on: boolean) {
+  setGlyphTexture(on: boolean): void {
     this.glyphTexture = on
     this.invalidate()
   }
 
-  setPure(on: boolean) {
+  setPure(on: boolean): void {
     if (on === this.pure) return
     this.pure = on
     // Without the floating top bar, fitted views can use the whole canvas.
     this.insets = on ? { l: 16, t: 16, r: 16, b: 16 } : { l: 16, t: 92, r: 16, b: 16 }
-    this.preview = null
-    this.pinned = null
+    this.preview = undefined
+    this.pinned = undefined
     this.headerHits = []
     this.headerHover = false
     this.hovered = -1
@@ -294,7 +295,9 @@ export class MapView {
   }
 
   /** Point out a range (a plane or block hovered in the sidebar): dim the rest and outline it. */
-  setPreview(range: { s: number; e: number; name: string; labelAt?: { x: number; y: number }; soft?: boolean } | null) {
+  setPreview(
+    range: { s: number; e: number; name: string; labelAt?: { x: number; y: number }; soft?: boolean } | undefined
+  ): void {
     this.headerHover = false
     if (range && this.preview && range.s === this.preview.s && range.e === this.preview.e) {
       this.preview.labelAt = range.labelAt
@@ -303,7 +306,7 @@ export class MapView {
     }
     if (!range) {
       if (!this.preview) return
-      this.preview = null
+      this.preview = undefined
     } else {
       this.preview = makePreview(range)
     }
@@ -316,9 +319,9 @@ export class MapView {
    * instead, zoom to where glyphs are legible and line up the range's start, unless it fits
    * whole at that size. Showing the same range again fits all of it.
    */
-  showRange(s: number, e: number) {
+  showRange(s: number, e: number): void {
     const again = this.pinned?.s === s && this.pinned.e === e
-    this.preview = null
+    this.preview = undefined
     this.headerHover = false
     this.pinned = makePreview({ s, e, name: this.rangeName(s, e) })
     const r = this.pinned.rect
@@ -345,13 +348,13 @@ export class MapView {
   }
 
   /** Stop pointing out the clicked block or section. */
-  clearPinned() {
+  clearPinned(): void {
     if (!this.pinned) return
-    this.pinned = null
+    this.pinned = undefined
     this.invalidate()
   }
 
-  private rangeName(s: number, e: number) {
+  private rangeName(s: number, e: number): string {
     const b = this.data.meta.blocks.find((b) => b.s === s && b.e === e)
     if (b) return b.name
     const sec = this.data.sectionRange(s)
@@ -359,27 +362,27 @@ export class MapView {
   }
 
   /** Dim everything outside a per-code-point mask (property highlight). */
-  setMask(mask: Uint8Array | null) {
+  setMask(mask: Uint8Array | undefined): void {
     this.mask = mask
     this.rebuildBitmaps()
   }
 
-  /** Show Unicode as of an age index (see meta.ages), or null for the current version. */
-  setAsOf(ageIndex: number | null) {
+  /** Show Unicode as of an age index (see meta.ages), or undefined for the current version. */
+  setAsOf(ageIndex: number | undefined): void {
     if (ageIndex === this.asOf) return
     this.asOf = ageIndex
     this.rebuildBitmaps()
   }
 
-  setSelected(cp: number | null) {
+  setSelected(cp: number | undefined): void {
     this.selected = cp
     // Picking a character outside the pointed-out block or section lets it go.
-    if (cp !== null && this.pinned && (cp < this.pinned.s || cp > this.pinned.e)) this.pinned = null
+    if (cp !== undefined && this.pinned && (cp < this.pinned.s || cp > this.pinned.e)) this.pinned = undefined
     this.invalidate()
   }
 
-  setCamera(cam: Camera, cancelAnim = true) {
-    if (cancelAnim) this.anim = null
+  setCamera(cam: Camera, cancelAnim = true): void {
+    if (cancelAnim) this.anim = undefined
     const kMin = this.fitK() * 0.6
     this.cam = { cx: cam.cx, cy: cam.cy, k: clamp(cam.k, kMin, 800) }
     this.invalidate()
@@ -389,33 +392,33 @@ export class MapView {
   /** Screen margins covered by floating UI, respected when fitting things into view. */
   insets = { l: 16, t: 92, r: 16, b: 16 }
 
-  fitK() {
+  fitK(): number {
     return Math.min(this.availW() / WORLD.w, this.availH() / WORLD.h) * 0.98
   }
-  private availW() {
+  private availW(): number {
     return Math.max(100, this.w - this.insets.l - this.insets.r)
   }
-  private availH() {
+  private availH(): number {
     return Math.max(100, this.h - this.insets.t - this.insets.b)
   }
   /** Camera centre that puts world point (x, y) in the middle of the unobscured area. */
-  private centreFor(x: number, y: number, k: number) {
+  private centreFor(x: number, y: number, k: number): { cx: number; cy: number } {
     return { cx: x - (this.insets.l - this.insets.r) / 2 / k, cy: y - (this.insets.t - this.insets.b) / 2 / k }
   }
 
-  overview(animate = true) {
+  overview(animate = true): void {
     this.clearPinned()
     this.flyToRect(WORLD, { animate, pad: 1 })
   }
 
   /** Fly so that rect (world) fills the view. */
-  flyToRect(r: Rect, opts: { animate?: boolean; pad?: number; maxK?: number } = {}) {
+  flyToRect(r: Rect, opts: { animate?: boolean; pad?: number; maxK?: number } = {}): void {
     const pad = opts.pad ?? 1.15
     const k = clamp(Math.min(this.availW() / (r.w * pad), this.availH() / (r.h * pad)), 0, opts.maxK ?? 140)
     this.flyTo({ ...this.centreFor(r.x + r.w / 2, r.y + r.h / 2, k), k }, opts.animate ?? true)
   }
 
-  flyTo(target: Camera, animate = true) {
+  flyTo(target: Camera, animate = true): void {
     if (!animate || this.w === 0) {
       this.setCamera(target)
       return
@@ -435,7 +438,7 @@ export class MapView {
   }
 
   /** Bring a code point into view, zooming in to glyph level if needed. */
-  focusCp(cp: number, opts: { zoom?: boolean; animate?: boolean } = {}) {
+  focusCp(cp: number, opts: { zoom?: boolean; animate?: boolean } = {}): void {
     const c = cpToCell(cp)
     const k = opts.zoom === false ? this.cam.k : Math.max(this.cam.k, 72)
     const sx = (c.x + 0.5 - this.cam.cx) * k + this.w / 2
@@ -452,23 +455,23 @@ export class MapView {
     this.flyTo({ ...this.centreFor(c.x + 0.5, c.y + 0.5, k), k }, opts.animate ?? true)
   }
 
-  zoomBy(factor: number) {
+  zoomBy(factor: number): void {
     this.flyTo({ ...this.cam, k: this.cam.k * factor })
   }
 
-  invalidate() {
+  invalidate(): void {
     this.dirty = true
   }
 
   /** Screen point → world point. */
-  toWorld(sx: number, sy: number) {
+  toWorld(sx: number, sy: number): { x: number; y: number } {
     return { x: (sx - this.w / 2) / this.cam.k + this.cam.cx, y: (sy - this.h / 2) / this.cam.k + this.cam.cy }
   }
 
   // ---------------------------------------------------------------------------
   // Internals
 
-  private resize() {
+  private resize(): void {
     const r = this.canvas.getBoundingClientRect()
     const first = this.w === 0
     const [ow, oh] = [this.w, this.h]
@@ -479,7 +482,7 @@ export class MapView {
     // what's at its top-left in place: toggling pure view or resizing the window doesn't shift the map.
     if (!first && this.w > 0 && (ow !== this.w || oh !== this.h)) {
       const { k, cx, cy } = this.cam
-      this.anim = null
+      this.anim = undefined
       this.setCamera({ k, cx: cx + (this.w - ow) / 2 / k, cy: cy + (this.h - oh) / 2 / k })
     }
     this.canvas.width = Math.round(r.width * this.dpr)
@@ -491,7 +494,7 @@ export class MapView {
     this.invalidate()
   }
 
-  private rebuildBitmaps() {
+  private rebuildBitmaps(): void {
     if (!this.mode) return
     const { valueOf } = this.mode
     // Pure view: every assigned code point the same neutral grey, reserved ones background.
@@ -499,9 +502,9 @@ export class MapView {
       ? this.mode.colors.map((_, v): RGB => (v <= V_NONCHAR ? PLANE_BG : PURE_CELL))
       : this.mode.colors
     const data = this.data
-    const hl = this.pure ? null : this.highlight
-    const mask = this.pure ? null : this.mask
-    const asOf = this.pure ? null : this.asOf
+    const hl = this.pure ? undefined : this.highlight
+    const mask = this.pure ? undefined : this.mask
+    const asOf = this.pure ? undefined : this.asOf
     const dim = (c: RGB): RGB => [
       Math.round(PLANE_BG[0] + (c[0] - PLANE_BG[0]) * 0.16),
       Math.round(PLANE_BG[1] + (c[1] - PLANE_BG[1]) * 0.16),
@@ -510,7 +513,7 @@ export class MapView {
     const dimmed = colors.map(dim)
     // Highlighted values that are normally drawn near-black (reserved code points, noncharacters,
     // dark legend entries) light up while highlighted, or highlighting them would show nothing.
-    const lum = (c: RGB) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+    const lum = (c: RGB): number => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
     const shown = colors.map((c, v): RGB => {
       if (!hl?.has(v) || lum(c) >= 70) return c
       if (v === V_NONCHAR) return [226, 92, 128]
@@ -526,12 +529,12 @@ export class MapView {
 
     // When something is highlighted, sparse matches vanish at low zoom (a plane is ~170px wide
     // for 256 cells), so also build coarse tiles that light up if any cell in them matches.
-    const filtering = hl !== null || mask !== null
-    this.blockLit = filtering ? new Uint8Array(data.meta.blocks.length) : null
+    const filtering = hl !== undefined || mask !== undefined
+    this.blockLit = filtering ? new Uint8Array(data.meta.blocks.length) : undefined
     const sparse: number[] = []
 
     for (let p = 0; p < PLANE_COUNT; p++) {
-      let tile: ImageData | null = null
+      let tile: ImageData | undefined = undefined
       if (filtering) {
         let tc = this.tileBitmaps[p]
         if (!tc) {
@@ -558,12 +561,12 @@ export class MapView {
       }
       const ink = icv.getContext("2d")!.createImageData(PLANE_SIZE, PLANE_SIZE)
       const id = ink.data
-      let colour: ImageData | null = null
+      let colour: ImageData | undefined = undefined
       const base = p << 16
       for (let i = 0; i < 65536; i++) {
         const cp = base + i
         let col: RGB
-        if (asOf !== null && data.ageIdx[cp] > asOf) col = PLANE_BG // not yet encoded
+        if (asOf !== undefined && data.ageIdx[cp] > asOf) col = PLANE_BG // not yet encoded
         else {
           const v = valueOf[cp]
           const lit = this.valueOn[v] && (!mask || mask[cp])
@@ -609,7 +612,7 @@ export class MapView {
           this.colourBitmaps[p] = ccv
         }
         ccv.getContext("2d")!.putImageData(colour, 0, 0)
-      } else this.colourBitmaps[p] = null
+      } else this.colourBitmaps[p] = undefined
       if (tile) this.tileBitmaps[p].getContext("2d")!.putImageData(tile, 0, 0)
     }
     this.tilesOn = filtering
@@ -619,14 +622,14 @@ export class MapView {
   }
 
   /** Whether a code point is dimmed by the legend highlight or the property mask. */
-  private isDim(cp: number, v: number) {
+  private isDim(cp: number, v: number): boolean {
     if (this.pure) return false
-    return !this.valueOn[v] || (this.mask !== null && !this.mask[cp])
+    return !this.valueOn[v] || (this.mask !== undefined && !this.mask[cp])
   }
 
   /** Whether a code point exists in the version being shown. */
-  private exists(cp: number) {
-    return this.data.isAssigned(cp) && (this.pure || this.asOf === null || this.data.ageIdx[cp] <= this.asOf)
+  private exists(cp: number): boolean {
+    return this.data.isAssigned(cp) && (this.pure || this.asOf === undefined || this.data.ageIdx[cp] <= this.asOf)
   }
 
   private visibleWorld(): Rect {
@@ -634,14 +637,14 @@ export class MapView {
     return { x: cx - this.w / 2 / k, y: cy - this.h / 2 / k, w: this.w / k, h: this.h / k }
   }
 
-  private sx(wx: number) {
+  private sx(wx: number): number {
     return (wx - this.cam.cx) * this.cam.k + this.w / 2
   }
-  private sy(wy: number) {
+  private sy(wy: number): number {
     return (wy - this.cam.cy) * this.cam.k + this.h / 2
   }
 
-  private render() {
+  private render(): void {
     if (!this.mode || this.w === 0) return
     const ctx = this.ctx
     const { k } = this.cam
@@ -729,7 +732,7 @@ export class MapView {
     if (axisA > 0.01) this.renderAxes(planes, vis, axisA)
   }
 
-  private renderGrid(planes: number[], vis: Rect, alpha: number) {
+  private renderGrid(planes: number[], vis: Rect, alpha: number): void {
     const ctx = this.ctx
     const k = this.cam.k
     ctx.strokeStyle = `rgba(8, 10, 14, ${0.55 * alpha})`
@@ -779,7 +782,7 @@ export class MapView {
     }
   }
 
-  private renderCells(planes: number[], vis: Rect, t: number) {
+  private renderCells(planes: number[], vis: Rect, t: number): void {
     const ctx = this.ctx
     const data = this.data
     const k = this.cam.k
@@ -871,7 +874,15 @@ export class MapView {
   }
 
   /** Placeholder for a code point with no visible glyph: a dashed box with its abbreviation. */
-  private drawSpecial(cp: number, sx: number, k: number, cy: number, alpha: number, dark: boolean, ctx = this.ctx) {
+  private drawSpecial(
+    cp: number,
+    sx: number,
+    k: number,
+    cy: number,
+    alpha: number,
+    dark: boolean,
+    ctx = this.ctx
+  ): void {
     const gc = this.data.gc(cp).code
     let label: string | undefined
     if (gc === "Co") label = "PUA"
@@ -891,7 +902,7 @@ export class MapView {
     ctx.fillText(label, sx + k / 2, cy + 1)
   }
 
-  private wrapText(text: string, x: number, y: number, maxW: number, lineH: number, maxLines: number) {
+  private wrapText(text: string, x: number, y: number, maxW: number, lineH: number, maxLines: number): void {
     const ctx = this.ctx
     const words = text.split(" ")
     const lines: string[] = []
@@ -927,7 +938,7 @@ export class MapView {
         const fam = this.data.glyphFamily(cp)
         byFamily.set(fam, (byFamily.get(fam) ?? "") + str)
       }
-      const done = () => {
+      const done = (): void => {
         this.pendingRows.delete(row)
         this.loadedRows.add(row)
         this.invalidate()
@@ -937,7 +948,7 @@ export class MapView {
     return false
   }
 
-  private renderBlockOutlines(planes: number[], cardT: number) {
+  private renderBlockOutlines(planes: number[], cardT: number): void {
     const ctx = this.ctx
     const { k, cx, cy } = this.cam
     const dpr = this.dpr
@@ -967,7 +978,7 @@ export class MapView {
       ctx.lineWidth = 2 / k
       ctx.stroke(this.blockPaths[hb])
     }
-    const sb = this.selected !== null ? this.data.blockIdx[this.selected] : -1
+    const sb = this.selected !== undefined ? this.data.blockIdx[this.selected] : -1
     if (sb >= 0 && sb !== hb) {
       ctx.strokeStyle = "rgba(255,255,255,0.55)"
       ctx.lineWidth = 1.5 / k
@@ -976,7 +987,7 @@ export class MapView {
     ctx.restore()
   }
 
-  private renderPlaneFrame(p: number) {
+  private renderPlaneFrame(p: number): void {
     const ctx = this.ctx
     const k = this.cam.k
     const o = planeOrigin(p)
@@ -1014,39 +1025,46 @@ export class MapView {
    * Blocks with chart sections switch when the sections appear; others when cards appear.
    */
   /** Opacity of block labels (at the block's start). */
-  private blockHeaderA() {
+  private blockHeaderA(): number {
     return smooth(BLOCK_LABEL_START, BLOCK_LABEL_FULL, this.cam.k)
   }
 
-  private blockExists(i: number) {
-    return this.asOf === null || this.blockFirstAge[i] <= this.asOf
+  private blockExists(i: number): boolean {
+    return this.asOf === undefined || this.blockFirstAge[i] <= this.asOf
   }
 
   /**
    * Fit a label into a world rect clipped to the view: returns screen centre and font size,
-   * or null if it doesn't fit at the minimum size.
+   * or undefined if it doesn't fit at the minimum size.
    */
-  private fitLabel(text: string, r: Rect, vis: Rect, weight: number, maxFs: number, heightFrac: number) {
+  private fitLabel(
+    text: string,
+    r: Rect,
+    vis: Rect,
+    weight: number,
+    maxFs: number,
+    heightFrac: number
+  ): { cx: number; cy: number; fs: number } | undefined {
     const x0 = Math.max(r.x, vis.x),
       y0 = Math.max(r.y, vis.y)
     const x1 = Math.min(r.x + r.w, vis.x + vis.w),
       y1 = Math.min(r.y + r.h, vis.y + vis.h)
-    if (x1 <= x0 || y1 <= y0) return null
+    if (x1 <= x0 || y1 <= y0) return undefined
     const sw = (x1 - x0) * this.cam.k,
       sh = (y1 - y0) * this.cam.k
     let fs = Math.min(sh * heightFrac, maxFs)
-    if (fs < 8) return null
+    if (fs < 8) return undefined
     this.ctx.font = `${weight} ${fs}px ${UI_FONT}`
     const tw = this.ctx.measureText(text).width
     if (tw > sw * 0.9) {
       fs *= (sw * 0.9) / tw
-      if (fs < 8) return null
+      if (fs < 8) return undefined
       this.ctx.font = `${weight} ${fs}px ${UI_FONT}`
     }
     return { cx: this.sx((x0 + x1) / 2), cy: this.sy((y0 + y1) / 2), fs }
   }
 
-  private haloText(text: string, x: number, y: number, fs: number, fill: string) {
+  private haloText(text: string, x: number, y: number, fs: number, fill: string): void {
     const ctx = this.ctx
     ctx.strokeStyle = "rgba(8,10,14,0.75)"
     ctx.lineWidth = Math.max(2, fs * 0.22)
@@ -1059,7 +1077,7 @@ export class MapView {
    * Block names. Zoomed out they sit large in the middle of the block; once the block's chart
    * sections are labelled instead, the block name moves to a small tab in its top-left corner.
    */
-  private renderBlockLabels(planes: number[], vis: Rect) {
+  private renderBlockLabels(planes: number[], vis: Rect): void {
     const ctx = this.ctx
     const planeSet = new Set(planes)
     ctx.lineJoin = "round"
@@ -1086,7 +1104,7 @@ export class MapView {
   }
 
   /** Thin dividers between chart sections, among the cards. */
-  private renderSectionDividers(planes: number[], vis: Rect, alpha: number, cardT: number) {
+  private renderSectionDividers(planes: number[], vis: Rect, alpha: number, cardT: number): void {
     const ctx = this.ctx
     const { k, cx, cy } = this.cam
     const dpr = this.dpr
@@ -1106,12 +1124,15 @@ export class MapView {
     ctx.restore()
   }
 
-  private visibleSections(planes: number[], vis: Rect) {
+  private visibleSections(
+    planes: number[],
+    vis: Rect
+  ): { s: number; e: number; title: string; path: Path2D; plane: number; block: number; bbox: Rect }[] {
     const planeSet = new Set(planes)
     return this.sections.filter(
       (sec, i) =>
         planeSet.has(sec.plane) &&
-        (this.asOf === null || this.sectionFirstAge[i] <= this.asOf) &&
+        (this.asOf === undefined || this.sectionFirstAge[i] <= this.asOf) &&
         sec.bbox.x < vis.x + vis.w &&
         sec.bbox.x + sec.bbox.w > vis.x &&
         sec.bbox.y < vis.y + vis.h &&
@@ -1122,9 +1143,15 @@ export class MapView {
   /**
    * Where a header for code points s..e goes: on the top edge of the range's first row that's
    * on screen, at its first visible cell, sliding along (sticky) while the range is in view.
-   * Returns screen coordinates and the room available to the right, or null.
+   * Returns screen coordinates and the room available to the right, or undefined.
    */
-  private headerAnchor(s: number, e: number, top: number, left: number, sticky = true) {
+  private headerAnchor(
+    s: number,
+    e: number,
+    top: number,
+    left: number,
+    sticky = true
+  ): { x: number; y: number; room: number } | undefined {
     const k = this.cam.k
     const o = planeOrigin(s >> 16)
     const r0 = (s >> 8) & 255,
@@ -1133,7 +1160,7 @@ export class MapView {
       // Pinned to the range's first cell: it scrolls away with it.
       const y = this.sy(o.y + r0),
         x = this.sx(o.x + (s & 255))
-      if (y < top || y > this.h || x < left - 1 || x > this.w) return null
+      if (y < top || y > this.h || x < left - 1 || x > this.w) return undefined
       const x1 = this.sx(o.x + (r0 === r1 ? (e & 255) + 1 : 256))
       return { x, y, room: x1 - x }
     }
@@ -1142,21 +1169,21 @@ export class MapView {
       // Scrolled past the start: stick to the top while the range continues, then get pushed up.
       const bottom = this.sy(o.y + r1 + 1)
       y = Math.min(top, bottom - k * 0.5)
-      if (y < top - k * 0.5) return null
+      if (y < top - k * 0.5) return undefined
     }
     const row = clamp(Math.floor((y - this.sy(o.y)) / k + 0.001), r0, r1)
-    if (y > this.h) return null
+    if (y > this.h) return undefined
     const c0 = row === r0 ? s & 255 : 0
     const c1 = row === r1 ? (e & 255) + 1 : 256
     const x0 = this.sx(o.x + c0),
       x1 = this.sx(o.x + c1)
     const x = Math.max(x0, left)
-    if (x1 - x < 30 || x > this.w) return null
+    if (x1 - x < 30 || x > this.w) return undefined
     return { x, y, room: x1 - x }
   }
 
   /** Width a pill would take (0 if it doesn't fit in `room`), without drawing it. */
-  private measurePill(text: string, room: number, opts: PillStyle) {
+  private measurePill(text: string, room: number, opts: PillStyle): number {
     const ctx = this.ctx
     const { size } = opts
     ctx.font = `${opts.bold ? 650 : 500} ${size}px ${UI_FONT}`
@@ -1169,7 +1196,7 @@ export class MapView {
     return ctx.measureText(label).width + 2 * padX + dotW
   }
 
-  private pill(text: string, x: number, y: number, room: number, opts: PillStyle) {
+  private pill(text: string, x: number, y: number, room: number, opts: PillStyle): number {
     const ctx = this.ctx
     const { size, bold } = opts
     ctx.font = `${bold ? 650 : 500} ${size}px ${UI_FONT}`
@@ -1211,7 +1238,7 @@ export class MapView {
    * Headers are placed in priority order (blocks, then longer sections first) and any that would
    * overlap one already placed are skipped, so busy areas thin out instead of piling up.
    */
-  private renderHeaders(planes: number[], vis: Rect, sectionA: number, axisA: number) {
+  private renderHeaders(planes: number[], vis: Rect, sectionA: number, axisA: number): void {
     const ctx = this.ctx
     const data = this.data
     const k = this.cam.k
@@ -1225,7 +1252,7 @@ export class MapView {
     const valueOf = this.mode.valueOf
     const placed: Rect[] = []
     this.headerHits = []
-    const free = (r: Rect) =>
+    const free = (r: Rect): boolean =>
       !placed.some((q) => r.x < q.x + q.w + 3 && r.x + r.w + 3 > q.x && r.y < q.y + q.h + 2 && r.y + r.h + 2 > q.y)
     /** Right edge of the block header drawn at each block's start, for its first section to follow. */
     const blockHeaderEnd = new Map<number, { x: number; y: number }>()
@@ -1303,10 +1330,10 @@ export class MapView {
     ctx.globalAlpha = 1
   }
 
-  private renderMarkers() {
+  private renderMarkers(): void {
     const ctx = this.ctx
     const k = this.cam.k
-    const mark = (cp: number, color: string, width: number, strong: boolean) => {
+    const mark = (cp: number, color: string, width: number, strong: boolean): void => {
       const c = cpToCell(cp)
       const x = this.sx(c.x),
         y = this.sy(c.y)
@@ -1340,7 +1367,7 @@ export class MapView {
     }
     if (this.hovered >= 0 && this.hovered !== this.selected && k >= 6)
       mark(this.hovered, "rgba(255,255,255,0.6)", 1.5, false)
-    if (this.selected !== null) {
+    if (this.selected !== undefined) {
       this.ctx.save()
       this.ctx.shadowColor = "rgba(120,180,255,0.9)"
       this.ctx.shadowBlur = 12
@@ -1349,7 +1376,7 @@ export class MapView {
     }
   }
 
-  private renderAxes(planes: number[], vis: Rect, alpha: number) {
+  private renderAxes(planes: number[], vis: Rect, alpha: number): void {
     const ctx = this.ctx
     const k = this.cam.k
     const top = AXIS_TOP,
@@ -1399,7 +1426,7 @@ export class MapView {
    * (`pnpm tiles`), otherwise they're drawn here, nearest-first within a time budget per frame.
    * Until a tile is ready, the same area from another level stands in if it's cached.
    */
-  private renderGlyphTiles(planes: number[], vis: Rect, alpha: number, ctx = this.ctx) {
+  private renderGlyphTiles(planes: number[], vis: Rect, alpha: number, ctx = this.ctx): void {
     const k = this.cam.k
     const dk = k * this.dpr
     const level = GLYPH_LEVELS.find((l) => l.res >= dk) ?? GLYPH_LEVELS[GLYPH_LEVELS.length - 1]
@@ -1432,7 +1459,7 @@ export class MapView {
             ctx.drawImage(img, x, y, w, h)
             continue
           }
-          if (img === null) continue // nothing to draw here
+          if (img === undefined) continue // nothing to draw here
           missing.push({ key, p, ty, tx, d: Math.hypot(o.x + (tx + 0.5) * T - cx, o.y + (ty + 0.5) * T - cy) })
           for (const alt of others) if (this.drawTileArea(ctx, alt, p, tx * T, ty * T, T, x, y, w, h)) break
         }
@@ -1448,7 +1475,7 @@ export class MapView {
       for (const t of missing) {
         if (this.tileLoads.has(t.key)) continue
         if (!this.staticTiles.has(`${level.res}/${t.p}/${t.ty}-${t.tx}`)) {
-          this.storeGlyphTile(t.key, null)
+          this.storeGlyphTile(t.key, undefined)
           continue
         }
         if (this.tileLoads.size >= GLYPH_TILE_LOADS) break
@@ -1459,7 +1486,7 @@ export class MapView {
           .decode()
           .then(
             () => this.storeGlyphTile(t.key, img),
-            () => this.storeGlyphTile(t.key, null)
+            () => this.storeGlyphTile(t.key, undefined)
           )
           .finally(() => {
             this.tileLoads.delete(t.key)
@@ -1485,7 +1512,7 @@ export class MapView {
    * their shapes filled with each cell's ink (scaled up from the ink bitmaps), and lay that over
    * the map. Dimmed and not-yet-encoded characters come out faint or absent for free.
    */
-  private renderInkedGlyphs(planes: number[], vis: Rect, alpha: number) {
+  private renderInkedGlyphs(planes: number[], vis: Rect, alpha: number): void {
     const W = this.canvas.width,
       H = this.canvas.height
     let layer = this.glyphLayer
@@ -1503,7 +1530,7 @@ export class MapView {
     // Colour emoji keep their colours: copy the glyphs aside before they're recoloured, to keep
     // just those cells of the copy below.
     const colourPlanes = planes.filter((p) => this.colourBitmaps[p])
-    let cc: CanvasRenderingContext2D | null = null
+    let cc: CanvasRenderingContext2D | undefined = undefined
     if (colourPlanes.length) {
       let cl = this.colourLayer
       if (!cl || cl.width !== W || cl.height !== H) {
@@ -1576,7 +1603,7 @@ export class MapView {
     y: number,
     w: number,
     h: number
-  ) {
+  ): boolean {
     const T = level.span
     if (T >= span) {
       const ty = Math.floor(cy0 / T),
@@ -1605,7 +1632,7 @@ export class MapView {
   }
 
   /** Whether the fonts for `rows` rows of a plane, from row `y0`, are loaded (asking for them if not). */
-  tileFontsReady(p: number, y0: number, rows: number) {
+  tileFontsReady(p: number, y0: number, rows: number): boolean {
     // The placeholders' labels use the monospace interface font.
     let ready = document.fonts.check(`12px ${MONO_FONT}`, "WJ")
     if (!ready) void document.fonts.load(`12px ${MONO_FONT}`, "WJ").then(() => this.invalidate())
@@ -1614,11 +1641,11 @@ export class MapView {
   }
 
   /** Draw one tile: `span`×`span` code points at `res` pixels each. Null if there's nothing to draw. */
-  buildGlyphTile(p: number, ty: number, tx: number, res: number, span: number): HTMLCanvasElement | null {
+  buildGlyphTile(p: number, ty: number, tx: number, res: number, span: number): HTMLCanvasElement | undefined {
     if (res < GLYPH_DRAW_MIN) {
       // Fonts don't draw usefully at a pixel or two: draw at a legible size and average it down.
       const big = this.buildGlyphTile(p, ty, tx, GLYPH_DRAW_MIN, span)
-      if (!big) return null
+      if (!big) return undefined
       const cv = document.createElement("canvas")
       cv.width = cv.height = span * res
       const c = cv.getContext("2d")!
@@ -1629,8 +1656,8 @@ export class MapView {
       return cv
     }
     const data = this.data
-    let cv: HTMLCanvasElement | null = null
-    let c: CanvasRenderingContext2D | null = null
+    let cv: HTMLCanvasElement | undefined = undefined
+    let c: CanvasRenderingContext2D | undefined = undefined
     let lastFont = ""
     for (let y = 0; y < span; y++) {
       for (let x = 0; x < span; x++) {
@@ -1662,7 +1689,7 @@ export class MapView {
     return cv
   }
 
-  private storeGlyphTile(key: string, img: HTMLCanvasElement | HTMLImageElement | null) {
+  private storeGlyphTile(key: string, img: HTMLCanvasElement | HTMLImageElement | undefined): void {
     this.glyphTiles.set(key, img)
     if (img) this.glyphTileBytes += img.width * img.height * 4
     // Evict the oldest tiles past the memory cap.
@@ -1677,8 +1704,8 @@ export class MapView {
     }
   }
 
-  /** Look for pre-built glyph tiles (see scripts/build_tiles.mjs). */
-  private async loadTileManifest() {
+  /** Look for pre-built glyph tiles (see scripts/build_tiles.ts). */
+  private async loadTileManifest(): Promise<void> {
     try {
       const r = await fetch("./tiles/manifest.json")
       if (!r.ok) return
@@ -1695,7 +1722,7 @@ export class MapView {
     }
   }
 
-  private renderPreview(vis: Rect, pv: Preview) {
+  private renderPreview(vis: Rect, pv: Preview): void {
     const ctx = this.ctx
     const { k, cx, cy } = this.cam
     const dpr = this.dpr
@@ -1740,18 +1767,18 @@ export class MapView {
   // ---------------------------------------------------------------------------
   // Input
 
-  private bindInput() {
+  private bindInput(): void {
     const el = this.canvas
-    let drag: { x: number; y: number; cx: number; cy: number; moved: boolean; id: number } | null = null
+    let drag: { x: number; y: number; cx: number; cy: number; moved: boolean; id: number } | undefined = undefined
     const pointers = new Map<number, { x: number; y: number }>()
-    let pinch: { d: number; k: number; wx: number; wy: number } | null = null
+    let pinch: { d: number; k: number; wx: number; wy: number } | undefined = undefined
 
-    const local = (e: { clientX: number; clientY: number }) => {
+    const local = (e: { clientX: number; clientY: number }): { x: number; y: number } => {
       const r = el.getBoundingClientRect()
       return { x: e.clientX - r.left, y: e.clientY - r.top }
     }
 
-    const onDown = (e: PointerEvent) => {
+    const onDown = (e: PointerEvent): void => {
       el.setPointerCapture(e.pointerId)
       const p = local(e)
       pointers.set(e.pointerId, p)
@@ -1759,13 +1786,13 @@ export class MapView {
         const [a, b] = [...pointers.values()]
         const mid = this.toWorld((a.x + b.x) / 2, (a.y + b.y) / 2)
         pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), k: this.cam.k, wx: mid.x, wy: mid.y }
-        drag = null
+        drag = undefined
         return
       }
-      this.anim = null
+      this.anim = undefined
       drag = { x: p.x, y: p.y, cx: this.cam.cx, cy: this.cam.cy, moved: false, id: e.pointerId }
     }
-    const onMove = (e: PointerEvent) => {
+    const onMove = (e: PointerEvent): void => {
       const p = local(e)
       if (pointers.has(e.pointerId)) pointers.set(e.pointerId, p)
       if (pinch && pointers.size === 2) {
@@ -1791,9 +1818,9 @@ export class MapView {
       }
       this.updateHover(p.x, p.y, e.clientX, e.clientY)
     }
-    const onUp = (e: PointerEvent) => {
+    const onUp = (e: PointerEvent): void => {
       pointers.delete(e.pointerId)
-      if (pointers.size < 2) pinch = null
+      if (pointers.size < 2) pinch = undefined
       if (drag && drag.id === e.pointerId) {
         if (!drag.moved && !this.pure) {
           const p = local(e)
@@ -1805,15 +1832,15 @@ export class MapView {
             const w = this.toWorld(p.x, p.y)
             const cp = cellToCp(w.x, w.y)
             if (this.pinned && (cp < this.pinned.s || cp > this.pinned.e)) this.clearPinned()
-            this.cb.onSelect(cp >= 0 ? cp : null)
+            this.cb.onSelect(cp >= 0 ? cp : undefined)
           }
         }
-        drag = null
+        drag = undefined
         el.style.cursor = ""
       }
     }
-    const onLeave = () => {
-      if (this.headerHover) this.setPreview(null)
+    const onLeave = (): void => {
+      if (this.headerHover) this.setPreview(undefined)
       el.style.cursor = ""
       if (this.hovered !== -1) {
         this.hovered = -1
@@ -1821,9 +1848,9 @@ export class MapView {
         this.cb.onHover(-1, 0, 0)
       }
     }
-    const onWheel = (e: WheelEvent) => {
+    const onWheel = (e: WheelEvent): void => {
       e.preventDefault()
-      this.anim = null
+      this.anim = undefined
       this.noteMoving()
       const p = local(e)
       // Pinch gestures arrive as ctrl+wheel. Trackpad scrolls (small or horizontal deltas) pan;
@@ -1844,7 +1871,7 @@ export class MapView {
       }
       this.updateHover(p.x, p.y, e.clientX, e.clientY)
     }
-    const onDbl = (e: MouseEvent) => {
+    const onDbl = (e: MouseEvent): void => {
       const p = local(e)
       const w = this.toWorld(p.x, p.y)
       const k = this.cam.k * (e.shiftKey ? 0.4 : 2.5)
@@ -1873,7 +1900,7 @@ export class MapView {
    * While you pan or zoom by hand, mark the map area as moving (the class `moving`), so the
    * floating panels can fade out of the way until you stop.
    */
-  private noteMoving() {
+  private noteMoving(): void {
     const area = this.canvas.parentElement
     if (!area) return
     area.classList.add("moving")
@@ -1881,15 +1908,15 @@ export class MapView {
     this.movingTimer = window.setTimeout(() => area.classList.remove("moving"), 450)
   }
 
-  private headerAt(x: number, y: number) {
+  private headerAt(x: number, y: number): { r: Rect; s: number; e: number; name: string } | undefined {
     for (let i = this.headerHits.length - 1; i >= 0; i--) {
       const { r } = this.headerHits[i]
       if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) return this.headerHits[i]
     }
-    return null
+    return undefined
   }
 
-  private updateHover(x: number, y: number, clientX: number, clientY: number) {
+  private updateHover(x: number, y: number, clientX: number, clientY: number): void {
     if (this.pure) return
     // Over a block or section header: show its full name and point out its extent.
     const hit = this.headerAt(x, y)
@@ -1911,7 +1938,7 @@ export class MapView {
       return
     }
     if (this.headerHover) {
-      this.setPreview(null)
+      this.setPreview(undefined)
       this.canvas.style.cursor = ""
     }
     const w = this.toWorld(x, y)
@@ -1927,13 +1954,13 @@ export class MapView {
 /** Zoom (CSS px per cell) at which block clicks land: glyph cards are fully drawn. */
 const READ_K = 40
 
-function makePreview(range: {
+const makePreview = (range: {
   s: number
   e: number
   name: string
   labelAt?: { x: number; y: number }
   soft?: boolean
-}): Preview {
+}): Preview => {
   const path = new Path2D()
   const pts = rangeOutline(range.s, range.e)
   path.moveTo(pts[0][0], pts[0][1])
@@ -1965,7 +1992,7 @@ interface PillStyle {
 }
 
 /** Truncate text with an ellipsis to fit a width in the current font. */
-function ellipsize(ctx: CanvasRenderingContext2D, text: string, maxW: number) {
+const ellipsize = (ctx: CanvasRenderingContext2D, text: string, maxW: number): string => {
   if (ctx.measureText(text).width <= maxW) return text
   let lo = 0,
     hi = text.length

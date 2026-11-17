@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { type ColorMode, type ModeId, MODES } from "../map/colorModes"
 
-export function Legend({
+export const Legend = ({
   mode,
   modeId,
   onMode,
@@ -16,8 +16,8 @@ export function Legend({
   pinned: string[]
   onTogglePin: (key: string) => void
   onClearPins: () => void
-  onPreview: (key: string | null) => void
-}) {
+  onPreview: (key: string | undefined) => void
+}) => {
   const [filter, setFilter] = useState("")
   // Just the mode tabs until you ask for the key; remembered between visits.
   const [open, setOpenState] = useState(() => {
@@ -100,12 +100,12 @@ export function Legend({
               </button>
             </div>
           )}
-          <div className="legend-body" onMouseLeave={() => onPreview(null)}>
+          <div className="legend-body" onMouseLeave={() => onPreview(undefined)}>
             {mode.legend.map((g, gi) => {
               const items = g.items.filter(
                 (it) => !f || it.label.toLowerCase().includes(f) || it.sublabel?.toLowerCase().includes(f)
               )
-              if (!items.length) return null
+              if (!items.length) return undefined
               return (
                 <div key={gi} className="legend-group">
                   {g.label && <div className="legend-group-label">{g.label}</div>}

@@ -1,7 +1,7 @@
 import { displayString, type UnicodeData } from "../data/unicode"
 
 /** A code point drawn with the font chosen for it, or its abbreviation for invisible characters. */
-export function Glyph({ data, cp, className }: { data: UnicodeData; cp: number; className?: string }) {
+export const Glyph = ({ data, cp, className }: { data: UnicodeData; cp: number; className?: string }) => {
   const str = displayString(data, cp)
   if (str) {
     return (

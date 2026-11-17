@@ -1,18 +1,32 @@
 import { type Block, MAX_CP, type UnicodeData } from "./unicode"
 
-export type SearchResult = { kind: "cp"; cp: number; why?: string } | { kind: "block"; block: Block; index: number }
+export enum SearchResultType {
+  CODE_POINT = "CODE_POINT",
+  BLOCK = "BLOCK"
+}
+interface CodePointResult {
+  type: SearchResultType.CODE_POINT
+  cp: number
+  why?: string
+}
+interface BlockResult {
+  type: SearchResultType.BLOCK
+  block: Block
+  index: number
+}
+export type SearchResult = CodePointResult | BlockResult
 
 const CP_PATTERN = /^(?:u\+|0x|\\u\{?|\\x\{?|&#x|U\+)?([0-9a-f]{1,6})\}?;?$/i
 
-export function search(data: UnicodeData, raw: string, limit = 60): SearchResult[] {
+export const search = (data: UnicodeData, raw: string, limit = 60): SearchResult[] => {
   const q = raw.trim()
   if (!q) return []
   const out: SearchResult[] = []
   const seen = new Set<number>()
-  const pushCp = (cp: number, why?: string) => {
+  const pushCp = (cp: number, why?: string): void => {
     if (cp < 0 || cp >= MAX_CP || seen.has(cp)) return
     seen.add(cp)
-    out.push({ kind: "cp", cp, why })
+    out.push({ type: SearchResultType.CODE_POINT, cp, why })
   }
 
   // Pasted characters: anything outside printable ASCII, or a single character.
@@ -67,7 +81,11 @@ export function search(data: UnicodeData, raw: string, limit = 60): SearchResult
       scored.push({ cp: e.cp, score, len: name.length || 99 })
     }
     scored.sort((a, b) => a.score - b.score || a.len - b.len || a.cp - b.cp)
-    const blockResults: SearchResult[] = blocks.map(({ block, index }) => ({ kind: "block", block, index }))
+    const blockResults: SearchResult[] = blocks.map(({ block, index }) => ({
+      type: SearchResultType.BLOCK,
+      block,
+      index
+    }))
     // Put exact name hits before blocks, the rest after.
     for (const s of scored.filter((s) => s.score <= 1)) pushCp(s.cp)
     out.push(...blockResults)
@@ -76,14 +94,12 @@ export function search(data: UnicodeData, raw: string, limit = 60): SearchResult
       pushCp(s.cp)
     }
   } else {
-    out.push(...blocks.map(({ block, index }): SearchResult => ({ kind: "block", block, index })))
+    out.push(...blocks.map(({ block, index }): SearchResult => ({ type: SearchResultType.BLOCK, block, index })))
   }
   return out.slice(0, limit)
 }
 
-function wordStart(text: string, tokens: string[]) {
-  return tokens.every((t) => new RegExp(`(^|[ |\\-])${escapeRe(t)}`).test(text))
-}
-function escapeRe(s: string) {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-}
+const wordStart = (text: string, tokens: string[]): boolean =>
+  tokens.every((t) => new RegExp(`(^|[ |\\-])${escapeRe(t)}`).test(text))
+
+const escapeRe = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")

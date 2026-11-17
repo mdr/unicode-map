@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { UnicodeData } from "./data/unicode"
-import { getMode, type ModeId, MODES } from "./map/colorModes"
+import { getMode, ModeId, MODES } from "./map/colorModes"
 import { type Camera, type Here, MapView } from "./map/MapView"
 import { planeRect } from "./map/layout"
 import { SearchBox } from "./ui/SearchBox"
@@ -15,9 +15,9 @@ import { Timeline } from "./ui/Timeline"
 import { ChartView } from "./ui/ChartView"
 import { loadProps, maskOf, type PropOption } from "./data/props"
 
-export function App() {
-  const [data, setData] = useState<UnicodeData | null>(null)
-  const [error, setError] = useState<string | null>(null)
+export const App = () => {
+  const [data, setData] = useState<UnicodeData>()
+  const [error, setError] = useState<string>()
   useEffect(() => {
     UnicodeData.load().then(setData, (e: unknown) => setError(String(e)))
   }, [])
@@ -41,40 +41,40 @@ export function App() {
   return <Explorer data={data} />
 }
 
-function Explorer({ data }: { data: UnicodeData }) {
+const Explorer = ({ data }: { data: UnicodeData }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const viewRef = useRef<MapView | null>(null)
+  const viewRef = useRef<MapView | undefined>(null)
   const initial = useMemo(() => readHash(), [])
-  const [modeId, setModeId] = useState<ModeId>(initial.mode ?? "region")
-  const [selected, setSelected] = useState<number | null>(initial.cp ?? null)
+  const [modeId, setModeId] = useState<ModeId>(initial.mode ?? ModeId.REGION)
+  const [selected, setSelected] = useState<number | undefined>(initial.cp ?? undefined)
   const [pinned, setPinned] = useState<string[]>([])
-  const [preview, setPreview] = useState<string | null>(null)
-  const [hover, setHover] = useState<{ cp: number; x: number; y: number } | null>(null)
-  const [camera, setCamera] = useState<Camera | null>(null)
+  const [preview, setPreview] = useState<string>()
+  const [hover, setHover] = useState<{ cp: number; x: number; y: number }>()
+  const [camera, setCamera] = useState<Camera>()
   /** Where the view is (centre of the visible area), updated once the camera settles. */
-  const [here, setHere] = useState<Here | null>(null)
+  const [here, setHere] = useState<Here>()
   const [help, setHelp] = useState(false)
-  const [prop, setProp] = useState<PropOption | null>(null)
+  const [prop, setProp] = useState<PropOption>()
   /** Pure view: just the map, no interface or colouring. */
   const [pure, setPure] = useState(initial.pure ?? false)
   const [pureHint, setPureHint] = useState(false)
   /** Glyph texture in the normal view when zoomed out (experimental; `g` toggles it). */
   const [glyphTexture, setGlyphTexture] = useState(true)
   useEffect(() => viewRef.current?.setGlyphTexture(glyphTexture), [glyphTexture])
-  /** Timeline position (index into meta.ages), or null when the timeline is closed. */
-  const [asOf, setAsOf] = useState<number | null>(() => {
+  /** Timeline position (index into meta.ages), or undefined when the timeline is closed. */
+  const [asOf, setAsOf] = useState<number | undefined>(() => {
     const i = initial.asOf ? data.meta.ages.indexOf(initial.asOf) : -1
-    return i > 0 ? i : null
+    return i > 0 ? i : undefined
   })
   /** Chart view: a block laid out like the Unicode code charts, in place of the map. */
-  const [chart, setChart] = useState<{ block: number; focus?: [number, number] } | null>(() => {
+  const [chart, setChart] = useState<{ block: number; focus?: [number, number] } | undefined>(() => {
     const i = initial.chart !== undefined ? data.meta.blocks.findIndex((b) => b.s === initial.chart) : -1
-    return i >= 0 ? { block: i } : null
+    return i >= 0 ? { block: i } : undefined
   })
   const chartRef = useRef(chart)
   chartRef.current = chart
   /** The code point at the middle of the chart's visible columns, for the sidebar to follow. */
-  const [chartAt, setChartAt] = useState<number | null>(null)
+  const [chartAt, setChartAt] = useState<number>()
   const mode = useMemo(() => getMode(data, modeId), [data, modeId])
   const selectedRef = useRef(selected)
   selectedRef.current = selected
@@ -83,7 +83,7 @@ function Explorer({ data }: { data: UnicodeData }) {
   useEffect(() => {
     let camTimer = 0
     const view = new MapView(canvasRef.current!, data, {
-      onHover: (cp, x, y) => setHover(cp >= 0 ? { cp, x, y } : null),
+      onHover: (cp, x, y) => setHover(cp >= 0 ? { cp, x, y } : undefined),
       onSelect: (cp) => select(cp, { focus: false }),
       onCamera: () => {
         if (camTimer) return
@@ -118,7 +118,7 @@ function Explorer({ data }: { data: UnicodeData }) {
   useEffect(() => {
     const keys = preview ? [preview] : pinned
     if (!keys.length) {
-      viewRef.current?.setHighlight(null)
+      viewRef.current?.setHighlight(undefined)
       return
     }
     const values = new Set<number>()
@@ -129,16 +129,16 @@ function Explorer({ data }: { data: UnicodeData }) {
 
   useEffect(() => {
     setPinned([])
-    setPreview(null)
+    setPreview(undefined)
   }, [modeId])
 
   // Property highlight
   useEffect(() => {
-    if (initial.prop) void loadProps().then((opts) => setProp(opts.find((o) => o.key === initial.prop) ?? null))
+    if (initial.prop) void loadProps().then((opts) => setProp(opts.find((o) => o.key === initial.prop) ?? undefined))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   useEffect(() => {
-    viewRef.current?.setMask(prop ? maskOf(prop) : null)
+    viewRef.current?.setMask(prop ? maskOf(prop) : undefined)
   }, [prop])
 
   // Pure view. A hint on how to leave shows on entering and whenever the mouse moves.
@@ -146,7 +146,7 @@ function Explorer({ data }: { data: UnicodeData }) {
     viewRef.current?.setPure(pure)
     if (!pure) return
     setHelp(false)
-    setHover(null)
+    setHover(undefined)
     let timer = 0
     const show = () => {
       setPureHint(true)
@@ -166,26 +166,29 @@ function Explorer({ data }: { data: UnicodeData }) {
   useEffect(() => {
     viewRef.current?.setAsOf(asOf)
   }, [asOf])
-  const toggleTimeline = useCallback(() => setAsOf((a) => (a === null ? data.meta.ages.length - 1 : null)), [data])
+  const toggleTimeline = useCallback(
+    () => setAsOf((a) => (a === undefined ? data.meta.ages.length - 1 : undefined)),
+    [data]
+  )
   const changeMode = useCallback(
     (m: ModeId) => {
       setModeId(m)
       // The timeline is the natural companion to the Age colouring.
-      if (m === "age") setAsOf((a) => a ?? data.meta.ages.length - 1)
+      if (m === ModeId.AGE) setAsOf((a) => a ?? data.meta.ages.length - 1)
     },
     [data]
   )
 
-  const select = useCallback((cp: number | null, opts: { focus?: boolean; zoom?: boolean } = {}) => {
+  const select = useCallback((cp: number | undefined, opts: { focus?: boolean; zoom?: boolean } = {}) => {
     setSelected(cp)
     viewRef.current?.setSelected(cp)
-    if (cp !== null && opts.focus !== false) viewRef.current?.focusCp(cp, { zoom: opts.zoom })
+    if (cp !== undefined && opts.focus !== false) viewRef.current?.focusCp(cp, { zoom: opts.zoom })
   }, [])
 
   // URL state
   const extras = () => ({
     prop: prop?.key,
-    asOf: asOf !== null ? data.meta.ages[asOf] : undefined,
+    asOf: asOf !== undefined ? data.meta.ages[asOf] : undefined,
     pure,
     chart: chart ? data.meta.blocks[chart.block].s : undefined
   })
@@ -201,7 +204,7 @@ function Explorer({ data }: { data: UnicodeData }) {
     writeHash({ cp: selected ?? undefined, mode: modeId, view: viewRef.current?.camera, ...extras() }, true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chart?.block])
-  const lastPushed = useRef<number | null | undefined>(initial.cp)
+  const lastPushed = useRef<number | undefined>(initial.cp)
   useEffect(() => {
     if (lastPushed.current === selected) return
     lastPushed.current = selected
@@ -211,13 +214,13 @@ function Explorer({ data }: { data: UnicodeData }) {
   useEffect(() => {
     const onPop = () => {
       const s = readHash()
-      lastPushed.current = s.cp ?? null
-      setSelected(s.cp ?? null)
-      viewRef.current?.setSelected(s.cp ?? null)
+      lastPushed.current = s.cp ?? undefined
+      setSelected(s.cp ?? undefined)
+      viewRef.current?.setSelected(s.cp ?? undefined)
       if (s.mode) setModeId(s.mode)
       const ci = s.chart !== undefined ? data.meta.blocks.findIndex((b) => b.s === s.chart) : -1
       lastChart.current = ci >= 0 ? ci : undefined
-      setChart(ci >= 0 ? { block: ci } : null)
+      setChart(ci >= 0 ? { block: ci } : undefined)
       if (s.view) viewRef.current?.flyTo(s.view)
       else if (s.cp !== undefined) viewRef.current?.focusCp(s.cp)
     }
@@ -246,7 +249,7 @@ function Explorer({ data }: { data: UnicodeData }) {
     if (block >= 0) setChart({ block, focus })
   }, [])
   const previewRange = useCallback(
-    (r: { s: number; e: number; name: string } | null) => viewRef.current?.setPreview(r),
+    (r: { s: number; e: number; name: string } | undefined) => viewRef.current?.setPreview(r),
     []
   )
   const flyToPlane = useCallback((p: number) => {
@@ -325,24 +328,24 @@ function Explorer({ data }: { data: UnicodeData }) {
         case "{": {
           const p = ((cur ?? centre()) >> 16) + (e.key === "}" ? 1 : -1)
           if (p >= 0 && p <= 16) {
-            select(null)
+            select(undefined)
             flyToPlane(p)
           }
           break
         }
         case "Enter":
-          if (cur !== null) view.focusCp(cur)
+          if (cur !== undefined) view.focusCp(cur)
           break
         case "c": {
-          if (chartRef.current) setChart(null)
+          if (chartRef.current) setChart(undefined)
           else openChart(data.blockIdx[cur ?? centre()])
           break
         }
         case "Escape":
           if (help) setHelp(false)
-          else if (chartRef.current) setChart(null)
+          else if (chartRef.current) setChart(undefined)
           else {
-            select(null)
+            select(undefined)
             view.clearPinned()
           }
           break
@@ -435,7 +438,7 @@ function Explorer({ data }: { data: UnicodeData }) {
           <button
             title="Timeline: Unicode through the versions (t)"
             aria-label="Timeline"
-            className={asOf !== null ? "on" : ""}
+            className={asOf !== undefined ? "on" : ""}
             onClick={toggleTimeline}
           >
             <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
@@ -459,7 +462,9 @@ function Explorer({ data }: { data: UnicodeData }) {
             ?
           </button>
         </div>
-        {asOf !== null && <Timeline data={data} value={asOf} onChange={setAsOf} onClose={() => setAsOf(null)} />}
+        {asOf !== undefined && (
+          <Timeline data={data} value={asOf} onChange={setAsOf} onClose={() => setAsOf(undefined)} />
+        )}
         {pure && (
           <button className={`pure-hint ${pureHint ? "show" : ""}`} onClick={() => setPure(false)}>
             Pure view · press <kbd>Z</kbd> or <kbd>Esc</kbd> to leave
@@ -473,11 +478,11 @@ function Explorer({ data }: { data: UnicodeData }) {
             focus={chart.focus}
             selected={selected}
             onSelect={(cp) => select(cp, { zoom: true })}
-            onHover={(cp, x, y) => setHover(cp >= 0 ? { cp, x, y } : null)}
+            onHover={(cp, x, y) => setHover(cp >= 0 ? { cp, x, y } : undefined)}
             onView={setChartAt}
             onClose={() => {
-              setHover(null)
-              setChart(null)
+              setHover(undefined)
+              setChart(undefined)
             }}
           />
         )}
@@ -495,8 +500,8 @@ function Explorer({ data }: { data: UnicodeData }) {
         onPlane={flyToPlane}
         onRange={flyToRange}
         onChart={openChart}
-        chartBlock={chart?.block ?? null}
-        onClose={() => select(null)}
+        chartBlock={chart?.block ?? undefined}
+        onClose={() => select(undefined)}
       />
     </div>
   )

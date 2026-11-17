@@ -2,7 +2,7 @@ import { uplus, type UnicodeData } from "../data/unicode"
 import { Glyph } from "./Glyph"
 import { type ColorMode, cpColor } from "../map/colorModes"
 
-export function Tooltip({
+export const Tooltip = ({
   data,
   mode,
   cp,
@@ -14,7 +14,7 @@ export function Tooltip({
   cp: number
   x: number
   y: number
-}) {
+}) => {
   const block = data.block(cp)
   const assigned = data.isAssigned(cp)
   const section = data.section(cp)

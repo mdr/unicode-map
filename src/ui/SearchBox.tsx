@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { search, type SearchResult } from "../data/search"
+import { search, type SearchResult, SearchResultType } from "../data/search"
 import { uplus, type UnicodeData } from "../data/unicode"
 import { Glyph } from "./Glyph"
 
-export function SearchBox({
+export const SearchBox = ({
   data,
   onPickCp,
   onPickBlock
@@ -11,7 +11,7 @@ export function SearchBox({
   data: UnicodeData
   onPickCp: (cp: number) => void
   onPickBlock: (index: number) => void
-}) {
+}) => {
   const [q, setQ] = useState("")
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(0)
@@ -30,7 +30,7 @@ export function SearchBox({
   }, [active])
 
   const pick = (r: SearchResult) => {
-    if (r.kind === "cp") onPickCp(r.cp)
+    if (r.type === SearchResultType.CODE_POINT) onPickCp(r.cp)
     else onPickBlock(r.index)
     setOpen(false)
     inputRef.current?.blur()
@@ -85,7 +85,7 @@ export function SearchBox({
           {results.length === 0 && <div className="search-empty">No matches</div>}
           {results.map((r, i) => (
             <div
-              key={r.kind === "cp" ? `c${r.cp}` : `b${r.index}`}
+              key={r.type === SearchResultType.CODE_POINT ? `c${r.cp}` : `b${r.index}`}
               className={`search-result ${i === active ? "active" : ""}`}
               role="option"
               tabIndex={-1}
@@ -96,7 +96,7 @@ export function SearchBox({
               }}
               onMouseEnter={() => setActive(i)}
             >
-              {r.kind === "cp" ? (
+              {r.type === SearchResultType.CODE_POINT ? (
                 <>
                   <span className="sr-glyph">
                     <Glyph data={data} cp={r.cp} />

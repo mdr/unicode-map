@@ -1,7 +1,7 @@
 import { planeName, uplus, type UnicodeData } from "../data/unicode"
 import type { Here } from "../map/MapView"
 
-export function Breadcrumb({
+export const Breadcrumb = ({
   data,
   here,
   selected,
@@ -12,25 +12,26 @@ export function Breadcrumb({
   onPreview
 }: {
   data: UnicodeData
-  here: Here | null
-  selected: number | null
+  here: Here | undefined
+  selected: number | undefined
   onPlane: (p: number) => void
   onBlock: (i: number) => void
   onOverview: () => void
   onRange: (s: number, e: number) => void
-  onPreview: (r: { s: number; e: number; name: string } | null) => void
-}) {
+  onPreview: (r: { s: number; e: number; name: string } | undefined) => void
+}) => {
   // Where are we? The selection if there is one, otherwise the centre of the view (when zoomed in).
-  let cp: number | null = selected
-  if (cp === null && here && here.k > 2.5 && here.cp >= 0) cp = here.cp
-  const plane = cp !== null ? cp >> 16 : null
-  const bi = cp !== null ? data.blockIdx[cp] : -1
+  let cp: number | undefined = selected
+  if (cp === undefined && here && here.k > 2.5 && here.cp >= 0) cp = here.cp
+  const plane = cp !== undefined ? cp >> 16 : undefined
+  const bi = cp !== undefined ? data.blockIdx[cp] : -1
   // The chart section, once zoomed in far enough to see sections (or with a selection).
-  const section = cp !== null && (selected !== null || (here?.k ?? 0) > 10) ? data.sectionRange(cp) : undefined
+  const section =
+    cp !== undefined && (selected !== undefined || (here?.k ?? 0) > 10) ? data.sectionRange(cp) : undefined
   return (
     <nav className="breadcrumb">
       <button onClick={onOverview}>All planes</button>
-      {plane !== null && (
+      {plane !== undefined && (
         <>
           <span className="sep">›</span>
           <button
@@ -39,7 +40,7 @@ export function Breadcrumb({
             onMouseEnter={() =>
               onPreview({ s: plane << 16, e: (plane << 16) | 0xffff, name: `Plane ${plane} · ${planeName(plane)[0]}` })
             }
-            onMouseLeave={() => onPreview(null)}
+            onMouseLeave={() => onPreview(undefined)}
           >
             Plane {plane}
             {planeName(plane)[1] && <span className="muted"> {planeName(plane)[1]}</span>}
@@ -54,7 +55,7 @@ export function Breadcrumb({
             onMouseEnter={() =>
               onPreview({ s: data.meta.blocks[bi].s, e: data.meta.blocks[bi].e, name: data.meta.blocks[bi].name })
             }
-            onMouseLeave={() => onPreview(null)}
+            onMouseLeave={() => onPreview(undefined)}
           >
             <span className="crumb-dot" style={{ background: data.meta.regions[data.meta.blocks[bi].region].color }} />
             {data.meta.blocks[bi].name}
@@ -68,13 +69,13 @@ export function Breadcrumb({
             onClick={() => onRange(section[0], section[1])}
             className="crumb-section"
             onMouseEnter={() => onPreview({ s: section[0], e: section[1], name: section[2] })}
-            onMouseLeave={() => onPreview(null)}
+            onMouseLeave={() => onPreview(undefined)}
           >
             {section[2]}
           </button>
         </>
       )}
-      {selected !== null && (
+      {selected !== undefined && (
         <>
           <span className="sep">›</span>
           <span className="crumb-current mono">{uplus(selected)}</span>

@@ -13,18 +13,39 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { spawn } from "node:child_process"
-import { createServer } from "vite"
+import { createServer } from "vite-plus"
 
 const OUT = "public/tiles"
-const CHROME = process.env.CHROME ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+const CHROME = process.env["CHROME"] ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 const BATCH = 16
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
+
+interface CdpTarget {
+  type: string
+  webSocketDebuggerUrl: string
+}
+interface CdpResponse {
+  id?: number
+  result?: {
+    result?: { value?: unknown }
+    exceptionDetails?: { text: string; exception?: { description?: string } }
+  }
+}
+type TilePosition = [plane: number, tileY: number, tileX: number]
+interface DrawnTile {
+  p: number
+  ty: number
+  tx: number
+  b64: string
+  fontsTimedOut: boolean
+}
 
 // --- Serve the app and open it in headless Chrome -------------------------------------------
 
 const server = await createServer({ server: { port: 5298 }, logLevel: "warn" })
 await server.listen()
-const appUrl = server.resolvedUrls.local[0]
+const appUrl = server.resolvedUrls?.local[0]
+if (!appUrl) throw new Error("Vite didn't say where it's serving")
 
 const profile = mkdtempSync(join(tmpdir(), "umap-tiles-"))
 const chrome = spawn(
@@ -36,7 +57,7 @@ const chrome = spawn(
     "--no-first-run",
     "--window-size=800,600",
     // CI runners (Ubuntu 24.04) don't allow Chrome's sandbox; it's only drawing our own page.
-    ...(process.env.CI ? ["--no-sandbox"] : []),
+    ...(process.env["CI"] ? ["--no-sandbox"] : []),
     "about:blank"
   ],
   { stdio: ["ignore", "ignore", "pipe"] }
@@ -44,13 +65,13 @@ const chrome = spawn(
 
 // Chrome picks a free port and says which on stderr; keep its output in case it fails to start.
 let chromeLog = ""
-const debugPort = await new Promise((resolve, reject) => {
+const debugPort = await new Promise<number>((resolve, reject) => {
   const timer = setTimeout(
     () => reject(new Error(`Chrome at ${CHROME} didn't start within 60s:\n${chromeLog}`)),
     60_000
   )
   chrome.stderr.on("data", (d) => {
-    chromeLog += d
+    chromeLog += String(d)
     const m = /DevTools listening on ws:\/\/[^:]+:(\d+)\//.exec(chromeLog)
     if (m) {
       clearTimeout(timer)
@@ -60,9 +81,9 @@ const debugPort = await new Promise((resolve, reject) => {
   chrome.on("error", (e) => reject(new Error(`Couldn't run Chrome at ${CHROME}: ${e.message}`)))
   chrome.on("exit", (code) => reject(new Error(`Chrome exited (${code}) before starting:\n${chromeLog}`)))
 })
-let page
+let page: CdpTarget | undefined
 for (let i = 0; i < 100 && !page; i++) {
-  const targets = await (await fetch(`http://127.0.0.1:${debugPort}/json`)).json()
+  const targets = (await (await fetch(`http://127.0.0.1:${debugPort}/json`)).json()) as CdpTarget[]
   page = targets.find((t) => t.type === "page")
   if (!page) await sleep(100)
 }
@@ -70,29 +91,30 @@ if (!page) throw new Error("Chrome has no page to drive")
 const ws = new WebSocket(page.webSocketDebuggerUrl)
 await new Promise((r) => ws.addEventListener("open", r))
 let nextId = 0
-const pending = new Map()
+const pending = new Map<number, (msg: CdpResponse) => void>()
 ws.addEventListener("message", (ev) => {
-  const msg = JSON.parse(ev.data)
-  if (msg.id && pending.has(msg.id)) {
-    pending.get(msg.id)(msg)
+  const msg = JSON.parse(String(ev.data)) as CdpResponse
+  const reply = msg.id === undefined ? undefined : pending.get(msg.id)
+  if (msg.id !== undefined && reply) {
+    reply(msg)
     pending.delete(msg.id)
   }
 })
-const send = (method, params = {}) =>
+const send = (method: string, params: object = {}): Promise<CdpResponse> =>
   new Promise((r) => {
     const id = ++nextId
     pending.set(id, r)
     ws.send(JSON.stringify({ id, method, params }))
   })
 /** Evaluate an expression in the page (awaiting promises) and return its value. */
-async function run(expression) {
+const run = async (expression: string): Promise<unknown> => {
   const r = await send("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true })
   if (r.result?.exceptionDetails)
     throw new Error(r.result.exceptionDetails.exception?.description ?? r.result.exceptionDetails.text)
-  return r.result.result.value
+  return r.result?.result?.value
 }
 
-const cleanup = async () => {
+const cleanup = async (): Promise<void> => {
   ws.close()
   // Let Chrome finish exiting before removing its profile, which it writes to as it shuts down.
   const exited = new Promise((r) => chrome.once("exit", r))
@@ -102,7 +124,7 @@ const cleanup = async () => {
   try {
     rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
   } catch (e) {
-    console.warn(`Couldn't remove Chrome's temporary profile (${e.code}): ${profile}`)
+    console.warn(`Couldn't remove Chrome's temporary profile (${(e as NodeJS.ErrnoException).code}): ${profile}`)
   }
 }
 
@@ -153,13 +175,15 @@ try {
 
   rmSync(OUT, { recursive: true, force: true })
   const hash = createHash("sha256")
-  const names = []
+  const names: string[] = []
   let bytes = 0
-  for (const { res, span } of await run("window.__tiles.levels()")) {
-    const tiles = await run(`window.__tiles.list(${span})`)
+  for (const { res, span } of (await run("window.__tiles.levels()")) as { res: number; span: number }[]) {
+    const tiles = (await run(`window.__tiles.list(${span})`)) as TilePosition[]
     let levelBytes = 0
     for (let i = 0; i < tiles.length; i += BATCH) {
-      const done = await run(`window.__tiles.render(${res}, ${span}, ${JSON.stringify(tiles.slice(i, i + BATCH))})`)
+      const done = (await run(
+        `window.__tiles.render(${res}, ${span}, ${JSON.stringify(tiles.slice(i, i + BATCH))})`
+      )) as DrawnTile[]
       for (const { p, ty, tx, b64, fontsTimedOut } of done) {
         if (fontsTimedOut) console.warn(`  fonts didn't load for ${res}/${p}/${ty}-${tx}; drawn anyway`)
         const buf = Buffer.from(b64, "base64")
