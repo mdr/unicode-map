@@ -1,8 +1,8 @@
-import { interpolateZoom } from "d3-interpolate"
 import { type UnicodeData, uplus } from "../data/unicode"
 import type { ColorMode } from "./colorModes"
 import { cellToCp, cpToCell, type Rect, WORLD } from "./layout"
 import { PlaneBitmaps } from "./view/bitmaps"
+import { type CameraMotion, flight, slide } from "./view/cameraMotion"
 import { AXIS_LEFT, clamp, READ_K } from "./view/constants"
 import { RowFonts } from "./view/fonts"
 import { buildGeometry } from "./view/geometry"
@@ -59,7 +59,7 @@ export class MapView {
   private fonts: RowFonts
   private dirty = true
   private raf = 0
-  private anim: { start: number; dur: number; f: (t: number) => Camera } | undefined = undefined
+  private anim: (CameraMotion & { start: number }) | undefined = undefined
   private resizeObs: ResizeObserver
   private disposers: (() => void)[] = []
 
@@ -274,24 +274,26 @@ export class MapView {
       this.setCamera(target)
       return
     }
-    const from = this.vp.cam
-    const w = this.vp.w
-    const interp = interpolateZoom([from.cx, from.cy, w / from.k], [target.cx, target.cy, w / target.k])
-    const dur = clamp(interp.duration * 0.9, 350, 1800)
-    this.anim = {
-      start: performance.now(),
-      dur,
-      f: (t) => {
-        const [cx, cy, vw] = interp(t)
-        return { cx, cy, k: this.vp.w / vw }
-      }
-    }
+    this.anim = { start: performance.now(), ...flight(this.vp.cam, target, this.vp.w) }
     this.invalidate()
   }
 
-  /** Bring a code point into view, zooming in to glyph level if needed. */
+  /** Slide to a camera at the same zoom: unlike flyTo, it never zooms out on the way. */
+  private panTo(target: Camera): void {
+    this.anim = { start: performance.now(), ...slide(this.vp.cam, target) }
+    this.invalidate()
+  }
+
+  /** Where the camera is heading: the end of a running animation, else where it is. */
+  private get settled(): Camera {
+    return this.anim?.target ?? this.vp.cam
+  }
+
+  /** Bring a code point into view, zooming in to glyph level if needed, unless `zoom` is false. */
   focusCp(cp: CodePoint, opts: { zoom?: boolean; animate?: boolean } = {}): void {
-    const { cam, w, h } = this.vp
+    const { w, h } = this.vp
+    // From where the camera is heading, so repeated moves mid-animation don't compound.
+    const cam = this.settled
     const c = cpToCell(cp)
     const k = opts.zoom === false ? cam.k : Math.max(cam.k, 72)
     const sx = (c.x + 0.5 - cam.cx) * k + w / 2
@@ -302,14 +304,18 @@ export class MapView {
       // Nearby: pan just enough.
       const nx = clamp(sx, margin, w - margin)
       const ny = clamp(sy, margin, h - margin)
-      this.flyTo({ cx: cam.cx + (sx - nx) / k, cy: cam.cy + (sy - ny) / k, k })
+      this.panTo({ cx: cam.cx + (sx - nx) / k, cy: cam.cy + (sy - ny) / k, k })
       return
     }
-    this.flyTo({ ...this.vp.centreFor(c.x + 0.5, c.y + 0.5, k), k }, opts.animate ?? true)
+    const target = { ...this.vp.centreFor(c.x + 0.5, c.y + 0.5, k), k }
+    // Keeping the zoom (arrow keys) means only ever panning, however far.
+    if (opts.zoom === false && (opts.animate ?? true)) this.panTo(target)
+    else this.flyTo(target, opts.animate ?? true)
   }
 
   zoomBy(factor: number): void {
-    this.flyTo({ ...this.vp.cam, k: this.vp.cam.k * factor })
+    const cam = this.settled
+    this.flyTo({ ...cam, k: cam.k * factor })
   }
 
   invalidate(): void {

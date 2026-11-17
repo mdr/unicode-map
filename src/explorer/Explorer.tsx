@@ -249,7 +249,8 @@ export const Explorer = ({ data }: { data: UnicodeData }) => {
       if (next < 0) return
       setChart({ block: next })
     }
-    select(cp, { zoom: true })
+    // Arrow keys only ever pan the map, never zoom it.
+    select(cp, { zoom: false })
   }
   const stepBlock = (direction: 1 | -1): void => {
     const i = neighbourBlock(data.meta.blocks, selected ?? centreCp(), direction)

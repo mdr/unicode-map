@@ -2,7 +2,7 @@ import { type RefObject, useLayoutEffect, useRef } from "react"
 import { type Detail, displayString, hex, MAX_CP, uplus, type UnicodeData } from "../../data/unicode"
 import { type ColorMode, cpColor } from "../../map/colorModes"
 import { Glyph } from "../Glyph"
-import { pageInkReach } from "../../map/view/glyphFit"
+import { centredInkStyle, pageInk } from "../../map/view/glyphFit"
 import { CopyButton } from "./CopyButton"
 import type { CodePoint } from "../../units"
 import styles from "./detail.module.css"
@@ -10,7 +10,10 @@ import styles from "./detail.module.css"
 /** Room kept between a glyph's ink and the edge of the hero box. */
 const HERO_MARGIN = 10
 
-/** Shrinks the hero's glyph when its ink won't fit its box (﷽, tall stacks), once its font has loaded. */
+/**
+ * Centres the hero's glyph on its ink, and shrinks it if it won't fit its box (﷽, tall stacks),
+ * once its font has loaded.
+ */
 const useFitGlyph = (data: UnicodeData, cp: CodePoint): RefObject<HTMLDivElement | null> => {
   const box = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
@@ -18,15 +21,12 @@ const useFitGlyph = (data: UnicodeData, cp: CodePoint): RefObject<HTMLDivElement
     const fit = (): void => {
       const el = box.current
       const glyph = el?.firstElementChild
-      const reach = str && pageInkReach(str, data.glyphFamily(cp))
-      if (!el || !(glyph instanceof HTMLElement) || !reach) return
+      if (!str || !el || !(glyph instanceof HTMLElement)) return
       const em = parseFloat(getComputedStyle(el).fontSize)
-      const scale = Math.min(
-        1,
-        (el.clientWidth / 2 - HERO_MARGIN) / (reach.x * em),
-        (el.clientHeight / 2 - HERO_MARGIN) / (reach.y * em)
-      )
-      glyph.style.fontSize = scale < 1 ? `${scale}em` : ""
+      const reach = { x: (el.clientWidth / 2 - HERO_MARGIN) / em, y: (el.clientHeight / 2 - HERO_MARGIN) / em }
+      const style = centredInkStyle(pageInk(cp, str, data.glyphFamily(cp)), reach)
+      glyph.style.fontSize = style.fontSize?.toString() ?? ""
+      glyph.style.transform = style.transform ?? ""
     }
     fit()
     document.fonts.addEventListener("loadingdone", fit)

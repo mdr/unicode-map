@@ -1,12 +1,23 @@
+import type { CSSProperties } from "react"
 import { displayString, type UnicodeData } from "../data/unicode"
 import type { CodePoint } from "../units"
 
 /** A code point drawn with the font chosen for it, or its abbreviation for invisible characters. */
-export const Glyph = ({ data, cp, className }: { data: UnicodeData; cp: CodePoint; className?: string }) => {
+export const Glyph = ({
+  data,
+  cp,
+  className,
+  style
+}: {
+  data: UnicodeData
+  cp: CodePoint
+  className?: string
+  style?: CSSProperties
+}) => {
   const str = displayString(data, cp)
   if (str) {
     return (
-      <span className={className} style={{ fontFamily: data.glyphFamily(cp) }}>
+      <span className={className} style={{ ...style, fontFamily: data.glyphFamily(cp) }}>
         {str}
       </span>
     )

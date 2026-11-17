@@ -1,12 +1,16 @@
+import type { CSSProperties } from "react"
 import { displayString, hex, type Block, type UnicodeData } from "../../data/unicode"
 import { type ColorMode, cpColor } from "../../map/colorModes"
 import { Glyph } from "../Glyph"
 import { HEAD } from "./chartLayout"
 import type { CodePoint } from "../../units"
 import styles from "./chart.module.css"
-import { pageGlyphScale } from "../../map/view/glyphFit"
+import { centredInkStyle, pageInk } from "../../map/view/glyphFit"
 
 /** One column of a code chart: 16 code points sharing all but their last hex digit. */
+/** How far a glyph's ink may reach from the centre of its cell, in ems (the cell is 2 em across). */
+const CELL_REACH = { x: 0.9, y: 0.9 }
+
 export const ChartColumn = ({
   data,
   mode,
@@ -40,10 +44,10 @@ export const ChartColumn = ({
   onHover: (cp: CodePoint, x: number, y: number) => void
 }) => {
   const showHex = cell >= 62
-  /** Shrinks the rare glyph too big for its cell, as on the map's cards. */
-  const glyphFit = (cp: CodePoint): number => {
+  /** Centres each glyph on its ink, shrinking the rare one too big for its cell, as on the map's cards. */
+  const inkStyle = (cp: CodePoint): CSSProperties => {
     const str = displayString(data, cp)
-    return str ? pageGlyphScale(cp, str, data.glyphFamily(cp)) : 1
+    return str ? centredInkStyle(pageInk(cp, str, data.glyphFamily(cp)), CELL_REACH) : {}
   }
   return (
     <div className={styles.chartCol} style={{ left, width: cell, top }}>
@@ -70,15 +74,18 @@ export const ChartColumn = ({
               tabIndex={-1}
               key={row}
               className={classes.join(" ")}
-              style={
-                assigned ? { ["--tint" as string]: cpColor(mode, cp), fontSize: cell * 0.5 * glyphFit(cp) } : undefined
-              }
+              style={assigned ? { ["--tint" as string]: cpColor(mode, cp), fontSize: cell * 0.5 } : undefined}
               onClick={() => inBlock && onSelect(cp)}
               onMouseMove={(e) => inBlock && onHover(cp, e.clientX, e.clientY)}
               onMouseLeave={() => onHover(-1, 0, 0)}
             >
               {assigned && (
-                <Glyph data={data} cp={cp} className={`${styles.chartGlyph} ${showHex ? styles.raised : ""}`} />
+                <Glyph
+                  data={data}
+                  cp={cp}
+                  className={`${styles.chartGlyph} ${showHex ? styles.raised : ""}`}
+                  style={inkStyle(cp)}
+                />
               )}
               {inBlock && showHex && <span className={styles.chartHex}>{hex(cp)}</span>}
             </button>
