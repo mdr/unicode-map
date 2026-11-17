@@ -8,8 +8,21 @@ import styles from "./chart.module.css"
 import { centredInkStyle, pageInk } from "../../map/view/glyphFit"
 
 /** One column of a code chart: 16 code points sharing all but their last hex digit. */
-/** How far a glyph's ink may reach from the centre of its cell, in ems (the cell is 2 em across). */
-const CELL_REACH = { x: 0.9, y: 0.9 }
+/** Height kept for the code point caption at the bottom of a cell (see .chartHex). */
+const HEX_ROOM = 15
+
+/**
+ * How far a glyph's ink may reach from its centre, in ems: inside the cell, clear of the code
+ * point caption when it shows. Glyphs are half the cell's size, centred, and moved up by half
+ * their negative top margin (0.15 em, or 0.45 em with the caption; see .chartGlyph).
+ */
+const cellReach = (cell: number, showHex: boolean): { x: number; y: number } => {
+  const em = cell * 0.5
+  const margin = cell * 0.05
+  const centre = cell / 2 - (showHex ? 0.225 : 0.075) * em
+  const bottom = showHex ? cell - HEX_ROOM : cell
+  return { x: (cell / 2 - margin) / em, y: Math.min(centre - margin, bottom - margin - centre) / em }
+}
 
 export const ChartColumn = ({
   data,
@@ -44,10 +57,11 @@ export const ChartColumn = ({
   onHover: (cp: CodePoint, x: number, y: number) => void
 }) => {
   const showHex = cell >= 62
+  const reach = cellReach(cell, showHex)
   /** Centres each glyph on its ink, shrinking the rare one too big for its cell, as on the map's cards. */
   const inkStyle = (cp: CodePoint): CSSProperties => {
     const str = displayString(data, cp)
-    return str ? centredInkStyle(pageInk(cp, str, data.glyphFamily(cp)), CELL_REACH) : {}
+    return str ? centredInkStyle(pageInk(cp, str, data.glyphFamily(cp)), reach) : {}
   }
   return (
     <div className={styles.chartCol} style={{ left, width: cell, top }}>
