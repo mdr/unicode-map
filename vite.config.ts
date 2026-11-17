@@ -118,10 +118,9 @@ export default defineConfig({
         }
       ],
       eqeqeq: ["error", "smart"],
-      // TODO: "error" once MapView, DetailPanel and App are split up.
-      "max-lines": ["off", { max: 400, skipBlankLines: true, skipComments: true }],
-      "max-depth": ["off", 4],
-      "sonarjs/cognitive-complexity": ["off", 15],
+      "max-lines": ["error", { max: 400, skipBlankLines: true, skipComments: true }],
+      "max-depth": ["error", 4],
+      "sonarjs/cognitive-complexity": ["error", 15],
       "folders/max-entries": ["error", 30],
       "eslint-js/no-restricted-syntax": ["error", ...noReexports, ...noFunctionExpressionConsts],
       "func-style": ["error", "expression"],

@@ -40,6 +40,15 @@ interface DrawnTile {
   fontsTimedOut: boolean
 }
 
+/** Write a drawn tile to its file; returns its name ("res/plane/ty-tx") and contents. */
+const writeTile = (res: number, { p, ty, tx, b64, fontsTimedOut }: DrawnTile): { name: string; buf: Buffer } => {
+  if (fontsTimedOut) console.warn(`  fonts didn't load for ${res}/${p}/${ty}-${tx}; drawn anyway`)
+  const buf = Buffer.from(b64, "base64")
+  mkdirSync(join(OUT, `${res}`, `${p}`), { recursive: true })
+  writeFileSync(join(OUT, `${res}`, `${p}`, `${ty}-${tx}.webp`), buf)
+  return { name: `${res}/${p}/${ty}-${tx}`, buf }
+}
+
 // --- Serve the app and open it in headless Chrome -------------------------------------------
 
 const server = await createServer({ server: { port: 5298 }, logLevel: "warn" })
@@ -137,7 +146,7 @@ try {
 
   // Helpers in the page: list a level's non-empty tiles, and draw and encode a batch of them.
   await run(`(async () => {
-    const { GLYPH_LEVELS } = await import("/src/map/MapView.ts");
+    const { GLYPH_LEVELS } = await import("/src/map/view/glyphLevels.ts");
     const v = window.__view, data = v.data;
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const toB64 = (c) => new Promise((r) => c.toBlob((b) => {
@@ -184,12 +193,8 @@ try {
       const done = (await run(
         `window.__tiles.render(${res}, ${span}, ${JSON.stringify(tiles.slice(i, i + BATCH))})`
       )) as DrawnTile[]
-      for (const { p, ty, tx, b64, fontsTimedOut } of done) {
-        if (fontsTimedOut) console.warn(`  fonts didn't load for ${res}/${p}/${ty}-${tx}; drawn anyway`)
-        const buf = Buffer.from(b64, "base64")
-        mkdirSync(join(OUT, `${res}`, `${p}`), { recursive: true })
-        writeFileSync(join(OUT, `${res}`, `${p}`, `${ty}-${tx}.webp`), buf)
-        const name = `${res}/${p}/${ty}-${tx}`
+      for (const tile of done) {
+        const { name, buf } = writeTile(res, tile)
         names.push(name)
         hash.update(name).update(buf)
         levelBytes += buf.length
