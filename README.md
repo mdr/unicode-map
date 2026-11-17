@@ -42,6 +42,7 @@ pure view draws them in the browser instead, which is slower to fill in.
   with Noto Sans as a fallback for interface text Inter can't draw.
   The package also writes a `manifest.json` recording each font's coverage. The dev shell exports the paths as `UCD_DIR`, `UNIHAN_DIR`, `CONFUSABLES` and
   `FONTS_DIR`.
+
 - **`scripts/build_data.py`** (stdlib, plus fontTools for one step) turns those into:
   - `meta.json`: blocks, code chart sections, regions, property values, and run-length
     maps of General Category, Script, Age and font per code point.

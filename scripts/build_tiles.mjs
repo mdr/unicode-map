@@ -8,98 +8,109 @@
 //
 // It needs Google Chrome (nixpkgs has no Chromium for macOS); set CHROME to use another binary.
 
-import { createHash } from "node:crypto";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { spawn } from "node:child_process";
-import { createServer } from "vite";
+import { createHash } from "node:crypto"
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+import { spawn } from "node:child_process"
+import { createServer } from "vite"
 
-const OUT = "public/tiles";
-const CHROME = process.env.CHROME ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
-const BATCH = 16;
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const OUT = "public/tiles"
+const CHROME = process.env.CHROME ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+const BATCH = 16
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 // --- Serve the app and open it in headless Chrome -------------------------------------------
 
-const server = await createServer({ server: { port: 5298 }, logLevel: "warn" });
-await server.listen();
-const appUrl = server.resolvedUrls.local[0];
+const server = await createServer({ server: { port: 5298 }, logLevel: "warn" })
+await server.listen()
+const appUrl = server.resolvedUrls.local[0]
 
-const profile = mkdtempSync(join(tmpdir(), "umap-tiles-"));
-const chrome = spawn(CHROME, [
-  "--headless=new", "--remote-debugging-port=0", `--user-data-dir=${profile}`,
-  "--no-first-run", "--window-size=800,600",
-  // CI runners (Ubuntu 24.04) don't allow Chrome's sandbox; it's only drawing our own page.
-  ...(process.env.CI ? ["--no-sandbox"] : []),
-  "about:blank",
-], { stdio: ["ignore", "ignore", "pipe"] });
+const profile = mkdtempSync(join(tmpdir(), "umap-tiles-"))
+const chrome = spawn(
+  CHROME,
+  [
+    "--headless=new",
+    "--remote-debugging-port=0",
+    `--user-data-dir=${profile}`,
+    "--no-first-run",
+    "--window-size=800,600",
+    // CI runners (Ubuntu 24.04) don't allow Chrome's sandbox; it's only drawing our own page.
+    ...(process.env.CI ? ["--no-sandbox"] : []),
+    "about:blank"
+  ],
+  { stdio: ["ignore", "ignore", "pipe"] }
+)
 
 // Chrome picks a free port and says which on stderr; keep its output in case it fails to start.
-let chromeLog = "";
+let chromeLog = ""
 const debugPort = await new Promise((resolve, reject) => {
-  const timer = setTimeout(() => reject(new Error(`Chrome at ${CHROME} didn't start within 60s:\n${chromeLog}`)), 60_000);
+  const timer = setTimeout(
+    () => reject(new Error(`Chrome at ${CHROME} didn't start within 60s:\n${chromeLog}`)),
+    60_000
+  )
   chrome.stderr.on("data", (d) => {
-    chromeLog += d;
-    const m = /DevTools listening on ws:\/\/[^:]+:(\d+)\//.exec(chromeLog);
+    chromeLog += d
+    const m = /DevTools listening on ws:\/\/[^:]+:(\d+)\//.exec(chromeLog)
     if (m) {
-      clearTimeout(timer);
-      resolve(Number(m[1]));
+      clearTimeout(timer)
+      resolve(Number(m[1]))
     }
-  });
-  chrome.on("error", (e) => reject(new Error(`Couldn't run Chrome at ${CHROME}: ${e.message}`)));
-  chrome.on("exit", (code) => reject(new Error(`Chrome exited (${code}) before starting:\n${chromeLog}`)));
-});
-let page;
+  })
+  chrome.on("error", (e) => reject(new Error(`Couldn't run Chrome at ${CHROME}: ${e.message}`)))
+  chrome.on("exit", (code) => reject(new Error(`Chrome exited (${code}) before starting:\n${chromeLog}`)))
+})
+let page
 for (let i = 0; i < 100 && !page; i++) {
-  const targets = await (await fetch(`http://127.0.0.1:${debugPort}/json`)).json();
-  page = targets.find((t) => t.type === "page");
-  if (!page) await sleep(100);
+  const targets = await (await fetch(`http://127.0.0.1:${debugPort}/json`)).json()
+  page = targets.find((t) => t.type === "page")
+  if (!page) await sleep(100)
 }
-if (!page) throw new Error("Chrome has no page to drive");
-const ws = new WebSocket(page.webSocketDebuggerUrl);
-await new Promise((r) => ws.addEventListener("open", r));
-let nextId = 0;
-const pending = new Map();
+if (!page) throw new Error("Chrome has no page to drive")
+const ws = new WebSocket(page.webSocketDebuggerUrl)
+await new Promise((r) => ws.addEventListener("open", r))
+let nextId = 0
+const pending = new Map()
 ws.addEventListener("message", (ev) => {
-  const msg = JSON.parse(ev.data);
+  const msg = JSON.parse(ev.data)
   if (msg.id && pending.has(msg.id)) {
-    pending.get(msg.id)(msg);
-    pending.delete(msg.id);
+    pending.get(msg.id)(msg)
+    pending.delete(msg.id)
   }
-});
+})
 const send = (method, params = {}) =>
   new Promise((r) => {
-    const id = ++nextId;
-    pending.set(id, r);
-    ws.send(JSON.stringify({ id, method, params }));
-  });
+    const id = ++nextId
+    pending.set(id, r)
+    ws.send(JSON.stringify({ id, method, params }))
+  })
 /** Evaluate an expression in the page (awaiting promises) and return its value. */
 async function run(expression) {
-  const r = await send("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true });
-  if (r.result?.exceptionDetails) throw new Error(r.result.exceptionDetails.exception?.description ?? r.result.exceptionDetails.text);
-  return r.result.result.value;
+  const r = await send("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true })
+  if (r.result?.exceptionDetails)
+    throw new Error(r.result.exceptionDetails.exception?.description ?? r.result.exceptionDetails.text)
+  return r.result.result.value
 }
 
 const cleanup = async () => {
-  ws.close();
+  ws.close()
   // Let Chrome finish exiting before removing its profile, which it writes to as it shuts down.
-  const exited = new Promise((r) => chrome.once("exit", r));
-  chrome.kill();
-  await Promise.race([exited, sleep(5000)]);
-  await server.close();
+  const exited = new Promise((r) => chrome.once("exit", r))
+  chrome.kill()
+  await Promise.race([exited, sleep(5000)])
+  await server.close()
   try {
-    rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+    rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
   } catch (e) {
-    console.warn(`Couldn't remove Chrome's temporary profile (${e.code}): ${profile}`);
+    console.warn(`Couldn't remove Chrome's temporary profile (${e.code}): ${profile}`)
   }
-};
+}
 
 try {
-  await send("Page.navigate", { url: `${appUrl}#pure` });
+  await send("Page.navigate", { url: `${appUrl}#pure` })
   for (let i = 0; i < 300; i++) {
-    if (await run("!!window.__view").catch(() => false)) break;
-    await sleep(100);
+    if (await run("!!window.__view").catch(() => false)) break
+    await sleep(100)
   }
 
   // Helpers in the page: list a level's non-empty tiles, and draw and encode a batch of them.
@@ -138,35 +149,37 @@ try {
       },
     };
     return true;
-  })()`);
+  })()`)
 
-  rmSync(OUT, { recursive: true, force: true });
-  const hash = createHash("sha256");
-  const names = [];
-  let bytes = 0;
+  rmSync(OUT, { recursive: true, force: true })
+  const hash = createHash("sha256")
+  const names = []
+  let bytes = 0
   for (const { res, span } of await run("window.__tiles.levels()")) {
-    const tiles = await run(`window.__tiles.list(${span})`);
-    let levelBytes = 0;
+    const tiles = await run(`window.__tiles.list(${span})`)
+    let levelBytes = 0
     for (let i = 0; i < tiles.length; i += BATCH) {
-      const done = await run(`window.__tiles.render(${res}, ${span}, ${JSON.stringify(tiles.slice(i, i + BATCH))})`);
+      const done = await run(`window.__tiles.render(${res}, ${span}, ${JSON.stringify(tiles.slice(i, i + BATCH))})`)
       for (const { p, ty, tx, b64, fontsTimedOut } of done) {
-        if (fontsTimedOut) console.warn(`  fonts didn't load for ${res}/${p}/${ty}-${tx}; drawn anyway`);
-        const buf = Buffer.from(b64, "base64");
-        mkdirSync(join(OUT, `${res}`, `${p}`), { recursive: true });
-        writeFileSync(join(OUT, `${res}`, `${p}`, `${ty}-${tx}.webp`), buf);
-        const name = `${res}/${p}/${ty}-${tx}`;
-        names.push(name);
-        hash.update(name).update(buf);
-        levelBytes += buf.length;
+        if (fontsTimedOut) console.warn(`  fonts didn't load for ${res}/${p}/${ty}-${tx}; drawn anyway`)
+        const buf = Buffer.from(b64, "base64")
+        mkdirSync(join(OUT, `${res}`, `${p}`), { recursive: true })
+        writeFileSync(join(OUT, `${res}`, `${p}`, `${ty}-${tx}.webp`), buf)
+        const name = `${res}/${p}/${ty}-${tx}`
+        names.push(name)
+        hash.update(name).update(buf)
+        levelBytes += buf.length
       }
-      process.stdout.write(`\r  ${res}px: ${Math.min(i + BATCH, tiles.length)}/${tiles.length} tiles`);
+      process.stdout.write(`\r  ${res}px: ${Math.min(i + BATCH, tiles.length)}/${tiles.length} tiles`)
     }
-    bytes += levelBytes;
-    console.log(`\r  ${res}px (${span}×${span} code points per tile): ${tiles.length} tiles, ${(levelBytes / 1e6).toFixed(1)} MB`);
+    bytes += levelBytes
+    console.log(
+      `\r  ${res}px (${span}×${span} code points per tile): ${tiles.length} tiles, ${(levelBytes / 1e6).toFixed(1)} MB`
+    )
   }
-  const version = hash.digest("hex").slice(0, 12);
-  writeFileSync(join(OUT, "manifest.json"), JSON.stringify({ version, tiles: names }));
-  console.log(`Wrote ${names.length} tiles, ${(bytes / 1e6).toFixed(1)} MB, to ${OUT} (version ${version})`);
+  const version = hash.digest("hex").slice(0, 12)
+  writeFileSync(join(OUT, "manifest.json"), JSON.stringify({ version, tiles: names }))
+  console.log(`Wrote ${names.length} tiles, ${(bytes / 1e6).toFixed(1)} MB, to ${OUT} (version ${version})`)
 } finally {
-  await cleanup();
+  await cleanup()
 }

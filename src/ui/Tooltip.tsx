@@ -1,17 +1,29 @@
-import { uplus, UnicodeData } from "../data/unicode";
-import { Glyph } from "./Glyph";
-import { ColorMode, cpColor } from "../map/colorModes";
+import { uplus, UnicodeData } from "../data/unicode"
+import { Glyph } from "./Glyph"
+import { ColorMode, cpColor } from "../map/colorModes"
 
-export function Tooltip({ data, mode, cp, x, y }: { data: UnicodeData; mode: ColorMode; cp: number; x: number; y: number }) {
-  const block = data.block(cp);
-  const assigned = data.isAssigned(cp);
-  const section = data.section(cp);
-  const flipX = x > window.innerWidth - 700;
+export function Tooltip({
+  data,
+  mode,
+  cp,
+  x,
+  y
+}: {
+  data: UnicodeData
+  mode: ColorMode
+  cp: number
+  x: number
+  y: number
+}) {
+  const block = data.block(cp)
+  const assigned = data.isAssigned(cp)
+  const section = data.section(cp)
+  const flipX = x > window.innerWidth - 700
   const style = {
     left: flipX ? undefined : x + 16,
     right: flipX ? window.innerWidth - x + 16 : undefined,
-    top: Math.min(y + 16, window.innerHeight - 120),
-  };
+    top: Math.min(y + 16, window.innerHeight - 120)
+  }
   return (
     <div className="tooltip" style={style}>
       <div className="tt-glyph" style={{ borderColor: cpColor(mode, cp) }}>
@@ -29,5 +41,5 @@ export function Tooltip({ data, mode, cp, x, y }: { data: UnicodeData; mode: Col
         </div>
       </div>
     </div>
-  );
+  )
 }

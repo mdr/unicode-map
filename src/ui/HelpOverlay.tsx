@@ -17,8 +17,8 @@ const KEYS: [string, string][] = [
   ["z", "Pure view: just the characters"],
   ["g", "Glyph texture when zoomed out, on or off"],
   ["/", "Search"],
-  ["Esc", "Clear selection"],
-];
+  ["Esc", "Clear selection"]
+]
 
 export function HelpOverlay({ onClose }: { onClose: () => void }) {
   return (
@@ -35,12 +35,14 @@ export function HelpOverlay({ onClose }: { onClose: () => void }) {
         </dl>
         <p className="muted">
           Zoomed in, <b>white labels are blocks</b> and <b>dark labels are sections</b> within them, as named in the
-          Unicode code charts. Hover over a label for its full name and extent. Click it, or a block in the sidebar, to go to its start, readable and outlined; click again to see all of it. Esc lets it go.
+          Unicode code charts. Hover over a label for its full name and extent. Click it, or a block in the sidebar, to
+          go to its start, readable and outlined; click again to see all of it. Esc lets it go.
         </p>
         <p className="muted">
-          The map lays out all 1,114,112 code points: 17 planes of 65,536, each a 256 × 256 grid with 256 code points per row.
+          The map lays out all 1,114,112 code points: 17 planes of 65,536, each a 256 × 256 grid with 256 code points
+          per row.
         </p>
       </div>
     </div>
-  );
+  )
 }

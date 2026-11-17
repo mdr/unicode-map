@@ -26,6 +26,7 @@ what each code point is, and which plane, block, region and category it belongs 
   - Assigned or unassigned
 
   Each mode has a legend: hover over an entry to highlight it, click to pin it.
+
 - **Timeline:** a slider from Unicode 1.1 to the current version. The map shows only what
   existed at the chosen version, with characters and blocks added per version. A play button
   animates it.

@@ -22,15 +22,15 @@ All are redistributed unmodified, except that a copy of Last Resort gets an extr
 subtable (see `scripts/build_data.py`) and single faces are extracted from the Noto CJK
 collections.
 
-| Font | Licence | Source |
-| --- | --- | --- |
-| Noto Sans, Serif and script families; Noto Sans CJK | SIL OFL 1.1 | https://github.com/notofonts |
-| Noto Color Emoji | SIL OFL 1.1 (images Apache 2.0) | https://github.com/googlefonts/noto-emoji |
-| Jigmo | CC0 1.0 | https://kamichikoichi.github.io/jigmo/ |
-| Kreative Square | SIL OFL 1.1 | https://github.com/kreativekorp/open-relay |
-| Kaiyuan Small Seal | SIL OFL 1.1 | https://github.com/frankslin/kaiyuan-small-seal-font |
-| UniHieroglyphica | SIL OFL 1.1 | https://github.com/thesaurus-linguae-aegyptiae/unihieroglyphica |
-| GNU Unifont | GPL 2.0 or later with the GNU font embedding exception (also SIL OFL 1.1) | https://unifoundry.com/unifont/ |
-| Last Resort | SIL OFL 1.1 | https://github.com/unicode-org/last-resort-font |
-| Inter | SIL OFL 1.1 | https://github.com/rsms/inter |
-| JetBrains Mono | SIL OFL 1.1 | https://github.com/JetBrains/JetBrainsMono |
+| Font                                                | Licence                                                                   | Source                                                          |
+| --------------------------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Noto Sans, Serif and script families; Noto Sans CJK | SIL OFL 1.1                                                               | https://github.com/notofonts                                    |
+| Noto Color Emoji                                    | SIL OFL 1.1 (images Apache 2.0)                                           | https://github.com/googlefonts/noto-emoji                       |
+| Jigmo                                               | CC0 1.0                                                                   | https://kamichikoichi.github.io/jigmo/                          |
+| Kreative Square                                     | SIL OFL 1.1                                                               | https://github.com/kreativekorp/open-relay                      |
+| Kaiyuan Small Seal                                  | SIL OFL 1.1                                                               | https://github.com/frankslin/kaiyuan-small-seal-font            |
+| UniHieroglyphica                                    | SIL OFL 1.1                                                               | https://github.com/thesaurus-linguae-aegyptiae/unihieroglyphica |
+| GNU Unifont                                         | GPL 2.0 or later with the GNU font embedding exception (also SIL OFL 1.1) | https://unifoundry.com/unifont/                                 |
+| Last Resort                                         | SIL OFL 1.1                                                               | https://github.com/unicode-org/last-resort-font                 |
+| Inter                                               | SIL OFL 1.1                                                               | https://github.com/rsms/inter                                   |
+| JetBrains Mono                                      | SIL OFL 1.1                                                               | https://github.com/JetBrains/JetBrainsMono                      |
