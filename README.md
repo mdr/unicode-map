@@ -63,7 +63,8 @@ pure view draws them in the browser instead, which is slower to fill in.
     maps supplementary planes only through a format 13 subtable, which Firefox ignores, so
     Firefox drew its own hex boxes instead.
   - `coverage.json`: assigned characters that no Noto font covers.
-- **`src/map/MapView.ts`** is the canvas renderer. Each plane is a 256×256 bitmap, scaled
+- **`src/map/MapView.ts`** is the canvas renderer, with its drawing, labels, glyph tiles and
+  input in `src/map/view/`. Each plane is a 256×256 bitmap, scaled
   up, at low zoom. Grid lines fade in as you zoom, then cards with glyphs, code points and
   names. Cards keep their cell's colour at every zoom, with dark or light text to suit it.
   Block outlines and labels sit on top, with sticky row and column axes. Labels come in three
