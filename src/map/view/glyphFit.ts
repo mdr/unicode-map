@@ -1,42 +1,41 @@
 import type { CSSProperties } from "react"
 import type { CodePoint } from "../../units"
 
-/**
- * How far a glyph's ink may reach from where it's drawn (its centre, with textAlign "center"
- * and textBaseline "middle"), in ems: inside the card, whose sides are about 0.94 em away.
- */
+/** How far a glyph's ink may reach from its card's centre, in ems: the card's sides are about 0.94 em away. */
 const REACH = 0.9
 
-/** How far a glyph's ink reaches from its centre, sideways and up or down, in ems. */
-interface InkReach {
-  x: number
-  y: number
+/**
+ * How to draw a glyph on a card: shrunk by `scale` (1 for almost every character; less for the
+ * few hundred too big for a card, such as U+FDFD, cuneiform and some Brahmic vowels), and moved
+ * by (dx, dy) ems of its drawn size so its ink, not its font's em box, is centred. Without that,
+ * a glyph whose ink sits high in its font, such as Tibetan ༀ, looks high.
+ */
+export interface GlyphFit {
+  scale: number
+  dx: number
+  dy: number
 }
 
-const inkReach = (ctx: CanvasRenderingContext2D, str: string, em: number): InkReach => {
-  const m = ctx.measureText(str)
-  return {
-    x: Math.max(m.actualBoundingBoxLeft, m.actualBoundingBoxRight) / em,
-    y: Math.max(m.actualBoundingBoxAscent, m.actualBoundingBoxDescent) / em
-  }
-}
-
-const scales = new Map<CodePoint, number>()
+const fits = new Map<CodePoint, GlyphFit>()
 
 /**
- * The factor to shrink a glyph by so its ink stays on its card: 1 for almost every character;
- * less for the few hundred whose ink reaches further (wide ligatures such as U+FDFD, cuneiform,
- * some Brahmic vowels). Measured with the context's current font, of size `em`, once per code
- * point: the ratio doesn't depend on the size. Call only once the glyph's font has loaded.
+ * Measured with the context's current font, of size `em`, with textAlign "center" and
+ * textBaseline "middle"; once per code point, as it doesn't depend on the size. Call only once
+ * the glyph's font has loaded.
  */
-export const glyphScale = (ctx: CanvasRenderingContext2D, cp: CodePoint, str: string, em: number): number => {
-  const known = scales.get(cp)
-  if (known !== undefined) return known
-  const { x, y } = inkReach(ctx, str, em)
-  const reach = Math.max(x, y)
-  const scale = reach > REACH ? REACH / reach : 1
-  scales.set(cp, scale)
-  return scale
+export const glyphFit = (ctx: CanvasRenderingContext2D, cp: CodePoint, str: string, em: number): GlyphFit => {
+  const known = fits.get(cp)
+  if (known) return known
+  const m = ctx.measureText(str)
+  const halfW = (m.actualBoundingBoxLeft + m.actualBoundingBoxRight) / 2 / em
+  const halfH = (m.actualBoundingBoxAscent + m.actualBoundingBoxDescent) / 2 / em
+  const fit = {
+    scale: Math.min(1, REACH / halfW, REACH / halfH),
+    dx: (m.actualBoundingBoxLeft - m.actualBoundingBoxRight) / 2 / em,
+    dy: (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2 / em
+  }
+  fits.set(cp, fit)
+  return fit
 }
 
 let measurer: CanvasRenderingContext2D | undefined

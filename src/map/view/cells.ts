@@ -5,7 +5,7 @@ import { HEX_START, MONO_FONT, NAME_START, PAGE_BG, smooth, UI_FONT } from "./co
 import type { FrameView, Scene } from "./scene"
 import { drawSpecial, wrapText } from "./text"
 import type { CodePoint } from "../../units"
-import { glyphScale } from "./glyphFit"
+import { glyphFit } from "./glyphFit"
 
 /** What drawing the cards needs, worked out once per frame. */
 interface CellPass {
@@ -109,15 +109,16 @@ const drawCaptions = (c: CellPass, cp: CodePoint, sx: number, sy: number, dim: b
   }
 }
 
-/** A glyph in its font, centred at (x, y); the rare one too big for its card is drawn smaller. */
+/** A glyph in its font, its ink centred at (x, y); the rare one too big for its card is drawn smaller. */
 const drawGlyph = (c: CellPass, cp: CodePoint, str: string, x: number, y: number): void => {
   const { ctx, glyphPx } = c
   const family = c.data.glyphFamily(cp)
   const font = `${glyphPx}px ${family}`
   if (font !== c.lastFont) ctx.font = c.lastFont = font
-  const scale = glyphScale(ctx, cp, str, glyphPx)
-  if (scale < 1) ctx.font = c.lastFont = `${glyphPx * scale}px ${family}`
-  ctx.fillText(str, x, y)
+  const { scale, dx, dy } = glyphFit(ctx, cp, str, glyphPx)
+  const size = glyphPx * scale
+  if (scale < 1) ctx.font = c.lastFont = `${size}px ${family}`
+  ctx.fillText(str, x + dx * size, y + dy * size)
 }
 
 /** A code point that exists: its card, in its cell's colour, with its glyph and captions. */
