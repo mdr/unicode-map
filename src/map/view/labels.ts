@@ -2,6 +2,7 @@ import { hex, planeName } from "../../data/unicode"
 import { labelRect, planeOrigin, PLANE_SIZE, type Rect } from "../layout"
 import { clamp, LANDMARK_END, smooth, UI_FONT } from "./constants"
 import { blockExists, type FrameView, type Scene } from "./scene"
+import type { Plane } from "../../units"
 
 /**
  * Fit a label into a world rect clipped to the view: returns screen centre and font size,
@@ -75,7 +76,7 @@ export const renderBlockLabels = (sc: Scene, { planes, vis }: FrameView): void =
 }
 
 /** The subtitle beside a plane's title: as much of its name and range as fits in `maxW`. */
-const planeSubtitle = (ctx: CanvasRenderingContext2D, p: number, maxW: number): string => {
+const planeSubtitle = (ctx: CanvasRenderingContext2D, p: Plane, maxW: number): string => {
   const [name, abbr] = planeName(p)
   const sub = `${name}${abbr ? ` (${abbr})` : ""}`
   const range = `U+${hex(p << 16)}–U+${hex((p << 16) | 0xffff)}`
@@ -86,7 +87,7 @@ const planeSubtitle = (ctx: CanvasRenderingContext2D, p: number, maxW: number): 
 }
 
 /** A plane's frame, and its title above it. */
-export const renderPlaneFrame = (sc: Scene, p: number): void => {
+export const renderPlaneFrame = (sc: Scene, p: Plane): void => {
   const { ctx, vp } = sc
   const o = planeOrigin(p)
   const x = vp.sx(o.x),

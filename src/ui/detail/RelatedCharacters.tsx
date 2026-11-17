@@ -1,6 +1,7 @@
 import type { Detail, UnicodeData } from "../../data/unicode"
 import { Section } from "./Rows"
 import { Related } from "./Related"
+import type { CodePoint } from "../../units"
 
 /** Decomposition, case mappings, cross-references and confusables. */
 export const RelatedCharacters = ({
@@ -10,9 +11,9 @@ export const RelatedCharacters = ({
   onSelect
 }: {
   data: UnicodeData
-  cp: number
+  cp: CodePoint
   detail: Detail
-  onSelect: (cp: number) => void
+  onSelect: (cp: CodePoint) => void
 }) => {
   const hasCase = d.upper !== undefined || d.lower !== undefined || d.title !== undefined
   if (![d.seeAlso, d.confusables, d.confusableWith, d.decomp].some(Boolean) && !hasCase) return undefined

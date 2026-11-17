@@ -11,6 +11,7 @@ import { NamesNotes } from "./NamesNotes"
 import { RelatedCharacters } from "./RelatedCharacters"
 import { Properties } from "./Properties"
 import type { DetailProps } from "./detailProps"
+import type { CodePoint } from "../../units"
 
 export const CodePointDetail = ({
   data,
@@ -21,9 +22,9 @@ export const CodePointDetail = ({
   onPlane,
   onClose,
   onChart
-}: DetailProps & { cp: number }) => {
+}: DetailProps & { cp: CodePoint }) => {
   // Loaded for this code point; a code point can have no detail entry at all.
-  const [loaded, setLoaded] = useState<{ cp: number; detail: Detail | undefined }>()
+  const [loaded, setLoaded] = useState<{ cp: CodePoint; detail: Detail | undefined }>()
   useEffect(() => {
     let live = true
     void data.detail(cp).then((detail) => live && setLoaded({ cp, detail }))

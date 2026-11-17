@@ -2,6 +2,7 @@ import { hex, type Block, type UnicodeData } from "../../data/unicode"
 import { type ColorMode, cpColor } from "../../map/colorModes"
 import { Glyph } from "../Glyph"
 import { HEAD } from "./chartLayout"
+import type { CodePoint } from "../../units"
 
 /** One column of a code chart: 16 code points sharing all but their last hex digit. */
 export const ChartColumn = ({
@@ -28,13 +29,13 @@ export const ChartColumn = ({
   top: number
   cell: number
   sectionStarts: Set<number>
-  selected: number | undefined
+  selected: CodePoint | undefined
   /** A code point hovered in the names list. */
   outlined: number | undefined
   /** A range being pointed out; everything else is dimmed. */
   lit: [number, number] | undefined
-  onSelect: (cp: number) => void
-  onHover: (cp: number, x: number, y: number) => void
+  onSelect: (cp: CodePoint) => void
+  onHover: (cp: CodePoint, x: number, y: number) => void
 }) => {
   const showHex = cell >= 62
   return (

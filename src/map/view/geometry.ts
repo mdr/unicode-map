@@ -1,9 +1,10 @@
 import { hex, type UnicodeData } from "../../data/unicode"
 import { required } from "../../required"
 import { rangeOutline, rangeRect, type Rect } from "../layout"
+import type { CodePoint, Plane, BlockIndex } from "../../units"
 
 /** The outline of a range of code points, as a closed path in world coordinates. */
-export const outlinePath = (start: number, end: number): Path2D => {
+export const outlinePath = (start: CodePoint, end: CodePoint): Path2D => {
   const path = new Path2D()
   const pts = rangeOutline(start, end)
   const [x0, y0] = required(pts[0], `outline of ${hex(start)}–${hex(end)}`)
@@ -14,12 +15,12 @@ export const outlinePath = (start: number, end: number): Path2D => {
 }
 
 export interface Section {
-  s: number
-  e: number
+  s: CodePoint
+  e: CodePoint
   title: string
   path: Path2D
-  plane: number
-  block: number
+  plane: Plane
+  block: BlockIndex
   bbox: Rect
 }
 

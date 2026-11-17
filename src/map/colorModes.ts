@@ -1,5 +1,6 @@
 import { MAX_CP, type UnicodeData, VERSION_YEARS } from "../data/unicode"
 import { required } from "../required"
+import type { CodePoint } from "../units"
 
 export type RGB = [number, number, number]
 
@@ -101,7 +102,7 @@ const shade = (rgb: RGB, dl: number, ds = 0): RGB => {
   return hslToRgb(h, Math.max(0, Math.min(1, s + ds)), Math.max(0.05, Math.min(0.92, l + dl)))
 }
 
-const specialValue = (data: UnicodeData, cp: number): number => {
+const specialValue = (data: UnicodeData, cp: CodePoint): number => {
   if (data.gcIdx[cp] === data.gcCn) return data.nonchar[cp] ? V_NONCHAR : V_UNASSIGNED
   return -1
 }
@@ -135,7 +136,7 @@ const specialLegend = (data: UnicodeData): LegendGroup => {
 const build = (
   data: UnicodeData,
   id: ModeId,
-  modeValue: (cp: number) => number,
+  modeValue: (cp: CodePoint) => number,
   modeColors: RGB[],
   legend: LegendGroup[]
 ): ColorMode => {
@@ -331,7 +332,7 @@ const assignedMode = (data: UnicodeData): ColorMode => {
   // 0 graphic, 1 format & control, 2 private use, 3 surrogate
   const colors: RGB[] = ["#5ec4ff", "#ff8fa3", "#7c8396", "#8a3445"].map(hexToRgb)
   const labels = ["Graphic characters", "Format & control", "Private use", "Surrogates"]
-  const value = (cp: number): number => {
+  const value = (cp: CodePoint): number => {
     const g = data.gc(cp).code
     if (g === "Co") return 2
     if (g === "Cs") return 3
@@ -378,5 +379,5 @@ export const getMode = (data: UnicodeData, id: ModeId): ColorMode => {
 }
 
 /** Colour of a single code point in a mode, as CSS. */
-export const cpColor = (mode: ColorMode, cp: number): string =>
+export const cpColor = (mode: ColorMode, cp: CodePoint): string =>
   rgbToCss(required(mode.colors[required(mode.valueOf[cp], "code point value")], "value colour"))

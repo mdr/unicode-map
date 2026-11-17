@@ -19,6 +19,7 @@ import { KeyActionType, type SimpleAction } from "./keyActions"
 import { MapControls } from "./MapControls"
 import { neighbourBlock, stepCodePoint } from "./navigation"
 import { useKeyboard } from "./useKeyboard"
+import type { CodePoint, Plane, BlockIndex } from "../units"
 
 export const Explorer = ({ data }: { data: UnicodeData }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -28,7 +29,7 @@ export const Explorer = ({ data }: { data: UnicodeData }) => {
   const [selected, setSelected] = useState<number | undefined>(initial.cp)
   const [pinned, setPinned] = useState<string[]>([])
   const [preview, setPreview] = useState<string>()
-  const [hover, setHover] = useState<{ cp: number; x: number; y: number }>()
+  const [hover, setHover] = useState<{ cp: CodePoint; x: number; y: number }>()
   const [camera, setCamera] = useState<Camera>()
   /** Where the view is (centre of the visible area), updated once the camera settles. */
   const [here, setHere] = useState<Here>()
@@ -46,7 +47,7 @@ export const Explorer = ({ data }: { data: UnicodeData }) => {
     return i > 0 ? i : undefined
   })
   /** Chart view: a block laid out like the Unicode code charts, in place of the map. */
-  const [chart, setChart] = useState<{ block: number; focus?: [number, number] } | undefined>(() => {
+  const [chart, setChart] = useState<{ block: BlockIndex; focus?: [number, number] } | undefined>(() => {
     const i = initial.chart !== undefined ? data.meta.blocks.findIndex((b) => b.s === initial.chart) : -1
     return i >= 0 ? { block: i } : undefined
   })
@@ -156,7 +157,7 @@ export const Explorer = ({ data }: { data: UnicodeData }) => {
     [data]
   )
 
-  const select = useCallback((cp: number | undefined, opts: { focus?: boolean; zoom?: boolean } = {}) => {
+  const select = useCallback((cp: CodePoint | undefined, opts: { focus?: boolean; zoom?: boolean } = {}) => {
     setSelected(cp)
     viewRef.current?.setSelected(cp)
     if (cp !== undefined && opts.focus !== false) viewRef.current?.focusCp(cp, { zoom: opts.zoom })
@@ -206,7 +207,7 @@ export const Explorer = ({ data }: { data: UnicodeData }) => {
   }, [data.meta.blocks])
 
   const flyToBlock = useCallback(
-    (index: number) => {
+    (index: BlockIndex) => {
       const b = data.blockAt(index)
       // With a chart open, blocks open in the chart instead.
       if (chartRef.current) setChart({ block: index })
@@ -222,14 +223,14 @@ export const Explorer = ({ data }: { data: UnicodeData }) => {
     [data]
   )
   /** Open the chart for a block, or the block a code point is in. */
-  const openChart = useCallback((block: number, focus?: [number, number]) => {
+  const openChart = useCallback((block: BlockIndex, focus?: [number, number]) => {
     if (block >= 0) setChart({ block, focus })
   }, [])
   const previewRange = useCallback(
-    (r: { s: number; e: number; name: string } | undefined) => viewRef.current?.setPreview(r),
+    (r: { s: CodePoint; e: CodePoint; name: string } | undefined) => viewRef.current?.setPreview(r),
     []
   )
-  const flyToPlane = useCallback((p: number) => {
+  const flyToPlane = useCallback((p: Plane) => {
     viewRef.current?.clearPinned()
     viewRef.current?.flyToRect(planeRect(p), { pad: 1.08 })
   }, [])

@@ -1,6 +1,7 @@
 import { required } from "../../required"
 import { clamp } from "./constants"
 import type { CameraPos, Viewport } from "./viewport"
+import type { Px } from "../../units"
 
 /** What pointer and wheel input drive on the map. */
 export interface InputHost {
@@ -9,7 +10,7 @@ export interface InputHost {
   setCamera(cam: CameraPos): void
   flyTo(cam: CameraPos): void
   /** The pointer moved over (x, y) on the canvas without dragging. */
-  hoverAt(x: number, y: number, clientX: number, clientY: number): void
+  hoverAt(x: number, y: number, clientX: Px, clientY: Px): void
   /** A click (press and release without dragging) at (x, y). */
   clickAt(x: number, y: number): void
   leave(): void
@@ -76,7 +77,7 @@ export const bindInput = (el: HTMLCanvasElement, host: InputHost): (() => void) 
   }
   let pinch: { d: number; k: number; wx: number; wy: number } | undefined = undefined
 
-  const local = (e: { clientX: number; clientY: number }): Point => {
+  const local = (e: { clientX: Px; clientY: Px }): Point => {
     const r = el.getBoundingClientRect()
     return { x: e.clientX - r.left, y: e.clientY - r.top }
   }

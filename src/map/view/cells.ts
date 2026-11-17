@@ -4,6 +4,7 @@ import { planeOrigin, PLANE_SIZE } from "../layout"
 import { HEX_START, MONO_FONT, NAME_START, PAGE_BG, smooth, UI_FONT } from "./constants"
 import type { FrameView, Scene } from "./scene"
 import { drawSpecial, wrapText } from "./text"
+import type { CodePoint } from "../../units"
 
 /** What drawing the cards needs, worked out once per frame. */
 interface CellPass {
@@ -76,7 +77,7 @@ const makePass = (sc: Scene, t: number): CellPass => {
 }
 
 /** A code point that doesn't exist (yet): an empty slot, or lit if the highlight picks it out. */
-const drawEmpty = (c: CellPass, cp: number, v: number, sx: number, sy: number): void => {
+const drawEmpty = (c: CellPass, cp: CodePoint, v: number, sx: number, sy: number): void => {
   const ctx = c.ctx
   if (c.litAbsent && c.valueOn[v] && !c.data.isAssigned(cp) && c.mask?.[cp] !== 0) {
     // Highlighted reserved code point / noncharacter: shown lit, like its cell colour.
@@ -90,7 +91,7 @@ const drawEmpty = (c: CellPass, cp: number, v: number, sx: number, sy: number): 
 }
 
 /** The code point and name under the glyph, at high zoom. */
-const drawCaptions = (c: CellPass, cp: number, sx: number, sy: number, dim: boolean, dark: boolean): void => {
+const drawCaptions = (c: CellPass, cp: CodePoint, sx: number, sy: number, dim: boolean, dark: boolean): void => {
   const { ctx, k, t } = c
   if (c.hexA > 0) {
     ctx.globalAlpha = t * c.hexA * (dim ? 0.3 : 0.7)
@@ -108,7 +109,7 @@ const drawCaptions = (c: CellPass, cp: number, sx: number, sy: number, dim: bool
 }
 
 /** A code point that exists: its card, in its cell's colour, with its glyph and captions. */
-const drawCard = (c: CellPass, cp: number, v: number, sx: number, sy: number, rowReady: boolean): void => {
+const drawCard = (c: CellPass, cp: CodePoint, v: number, sx: number, sy: number, rowReady: boolean): void => {
   const { ctx, k } = c
   const dim = c.dimmable && (!c.valueOn[v] || (c.mask !== undefined && !c.mask[cp]))
   ctx.globalAlpha = 1
@@ -132,7 +133,7 @@ const drawCard = (c: CellPass, cp: number, v: number, sx: number, sy: number, ro
 }
 
 /** One row of cells, from column x0 to x1 of plane row `rowCp`. */
-const drawRow = (c: CellPass, sc: Scene, rowCp: number, ox: number, x0: number, x1: number, sy: number): void => {
+const drawRow = (c: CellPass, sc: Scene, rowCp: CodePoint, ox: number, x0: number, x1: number, sy: number): void => {
   const rowReady = sc.fonts.ensureRow(rowCp)
   const { valueOf, data, asOfLimit, k } = c
   const ageIdx = data.ageIdx

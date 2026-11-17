@@ -1,4 +1,5 @@
 import { type Block, MAX_CP, type UnicodeData } from "./unicode"
+import type { CodePoint, BlockIndex } from "../units"
 
 export enum SearchResultType {
   CODE_POINT = "CODE_POINT",
@@ -6,20 +7,20 @@ export enum SearchResultType {
 }
 interface CodePointResult {
   type: SearchResultType.CODE_POINT
-  cp: number
+  cp: CodePoint
   why?: string
 }
 interface BlockResult {
   type: SearchResultType.BLOCK
   block: Block
-  index: number
+  index: BlockIndex
 }
 export type SearchResult = CodePointResult | BlockResult
 
 const CP_PATTERN = /^(?:u\+|0x|\\u\{?|\\x\{?|&#x|U\+)?([0-9a-f]{1,6})\}?;?$/i
 
 interface NameEntry {
-  cp: number
+  cp: CodePoint
   /** Name and aliases, lower case, joined by "|". */
   text: string
 }
@@ -36,7 +37,7 @@ const nameScore = (entry: NameEntry, lower: string, tokens: string[]): number =>
 }
 
 /** Code points whose name or aliases contain every word of the query, best matches first. */
-export const matchNames = (entries: NameEntry[], lower: string): { cp: number; score: number }[] => {
+export const matchNames = (entries: NameEntry[], lower: string): { cp: CodePoint; score: number }[] => {
   const tokens = lower.split(/\s+/).filter(Boolean)
   return entries
     .filter((entry) => tokens.every((t) => entry.text.includes(t)))
@@ -48,7 +49,7 @@ export const matchNames = (entries: NameEntry[], lower: string): { cp: number; s
 const nameLength = (entry: NameEntry): number => (entry.text.split("|")[0] ?? "").length || 99
 
 /** Code points written in a notation: U+2603, 0x2603, \u2603, &#x2603;, &#9731; or bare hex. */
-export const notationCodePoints = (q: string): { cp: number; why: string }[] => {
+export const notationCodePoints = (q: string): { cp: CodePoint; why: string }[] => {
   const hexDigits = CP_PATTERN.exec(q)?.[1]
   const decimalDigits = /^&#(\d+);?$/.exec(q)?.[1]
   return [
@@ -78,7 +79,7 @@ export const search = (data: UnicodeData, raw: string, limit = 60): SearchResult
   if (!q) return []
   const out: SearchResult[] = []
   const seen = new Set<number>()
-  const pushCp = (cp: number, why?: string): void => {
+  const pushCp = (cp: CodePoint, why?: string): void => {
     if (cp < 0 || cp >= MAX_CP || seen.has(cp)) return
     seen.add(cp)
     out.push({ type: SearchResultType.CODE_POINT, cp, why })

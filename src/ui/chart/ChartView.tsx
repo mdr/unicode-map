@@ -6,6 +6,7 @@ import { ChartHeader } from "./ChartHeader"
 import { GUTTER, HEAD, LANE, sectionLabels, visibleColumns } from "./chartLayout"
 import { NamesList } from "./NamesList"
 import { useChartScroller } from "./useChartScroller"
+import type { CodePoint, BlockIndex } from "../../units"
 
 /**
  * A block laid out like Unicode's code charts: columns of 16 code points, one hex "decade" per
@@ -25,14 +26,14 @@ export const ChartView = ({
 }: {
   data: UnicodeData
   mode: ColorMode
-  block: number
+  block: BlockIndex
   /** A range to scroll to and point out (a section), if any. */
   focus?: [number, number]
-  selected: number | undefined
-  onSelect: (cp: number) => void
-  onHover: (cp: number, x: number, y: number) => void
+  selected: CodePoint | undefined
+  onSelect: (cp: CodePoint) => void
+  onHover: (cp: CodePoint, x: number, y: number) => void
   /** Reports the code point at the middle of the visible columns as you scroll. */
-  onView: (cp: number) => void
+  onView: (cp: CodePoint) => void
   onClose: () => void
 }) => {
   const b = data.blockAt(bi)
@@ -53,9 +54,9 @@ export const ChartView = ({
   const band = lanes ? LANE * lanes + 4 : 0
   const colX = (col: number): number => GUTTER + col * c
 
-  const inBlock = (cp: number | undefined): cp is number => cp !== undefined && cp >= b.s && cp <= b.e
+  const inBlock = (cp: CodePoint | undefined): cp is number => cp !== undefined && cp >= b.s && cp <= b.e
   /** Scroll a code point's column into view, a column in from the left if it has to move. */
-  const reveal = (cp: number, always: boolean): void => {
+  const reveal = (cp: CodePoint, always: boolean): void => {
     const el = scroller.current
     if (!el) return
     const x = colX(Math.floor((cp - first) / 16))

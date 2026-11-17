@@ -4,6 +4,7 @@ import { PLANE_BG, type RGB } from "../colorModes"
 import { PLANE_COUNT, PLANE_SIZE } from "../layout"
 import { INK_DARK, INK_LIGHT, SPARSE_MAX, TILE } from "./constants"
 import type { Palette } from "./palette"
+import type { Plane } from "../../units"
 
 /** What a code point is in the bitmaps being built, per plane. */
 const NOT_YET = 0 // not encoded in the version shown
@@ -152,7 +153,7 @@ const markLit = (
   }
 }
 
-const canvasAt = (list: (HTMLCanvasElement | undefined)[], p: number, size: number): HTMLCanvasElement => {
+const canvasAt = (list: (HTMLCanvasElement | undefined)[], p: Plane, size: number): HTMLCanvasElement => {
   let cv = list[p]
   if (!cv) {
     cv = document.createElement("canvas")
@@ -204,7 +205,7 @@ export class PlaneBitmaps {
     this.sparseLit = filtering && sparse.length <= SPARSE_MAX ? sparse : []
   }
 
-  private rebuildPlane(p: number, t: Tables, sparse: number[]): void {
+  private rebuildPlane(p: Plane, t: Tables, sparse: number[]): void {
     const base = p << 16
     const cv = canvasAt(this.planes, p, PLANE_SIZE)
     const c = cv.getContext("2d")!

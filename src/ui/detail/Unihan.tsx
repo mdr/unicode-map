@@ -2,6 +2,7 @@ import type { Detail, UnicodeData } from "../../data/unicode"
 import { Glyph } from "../Glyph"
 import { Section, Rows, Row } from "./Rows"
 import { Related } from "./Related"
+import type { CodePoint } from "../../units"
 
 export const Unihan = ({
   data,
@@ -10,7 +11,7 @@ export const Unihan = ({
 }: {
   data: UnicodeData
   u: NonNullable<Detail["unihan"]>
-  onSelect: (cp: number) => void
+  onSelect: (cp: CodePoint) => void
 }) => {
   const readings: [string, string | undefined][] = [
     ["Mandarin", u.mandarin],

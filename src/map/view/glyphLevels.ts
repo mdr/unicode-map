@@ -1,4 +1,5 @@
 import { required } from "../../required"
+import type { Plane } from "../../units"
 
 /** A level of the glyph tile pyramid. */
 export interface GlyphLevel {
@@ -23,4 +24,4 @@ export const GLYPH_LEVELS: GlyphLevel[] = [
 /** The finest level, for zoom beyond all of them. */
 export const FINEST_GLYPH_LEVEL = required(GLYPH_LEVELS.at(-1), "glyph levels")
 
-export const tileKey = (res: number, p: number, ty: number, tx: number): string => `${res}:${p}:${ty}:${tx}`
+export const tileKey = (res: number, p: Plane, ty: number, tx: number): string => `${res}:${p}:${ty}:${tx}`

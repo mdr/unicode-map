@@ -2,6 +2,7 @@ import { type Detail, hex, MAX_CP, uplus, type UnicodeData } from "../../data/un
 import { type ColorMode, cpColor } from "../../map/colorModes"
 import { Glyph } from "../Glyph"
 import { CopyButton } from "./CopyButton"
+import type { CodePoint } from "../../units"
 
 export const CharacterHero = ({
   data,
@@ -13,9 +14,9 @@ export const CharacterHero = ({
 }: {
   data: UnicodeData
   mode: ColorMode
-  cp: number
+  cp: CodePoint
   detail: Detail
-  onSelect: (cp: number) => void
+  onSelect: (cp: CodePoint) => void
   onClose: () => void
 }) => {
   const assigned = data.isAssigned(cp)

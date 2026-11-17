@@ -1,5 +1,6 @@
 import { displayString, type UnicodeData } from "../../data/unicode"
 import { drawSpecial } from "./text"
+import type { CodePoint, Plane } from "../../units"
 
 /** Smallest size glyphs are drawn at; smaller tiles are drawn at this size and scaled down. */
 const GLYPH_DRAW_MIN = 6
@@ -7,7 +8,7 @@ const GLYPH_DRAW_MIN = 6
 /** Draw one row of a tile's code points; returns the canvas, created on the first thing to draw. */
 const drawTileRow = (
   data: UnicodeData,
-  rowCp: number,
+  rowCp: CodePoint,
   y: number,
   res: number,
   span: number,
@@ -46,7 +47,7 @@ const drawTileRow = (
 /** Draw a tile at a legible size and average it down to `res`. */
 const buildSmallTile = (
   data: UnicodeData,
-  p: number,
+  p: Plane,
   ty: number,
   tx: number,
   res: number,
@@ -67,7 +68,7 @@ const buildSmallTile = (
 /** Draw one tile: `span`×`span` code points at `res` pixels each. Undefined if there's nothing to draw. */
 export const buildGlyphTile = (
   data: UnicodeData,
-  p: number,
+  p: Plane,
   ty: number,
   tx: number,
   res: number,

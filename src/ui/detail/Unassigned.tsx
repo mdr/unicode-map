@@ -1,6 +1,7 @@
 import type { UnicodeData } from "../../data/unicode"
+import type { CodePoint } from "../../units"
 
-export const Unassigned = ({ data, cp }: { data: UnicodeData; cp: number }) => {
+export const Unassigned = ({ data, cp }: { data: UnicodeData; cp: CodePoint }) => {
   const nonchar = data.nonchar[cp]
   const block = data.block(cp)
   return (

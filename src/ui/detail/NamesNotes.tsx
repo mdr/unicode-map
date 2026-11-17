@@ -1,6 +1,7 @@
 import type { Detail, UnicodeData } from "../../data/unicode"
 import { Section, Rows, Row } from "./Rows"
 import { Linkified } from "./Linkified"
+import type { CodePoint } from "../../units"
 
 const ALIAS_LABELS: Record<string, string> = {
   correction: "Corrected name",
@@ -19,7 +20,7 @@ export const NamesNotes = ({
 }: {
   data: UnicodeData
   detail: Detail
-  onSelect: (cp: number) => void
+  onSelect: (cp: CodePoint) => void
 }) => {
   if (![d.aliases, d.alsoKnownAs, d.formalAlias, d.notes, d.variations].some(Boolean)) return undefined
   return (

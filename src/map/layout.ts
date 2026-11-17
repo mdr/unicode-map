@@ -1,3 +1,4 @@
+import type { CodePoint, Plane, Cells } from "../units"
 // Linear layout: 17 planes of 256×256 cells, arranged in a grid of planes.
 // World coordinates are in cell units.
 
@@ -8,18 +9,18 @@ export const PLANE_COUNT = 17
 const PLANE_STRIDE = PLANE_SIZE + PLANE_GAP
 
 export interface Rect {
-  x: number
-  y: number
-  w: number
-  h: number
+  x: Cells
+  y: Cells
+  w: Cells
+  h: Cells
 }
 
-export const planeOrigin = (p: number): { x: number; y: number } => ({
+export const planeOrigin = (p: Plane): { x: Cells; y: Cells } => ({
   x: (p % PLANE_COLS) * PLANE_STRIDE,
   y: Math.floor(p / PLANE_COLS) * PLANE_STRIDE
 })
 
-export const planeRect = (p: number): Rect => {
+export const planeRect = (p: Plane): Rect => {
   const o = planeOrigin(p)
   return { x: o.x, y: o.y, w: PLANE_SIZE, h: PLANE_SIZE }
 }
@@ -31,7 +32,7 @@ export const WORLD: Rect = {
   h: Math.ceil(PLANE_COUNT / PLANE_COLS) * PLANE_STRIDE
 }
 
-export const cpToCell = (cp: number): { x: number; y: number } => {
+export const cpToCell = (cp: CodePoint): { x: Cells; y: Cells } => {
   const p = cp >> 16
   const o = planeOrigin(p)
   return { x: o.x + (cp & 0xff), y: o.y + ((cp >> 8) & 0xff) }
@@ -51,7 +52,7 @@ export const cellToCp = (wx: number, wy: number): number => {
 }
 
 /** Bounding rectangle of a code point range (in world cells). */
-export const rangeRect = (start: number, end: number): Rect => {
+export const rangeRect = (start: CodePoint, end: CodePoint): Rect => {
   const a = cpToCell(start)
   const b = cpToCell(end)
   if (a.y === b.y) return { x: a.x, y: a.y, w: b.x - a.x + 1, h: 1 }
@@ -63,7 +64,7 @@ export const rangeRect = (start: number, end: number): Rect => {
  * The outline of a code point range as a polygon (list of world points).
  * A range in the linear layout is a partial first row, full middle rows and a partial last row.
  */
-export const rangeOutline = (start: number, end: number): [number, number][] => {
+export const rangeOutline = (start: CodePoint, end: CodePoint): [number, number][] => {
   const a = cpToCell(start)
   const b = cpToCell(end)
   const o = planeOrigin(start >> 16)
@@ -91,7 +92,7 @@ export const rangeOutline = (start: number, end: number): [number, number][] => 
 }
 
 /** The best rectangle inside a range for placing its label. */
-export const labelRect = (start: number, end: number): Rect => {
+export const labelRect = (start: CodePoint, end: CodePoint): Rect => {
   const a = cpToCell(start)
   const b = cpToCell(end)
   const o = planeOrigin(start >> 16)

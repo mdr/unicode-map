@@ -10,6 +10,7 @@ import type { InkedGlyphs } from "./inkedGlyphs"
 import type { Palette } from "./palette"
 import type { HeaderHit, Preview } from "./preview"
 import type { Viewport } from "./viewport"
+import type { CodePoint, BlockIndex } from "../../units"
 
 /** What the map is set to show. */
 export interface ViewState {
@@ -22,7 +23,7 @@ export interface ViewState {
   pure: boolean
   /** Show glyph texture from the tiles when zoomed out in the normal view. */
   glyphTexture: boolean
-  selected: number | undefined
+  selected: CodePoint | undefined
   hovered: number
   /** A range pointed out from the sidebar, or by hovering a header. */
   preview: Preview | undefined
@@ -57,5 +58,5 @@ export interface FrameView {
 }
 
 /** Whether a block exists in the version being shown. */
-export const blockExists = (sc: Scene, i: number): boolean =>
+export const blockExists = (sc: Scene, i: BlockIndex): boolean =>
   sc.st.asOf === undefined || required(sc.geo.blockFirstAge[i], "block's first age") <= sc.st.asOf

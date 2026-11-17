@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { search, type SearchResult, SearchResultType } from "../data/search"
 import { uplus, type UnicodeData } from "../data/unicode"
 import { Glyph } from "./Glyph"
+import type { CodePoint, BlockIndex } from "../units"
 
 export const SearchBox = ({
   data,
@@ -9,8 +10,8 @@ export const SearchBox = ({
   onPickBlock
 }: {
   data: UnicodeData
-  onPickCp: (cp: number) => void
-  onPickBlock: (index: number) => void
+  onPickCp: (cp: CodePoint) => void
+  onPickBlock: (index: BlockIndex) => void
 }) => {
   const [q, setQ] = useState("")
   const [open, setOpen] = useState(false)

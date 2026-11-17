@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react"
 import { hex, type UnicodeData } from "../../data/unicode"
 import { required } from "../../required"
 import { Glyph } from "../Glyph"
+import type { CodePoint, BlockIndex } from "../../units"
 
 /** The block's characters by name, grouped under their sections, like a code chart's names list. */
 export const NamesList = ({
@@ -14,12 +15,12 @@ export const NamesList = ({
   onHoverCp
 }: {
   data: UnicodeData
-  block: number
+  block: BlockIndex
   sections: [number, number, string][]
-  selected: number | undefined
+  selected: CodePoint | undefined
   style: React.CSSProperties
-  onSelect: (cp: number) => void
-  onHoverCp: (cp: number | undefined) => void
+  onSelect: (cp: CodePoint) => void
+  onHoverCp: (cp: CodePoint | undefined) => void
 }) => {
   const b = required(data.meta.blocks[bi], "names list block")
   const ref = useRef<HTMLDivElement>(null)

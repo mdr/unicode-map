@@ -1,5 +1,6 @@
 import { uplus, type UnicodeData } from "../../data/unicode"
 import { Glyph } from "../Glyph"
+import type { CodePoint } from "../../units"
 
 export const Related = ({
   label,
@@ -10,7 +11,7 @@ export const Related = ({
   label: string
   cps: number[]
   data: UnicodeData
-  onSelect: (cp: number) => void
+  onSelect: (cp: CodePoint) => void
 }) => {
   if (!cps.length) return undefined
   return (
@@ -25,7 +26,7 @@ export const Related = ({
   )
 }
 
-const CharChip = ({ cp, data, onSelect }: { cp: number; data: UnicodeData; onSelect: (cp: number) => void }) => (
+const CharChip = ({ cp, data, onSelect }: { cp: CodePoint; data: UnicodeData; onSelect: (cp: CodePoint) => void }) => (
   <button className="char-chip" onClick={() => onSelect(cp)} title={`${uplus(cp)} ${data.name(cp)}`}>
     <Glyph data={data} cp={cp} className="cc-glyph" />
     <span className="cc-text">

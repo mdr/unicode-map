@@ -9,6 +9,7 @@ import {
   type ScriptInfo
 } from "../data/about"
 import { hex, type UnicodeData } from "../data/unicode"
+import type { CodePoint, BlockIndex } from "../units"
 
 const useAbout = () => {
   const [about, setAbout] = useState<AboutData>()
@@ -85,7 +86,7 @@ const ArticleText = ({ a }: { a: Article }) => (
  * What a script and a block are: CLDR facts and a Wikipedia summary for the script, and the
  * block's own summary where it has one (and it isn't just the script's article again).
  */
-export const AboutCards = ({ data, script, block }: { data: UnicodeData; script?: string; block?: number }) => {
+export const AboutCards = ({ data, script, block }: { data: UnicodeData; script?: string; block?: BlockIndex }) => {
   const about = useAbout()
   const sc = script && !PSEUDO_SCRIPTS.has(script) ? script : undefined
   const scriptName = sc ? data.meta.scripts.find((s) => s.code === sc)?.name : undefined
@@ -123,7 +124,7 @@ export const AboutCards = ({ data, script, block }: { data: UnicodeData; script?
 }
 
 /** The main script of a block: the commonest real script among its assigned characters. */
-export const blockScript = (data: UnicodeData, block: number): string | undefined => {
+export const blockScript = (data: UnicodeData, block: BlockIndex): string | undefined => {
   const b = data.blockAt(block)
   const counts = new Map<string, number>()
   for (let cp = b.s; cp <= b.e; cp++) {
@@ -138,7 +139,7 @@ export const blockScript = (data: UnicodeData, block: number): string | undefine
 }
 
 /** The Wikipedia summary of a character that has an article of its own, if it has one. */
-export const CharAboutCard = ({ cp }: { cp: number }) => {
+export const CharAboutCard = ({ cp }: { cp: CodePoint }) => {
   const [about, setAbout] = useState<CharAboutData>()
   useEffect(() => {
     let live = true

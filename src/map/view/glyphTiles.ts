@@ -4,6 +4,7 @@ import type { RowFonts } from "./fonts"
 import { FINEST_GLYPH_LEVEL, GLYPH_LEVELS, type GlyphLevel, tileKey } from "./glyphLevels"
 import { buildGlyphTile } from "./glyphTileDraw"
 import type { Viewport } from "./viewport"
+import type { Plane } from "../../units"
 
 /** Pre-built tile files fetched at once. */
 const GLYPH_TILE_LOADS = 12
@@ -14,7 +15,7 @@ type TileImage = HTMLCanvasElement | HTMLImageElement
 
 interface MissingTile {
   key: string
-  p: number
+  p: Plane
   ty: number
   tx: number
   /** Distance from the view's centre (world units), to fill in nearest first. */
@@ -97,7 +98,7 @@ export class GlyphTiles {
     vp: Viewport,
     level: GlyphLevel,
     others: GlyphLevel[],
-    p: number,
+    p: Plane,
     vis: Rect,
     missing: MissingTile[]
   ): void {
@@ -131,7 +132,7 @@ export class GlyphTiles {
   private drawStandIn(
     ctx: CanvasRenderingContext2D,
     others: GlyphLevel[],
-    p: number,
+    p: Plane,
     cx0: number,
     cy0: number,
     span: number,
@@ -153,7 +154,7 @@ export class GlyphTiles {
   private drawFromCoarser(
     ctx: CanvasRenderingContext2D,
     level: GlyphLevel,
-    p: number,
+    p: Plane,
     cx0: number,
     cy0: number,
     span: number,
@@ -174,7 +175,7 @@ export class GlyphTiles {
   private drawFromFiner(
     ctx: CanvasRenderingContext2D,
     level: GlyphLevel,
-    p: number,
+    p: Plane,
     cx0: number,
     cy0: number,
     span: number,

@@ -1,3 +1,4 @@
+import type { CodePoint } from "../../units"
 /** Geometry of the code chart view, in CSS pixels. */
 
 /** Height of one lane of section labels. */
@@ -11,8 +12,8 @@ export const GUTTER = 30
 const MIN_LABEL = 56
 
 export interface SectionLabel {
-  s: number
-  e: number
+  s: CodePoint
+  e: CodePoint
   title: string
   /** First and last column the section covers. */
   a: number
@@ -32,7 +33,7 @@ export const cellSize = (height: number, zoom: number): number => {
  */
 export const sectionLabels = (
   sections: [number, number, string][],
-  block: { s: number; e: number },
+  block: { s: CodePoint; e: CodePoint },
   cell: number
 ): SectionLabel[] => {
   const first = block.s & ~15

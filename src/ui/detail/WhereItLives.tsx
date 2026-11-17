@@ -1,5 +1,6 @@
 import { type Detail, hex, planeName, type UnicodeData, VERSION_YEARS } from "../../data/unicode"
 import { Section, Rows, Row } from "./Rows"
+import type { CodePoint, Plane, BlockIndex } from "../../units"
 
 export const WhereItLives = ({
   data,
@@ -10,11 +11,11 @@ export const WhereItLives = ({
   onChart
 }: {
   data: UnicodeData
-  cp: number
+  cp: CodePoint
   detail: Detail
-  onPlane: (p: number) => void
-  onBlock: (i: number) => void
-  onChart: (block: number) => void
+  onPlane: (p: Plane) => void
+  onBlock: (i: BlockIndex) => void
+  onChart: (block: BlockIndex) => void
 }) => {
   const assigned = data.isAssigned(cp)
   const gc = data.gc(cp)

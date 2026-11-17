@@ -1,5 +1,6 @@
 import { displayString, type UnicodeData } from "../../data/unicode"
 import { MONO_FONT } from "./constants"
+import type { CodePoint, Plane } from "../../units"
 
 /** Loads the font faces for rows of 256 code points on demand, and says when they're ready. */
 export class RowFonts {
@@ -18,7 +19,7 @@ export class RowFonts {
   }
 
   /** Ask the browser to load the font faces needed for a row; returns whether they're ready. */
-  ensureRow(rowCp: number): boolean {
+  ensureRow(rowCp: CodePoint): boolean {
     const row = rowCp >> 8
     if (this.loadedRows.has(row)) return this.lastResortReady
     if (!this.pendingRows.has(row)) {
@@ -37,7 +38,7 @@ export class RowFonts {
   }
 
   /** A row's characters grouped by font family. */
-  private rowFamilies(rowCp: number): Map<string, string> {
+  private rowFamilies(rowCp: CodePoint): Map<string, string> {
     const byFamily = new Map<string, string>()
     for (let i = 0; i < 256; i++) {
       const cp = rowCp | i
@@ -50,7 +51,7 @@ export class RowFonts {
   }
 
   /** Whether the fonts for `rows` rows of a plane, from row `y0`, are loaded (asking for them if not). */
-  tilesReady(p: number, y0: number, rows: number): boolean {
+  tilesReady(p: Plane, y0: number, rows: number): boolean {
     // The placeholders' labels use the monospace interface font.
     let ready = document.fonts.check(`12px ${MONO_FONT}`, "WJ")
     if (!ready) void document.fonts.load(`12px ${MONO_FONT}`, "WJ").then(() => this.invalidate())

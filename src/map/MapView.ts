@@ -15,22 +15,23 @@ import { type HeaderHit, makePreview, type PreviewRange } from "./view/preview"
 import { renderFrame } from "./view/render"
 import type { Scene, ViewState } from "./view/scene"
 import { type Insets, Viewport } from "./view/viewport"
+import type { CodePoint, Plane, Cells, Zoom, Px } from "../units"
 
 /** Where the view is: the code point at the centre of the visible area (-1 if none), and zoom. */
 export interface Here {
-  cp: number
+  cp: CodePoint
   k: number
 }
 
 export interface Camera {
-  cx: number
-  cy: number
-  k: number // screen pixels per cell
+  cx: Cells
+  cy: Cells
+  k: Zoom
 }
 
 export interface MapCallbacks {
-  onHover(cp: number, clientX: number, clientY: number): void
-  onSelect(cp: number | undefined): void
+  onHover(cp: CodePoint, clientX: Px, clientY: Px): void
+  onSelect(cp: CodePoint | undefined): void
   onCamera(cam: Camera): void
 }
 
@@ -171,7 +172,7 @@ export class MapView {
    * instead, zoom to where glyphs are legible and line up the range's start, unless it fits
    * whole at that size. Showing the same range again fits all of it.
    */
-  showRange(s: number, e: number): void {
+  showRange(s: CodePoint, e: CodePoint): void {
     const vp = this.vp
     const again = this.st.pinned?.s === s && this.st.pinned.e === e
     this.st.preview = undefined
@@ -207,7 +208,7 @@ export class MapView {
     this.invalidate()
   }
 
-  private rangeName(s: number, e: number): string {
+  private rangeName(s: CodePoint, e: CodePoint): string {
     const b = this.data.meta.blocks.find((b) => b.s === s && b.e === e)
     if (b) return b.name
     const sec = this.data.sectionRange(s)
@@ -227,7 +228,7 @@ export class MapView {
     this.rebuildBitmaps()
   }
 
-  setSelected(cp: number | undefined): void {
+  setSelected(cp: CodePoint | undefined): void {
     const pinned = this.st.pinned
     this.st.selected = cp
     // Picking a character outside the pointed-out block or section lets it go.
@@ -289,7 +290,7 @@ export class MapView {
   }
 
   /** Bring a code point into view, zooming in to glyph level if needed. */
-  focusCp(cp: number, opts: { zoom?: boolean; animate?: boolean } = {}): void {
+  focusCp(cp: CodePoint, opts: { zoom?: boolean; animate?: boolean } = {}): void {
     const { cam, w, h } = this.vp
     const c = cpToCell(cp)
     const k = opts.zoom === false ? cam.k : Math.max(cam.k, 72)
@@ -321,12 +322,12 @@ export class MapView {
   }
 
   /** Whether the fonts for `rows` rows of a plane, from row `y0`, are loaded (asking for them if not). */
-  tileFontsReady(p: number, y0: number, rows: number): boolean {
+  tileFontsReady(p: Plane, y0: number, rows: number): boolean {
     return this.fonts.tilesReady(p, y0, rows)
   }
 
   /** Draw one glyph tile: `span`×`span` code points at `res` pixels each (for scripts/build_tiles.ts). */
-  buildGlyphTile(p: number, ty: number, tx: number, res: number, span: number): HTMLCanvasElement | undefined {
+  buildGlyphTile(p: Plane, ty: number, tx: number, res: number, span: number): HTMLCanvasElement | undefined {
     return buildGlyphTile(this.data, p, ty, tx, res, span)
   }
 
@@ -425,7 +426,7 @@ export class MapView {
     this.cb.onSelect(cp >= 0 ? cp : undefined)
   }
 
-  private setHovered(cp: number): void {
+  private setHovered(cp: CodePoint): void {
     if (cp === this.st.hovered) return
     this.st.hovered = cp
     this.invalidate()
@@ -440,7 +441,7 @@ export class MapView {
     }
   }
 
-  private updateHover(x: number, y: number, clientX: number, clientY: number): void {
+  private updateHover(x: number, y: number, clientX: Px, clientY: Px): void {
     if (this.st.pure) return
     // Over a block or section header: show its full name and point out its extent.
     const hit = this.headerAt(x, y)

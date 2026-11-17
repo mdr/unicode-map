@@ -1,8 +1,9 @@
 import { hex } from "../../data/unicode"
 import { Section, Rows, Row } from "./Rows"
 import { CopyButton } from "./CopyButton"
+import type { CodePoint } from "../../units"
 
-export const Encodings = ({ cp }: { cp: number }) => {
+export const Encodings = ({ cp }: { cp: CodePoint }) => {
   const ch = String.fromCodePoint(cp)
   const utf8 = [...new TextEncoder().encode(ch)].map((b) => b.toString(16).toUpperCase().padStart(2, "0")).join(" ")
   const utf16 =

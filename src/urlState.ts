@@ -1,8 +1,9 @@
 import { ModeId } from "./map/colorModes"
 import type { Camera } from "./map/MapView"
+import type { CodePoint } from "./units"
 
 export interface UrlState {
-  cp?: number
+  cp?: CodePoint
   mode?: ModeId
   view?: Camera
   /** Property highlight key, e.g. "b:Emoji" or "bc:R". */
@@ -62,7 +63,7 @@ const parsePart = (part: string): Partial<UrlState> => {
   return parse && value ? parse(value) : {}
 }
 
-const hex = (cp: number): string => cp.toString(16).toUpperCase().padStart(4, "0")
+const hex = (cp: CodePoint): string => cp.toString(16).toUpperCase().padStart(4, "0")
 
 /** The state in a URL hash, without its `#`: `U+2603&mode=gc&view=1234.5,567.25,40`. */
 export const parseHash = (hash: string): UrlState =>

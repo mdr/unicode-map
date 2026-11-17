@@ -1,6 +1,7 @@
 import { uplus, type UnicodeData } from "../data/unicode"
 import { Glyph } from "./Glyph"
 import { type ColorMode, cpColor } from "../map/colorModes"
+import type { CodePoint } from "../units"
 
 export const Tooltip = ({
   data,
@@ -11,7 +12,7 @@ export const Tooltip = ({
 }: {
   data: UnicodeData
   mode: ColorMode
-  cp: number
+  cp: CodePoint
   x: number
   y: number
 }) => {

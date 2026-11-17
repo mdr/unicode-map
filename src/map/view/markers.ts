@@ -4,9 +4,10 @@ import { AXIS_LEFT, AXIS_START, AXIS_TOP, clamp, smooth } from "./constants"
 import { pill } from "./pill"
 import type { Preview } from "./preview"
 import type { Scene } from "./scene"
+import type { CodePoint } from "../../units"
 
 /** Outline a code point's cell, or ring it when cells are too small to outline. */
-const mark = (sc: Scene, cp: number, color: string, width: number, strong: boolean): void => {
+const mark = (sc: Scene, cp: CodePoint, color: string, width: number, strong: boolean): void => {
   const { ctx, vp } = sc
   const k = vp.cam.k
   const c = cpToCell(cp)

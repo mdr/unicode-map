@@ -1,11 +1,12 @@
 import { hex, type UnicodeData } from "../../data/unicode"
 import { MONO_FONT } from "./constants"
+import type { CodePoint } from "../../units"
 
 /** Placeholder for a code point with no visible glyph: a dashed box with its abbreviation. */
 export const drawSpecial = (
   ctx: CanvasRenderingContext2D,
   data: UnicodeData,
-  cp: number,
+  cp: CodePoint,
   sx: number,
   k: number,
   cy: number,

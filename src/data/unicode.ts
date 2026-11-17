@@ -1,12 +1,13 @@
 import { required } from "../required"
+import type { CodePoint, Plane, BlockIndex } from "../units"
 // Loads the compiled UCD (see scripts/build_data.py) and exposes fast per-code-point lookups.
 
 export const MAX_CP = 0x110000
 const LAST_RESORT = '"UMap Last Resort"'
 
 export interface Block {
-  s: number
-  e: number
+  s: CodePoint
+  e: CodePoint
   name: string
   region: number
   assigned: number
@@ -100,7 +101,7 @@ const PLANE_NAMES: Record<number, [string, string]> = {
   15: ["Supplementary Private Use Area-A", "SPUA-A"],
   16: ["Supplementary Private Use Area-B", "SPUA-B"]
 }
-export const planeName = (p: number): [string, string] => PLANE_NAMES[p] ?? ["Unassigned plane", ""]
+export const planeName = (p: Plane): [string, string] => PLANE_NAMES[p] ?? ["Unassigned plane", ""]
 
 export const VERSION_YEARS: Record<string, number> = {
   "1.1": 1993,
@@ -148,7 +149,7 @@ export class UnicodeData {
   private readonly hasDottedCircle: Set<number>
   private readonly detailChunks = new Map<number, Promise<Record<string, Detail>>>()
   /** Lowercased "name|alias|alias" per code point, for search. */
-  readonly searchEntries: { cp: number; text: string }[] = []
+  readonly searchEntries: { cp: CodePoint; text: string }[] = []
   readonly gcCn: number
   readonly gcCo: number
   readonly gcCs: number
@@ -185,36 +186,36 @@ export class UnicodeData {
     return new UnicodeData(meta, names)
   }
 
-  isAssigned(cp: number): boolean {
+  isAssigned(cp: CodePoint): boolean {
     return this.gcIdx[cp] !== this.gcCn
   }
 
-  gc(cp: number): ValueInfo {
+  gc(cp: CodePoint): ValueInfo {
     return required(this.meta.gc[this.gcIdx[cp] ?? this.gcCn], `general category of ${hex(cp)}`)
   }
-  script(cp: number): ScriptInfo {
+  script(cp: CodePoint): ScriptInfo {
     return required(this.meta.scripts[this.scriptIdx[cp] ?? 0], `script of ${hex(cp)}`)
   }
-  age(cp: number): string {
+  age(cp: CodePoint): string {
     return required(this.meta.ages[this.ageIdx[cp] ?? 0], `age of ${hex(cp)}`)
   }
-  block(cp: number): Block | undefined {
+  block(cp: CodePoint): Block | undefined {
     return this.meta.blocks[this.blockIdx[cp] ?? -1]
   }
   /** The block at an index into meta.blocks, as blockIdx, search results and the URL give them. */
-  blockAt(index: number): Block {
+  blockAt(index: BlockIndex): Block {
     return required(this.meta.blocks[index], `block ${index}`)
   }
   regionOf(block: Block): Region {
     return required(this.meta.regions[block.region], `region of ${block.name}`)
   }
-  region(cp: number): Region | undefined {
+  region(cp: CodePoint): Region | undefined {
     const b = this.block(cp)
     return b ? this.meta.regions[b.region] : undefined
   }
 
   /** Official character name, or a descriptive label for code points without one. */
-  name(cp: number): string {
+  name(cp: CodePoint): string {
     const n = this.names.get(cp)
     if (n) return n
     for (const [a, b, prefix] of this.meta.nameRanges) {
@@ -229,17 +230,17 @@ export class UnicodeData {
   }
 
   /** Whether name() is a real Unicode name rather than a code point label. */
-  hasName(cp: number): boolean {
+  hasName(cp: CodePoint): boolean {
     return !this.name(cp).startsWith("<")
   }
 
   /** The code chart section a code point falls in, if any. */
-  section(cp: number): string | undefined {
+  section(cp: CodePoint): string | undefined {
     return this.sectionRange(cp)?.[2]
   }
 
   /** The code chart section a code point falls in, as [start, end, title]. */
-  sectionRange(cp: number): [number, number, string] | undefined {
+  sectionRange(cp: CodePoint): [number, number, string] | undefined {
     const secs = this.meta.sections
     let lo = 0,
       hi = secs.length - 1
@@ -254,13 +255,13 @@ export class UnicodeData {
   }
 
   /** Index into meta.fonts of the font that draws this code point, if any. */
-  fontOf(cp: number): number | undefined {
+  fontOf(cp: CodePoint): number | undefined {
     const f = this.fontIdx[cp]
     return f ? f - 1 : undefined
   }
 
   /** CSS font-family list for drawing a code point. */
-  glyphFamily(cp: number): string {
+  glyphFamily(cp: CodePoint): string {
     const f = this.fontOf(cp)
     return f === undefined ? LAST_RESORT : `"UMapF${f}", ${LAST_RESORT}`
   }
@@ -269,16 +270,16 @@ export class UnicodeData {
    * Base to show a combining mark on. A dotted circle, from the mark's own font so the two combine;
    * for the few fonts without one, a no-break space.
    */
-  markBase(cp: number): string {
+  markBase(cp: CodePoint): string {
     const f = this.fontOf(cp)
     return f !== undefined && !this.hasDottedCircle.has(f) ? "\u00A0" : "\u25CC"
   }
 
-  abbr(cp: number): string | undefined {
+  abbr(cp: CodePoint): string | undefined {
     return this.meta.abbr[cp.toString(16).toUpperCase()]
   }
 
-  detail(cp: number): Promise<Detail | undefined> {
+  detail(cp: CodePoint): Promise<Detail | undefined> {
     const key = cp >> 12
     let chunk = this.detailChunks.get(key)
     if (!chunk) {
@@ -297,12 +298,12 @@ const expandRuns = (runs: number[], out: Uint8Array): void => {
   }
 }
 
-export const hex = (cp: number): string => cp.toString(16).toUpperCase().padStart(4, "0")
+export const hex = (cp: CodePoint): string => cp.toString(16).toUpperCase().padStart(4, "0")
 
-export const uplus = (cp: number): string => "U+" + hex(cp)
+export const uplus = (cp: CodePoint): string => "U+" + hex(cp)
 
 /** The string to draw for a code point (marks get a dotted-circle base). */
-export const displayString = (data: UnicodeData, cp: number): string | undefined => {
+export const displayString = (data: UnicodeData, cp: CodePoint): string | undefined => {
   const gc = data.gc(cp).code
   if (
     gc === "Cn" ||

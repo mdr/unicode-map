@@ -6,6 +6,7 @@ import type { Section } from "./geometry"
 import { visibleSections } from "./outlines"
 import { measurePill, pill, type PillStyle } from "./pill"
 import { blockExists, type FrameView, type Scene } from "./scene"
+import type { CodePoint } from "../../units"
 
 /** Where a header sits on screen, and the room it has to its right. */
 interface Anchor {
@@ -31,7 +32,7 @@ interface HeaderLayout {
  * Where a header for code points s..e goes: at the cell where the range starts, scrolling away
  * with it. Returns screen coordinates and the room available to the right, or undefined.
  */
-const headerAnchor = (sc: Scene, s: number, e: number, top: number, left: number): Anchor | undefined => {
+const headerAnchor = (sc: Scene, s: CodePoint, e: CodePoint, top: number, left: number): Anchor | undefined => {
   const vp = sc.vp
   const o = planeOrigin(s >> 16)
   const r0 = (s >> 8) & 255,

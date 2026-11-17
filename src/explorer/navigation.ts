@@ -1,4 +1,5 @@
 import type { Block } from "../data/unicode"
+import type { CodePoint } from "../units"
 
 const LAST_CP = 0x10ffff
 
@@ -7,7 +8,7 @@ export const stepCodePoint = (
   from: number,
   delta: number,
   assignedOnly: boolean,
-  isAssigned: (cp: number) => boolean
+  isAssigned: (cp: CodePoint) => boolean
 ): number => {
   let cp = from
   do {

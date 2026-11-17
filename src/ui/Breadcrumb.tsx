@@ -1,5 +1,6 @@
 import { planeName, uplus, type UnicodeData } from "../data/unicode"
 import type { Here } from "../map/MapView"
+import type { CodePoint, Plane, BlockIndex } from "../units"
 
 export const Breadcrumb = ({
   data,
@@ -13,15 +14,15 @@ export const Breadcrumb = ({
 }: {
   data: UnicodeData
   here: Here | undefined
-  selected: number | undefined
-  onPlane: (p: number) => void
-  onBlock: (i: number) => void
+  selected: CodePoint | undefined
+  onPlane: (p: Plane) => void
+  onBlock: (i: BlockIndex) => void
   onOverview: () => void
-  onRange: (s: number, e: number) => void
-  onPreview: (r: { s: number; e: number; name: string } | undefined) => void
+  onRange: (s: CodePoint, e: CodePoint) => void
+  onPreview: (r: { s: CodePoint; e: CodePoint; name: string } | undefined) => void
 }) => {
   // Where are we? The selection if there is one, otherwise the centre of the view (when zoomed in).
-  let cp: number | undefined = selected
+  let cp: CodePoint | undefined = selected
   if (cp === undefined && here && here.k > 2.5 && here.cp >= 0) cp = here.cp
   const plane = cp !== undefined ? cp >> 16 : undefined
   const bi = cp !== undefined ? (data.blockIdx[cp] ?? -1) : -1
