@@ -43,6 +43,10 @@ pure view draws them in the browser instead, which is slower to fill in.
     sources at a pinned commit.
   - UniHieroglyphica, for Egyptian Hieroglyphs Extended-A. It isn't in nixpkgs, so it's
     fetched from its GitHub repository at a pinned commit.
+  - Alari Xuwasun Jurchen, for Jurchen and Jurchen Radicals: a public beta, fetched from
+    mkpoli/jurchen-input (which redistributes it under the OFL) at a pinned commit.
+  - Fairfax HD, for Latin Extended-G, whose Unicode 18 additions nixpkgs' release predates. It's
+    fetched from Kreative's open-relay repository and cut down to that block.
   - Unifont, a pixel font, for the few things nothing else covers.
 
   Last Resort is the final placeholder. Inter and JetBrains Mono are the interface fonts,

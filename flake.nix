@@ -93,6 +93,54 @@
             '';
           };
 
+          # Alari Xuwasun Jurchen (OFL-1.1), by Sulfa, Dooran and Raxon7 (https://dorontu.com/): all 965
+          # Jurchen and Jurchen Radicals characters (Unicode 18). A public beta, restyling the forms
+          # of the encoding proposal. Alari offers no stable download, so it's taken from
+          # mkpoli/jurchen-input, which redistributes it under the OFL, at a pinned commit.
+          alari-xuwasun-jurchen =
+            let
+              rev = "3f2128676d0787c0c928f4594a74e083e7f3f8d3";
+              raw = "https://raw.githubusercontent.com/mkpoli/jurchen-input/${rev}";
+            in
+            pkgs.stdenvNoCC.mkDerivation {
+              pname = "alari-xuwasun-jurchen";
+              version = "0.000-unstable-2026-10-12";
+              srcs = [
+                (pkgs.fetchurl {
+                  url = "${raw}/data/alari/AlariXuwasunJurchen-Regular.otf";
+                  hash = "sha256-QccfwnboAEQDTpcZd5x8vLLsn0Mp5J6unjfSewZGnfc=";
+                })
+                (pkgs.fetchurl {
+                  url = "${raw}/app/public/fonts/OFL-AlariXuwasunJurchen.txt";
+                  hash = "sha256-rc/9NYn8H4jXMw06B48R9w9ziNnsn5+vbeLxsqnumbU=";
+                })
+              ];
+              dontUnpack = true;
+              installPhase = ''
+                set -- $srcs
+                install -Dm644 $1 $out/share/fonts/opentype/AlariXuwasunJurchen-Regular.otf
+                install -Dm644 $2 $out/share/doc/alari-xuwasun-jurchen/OFL.txt
+              '';
+            };
+          # Fairfax HD (OFL-1.1), by Kreative Software: the 51 Latin Extended-G letters added in
+          # Unicode 18. nixpkgs' release predates them. Cut down to that block, so it fills only
+          # that gap and browsers load a few kilobytes rather than 3 MB.
+          fairfax-hd-latin-g = pkgs.stdenvNoCC.mkDerivation {
+            pname = "fairfax-hd-latin-extended-g";
+            version = "2026.09.21";
+            src = pkgs.fetchurl {
+              url = "https://raw.githubusercontent.com/kreativekorp/open-relay/3fd892de31bb7903e736ba53ee2b5c3e923b2882/FairfaxHD/FairfaxHD.ttf";
+              hash = "sha256-jtXIT6UP0C8UUCbaUiswUZsWNyIjctG0e3Ic0CH8ec4=";
+            };
+            dontUnpack = true;
+            nativeBuildInputs = [ python ];
+            buildPhase = ''
+              pyftsubset $src --unicodes=U+1DF00-1DFFF --layout-features='*' --output-file=FairfaxHD.ttf
+            '';
+            installPhase = ''
+              install -Dm644 FairfaxHD.ttf $out/share/fonts/truetype/FairfaxHD.ttf
+            '';
+          };
           # Web-servable font set: one regular face per Noto family, single faces extracted
           # from the CJK collections, Noto Color Emoji, and Last Resort as the final fallback.
           # Also writes manifest.json with each font's cmap coverage.
@@ -109,6 +157,8 @@
                   pkgs.kreative-square # Symbols for Legacy Computing (Supplement)
                   kaiyuan-small-seal # Seal
                   unihieroglyphica # Egyptian Hieroglyphs Extended-A
+                  alari-xuwasun-jurchen # Jurchen, Jurchen Radicals
+                  fairfax-hd-latin-g # Latin Extended-G (Unicode 18 additions)
                   "${pkgs.unifont}/share/fonts/opentype/unifont" # pixel fallback for the rest
                   pkgs.last-resort
                 ];

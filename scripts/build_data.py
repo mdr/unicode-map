@@ -387,7 +387,7 @@ def tier(family):
         return 4
     if family.startswith("Unifont"):
         return PIXEL_TIER
-    return 5  # non-Noto gap fillers: Jigmo, Kreative Square, Kaiyuan Small Seal, UniHieroglyphica
+    return 5  # non-Noto gap fillers: Jigmo, Kreative Square, Kaiyuan Small Seal, UniHieroglyphica, Alari, Fairfax HD
 
 
 EMOJI_TIER = 6
