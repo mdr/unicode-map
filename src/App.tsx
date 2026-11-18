@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { UnicodeData } from "./data/unicode"
 import { interpret, interpretationFromUrl } from "./data/interpretations"
 import { Explorer } from "./explorer/Explorer"
+import { FontLoading } from "./ui/FontLoading"
 import { readHash } from "./urlState"
 
 export const App = () => {
@@ -40,5 +41,10 @@ export const App = () => {
       </div>
     )
   // A new interpretation starts the explorer afresh, from the state in the URL.
-  return <Explorer key={data.interpretation?.id ?? ""} data={data} onInterpretation={changeInterpretation} />
+  return (
+    <>
+      <Explorer key={data.interpretation?.id ?? ""} data={data} onInterpretation={changeInterpretation} />
+      <FontLoading data={data} />
+    </>
+  )
 }

@@ -63,7 +63,7 @@ pure view draws them in the browser instead, which is slower to fill in.
   - `names.txt`: names and aliases, used for search.
   - `detail/NN.json`: per-character detail in 4,096-code-point chunks, loaded on demand.
   - `fonts.css`: an `@font-face` per font.
-  - `LastResort.ttf`: a copy of Last Resort with a cmap every browser reads. The original
+  - `LastResort.woff2`: a copy of Last Resort with a cmap every browser reads. The original
     maps supplementary planes only through a format 13 subtable, which Firefox ignores, so
     Firefox drew its own hex boxes instead.
   - `coverage.json`: assigned characters that no Noto font covers.
@@ -100,6 +100,9 @@ pure view draws them in the browser instead, which is slower to fill in.
   they're recoloured with each cell's ink, dark or light to suit its colour as on the cards,
   from a per-plane ink bitmap that also fades dimmed characters and hides ones newer than the
   timeline's version.
+- **On a phone** (under 700px wide) the sidebar is a sheet over the bottom of the map
+  (`src/ui/detail/sheet.ts`): swipe or tap its handle to raise or lower it. Pinch to zoom, and
+  double-tap to zoom in.
 - **Selecting** a code point describes it in the sidebar; so does selecting a plane, block or
   section (`src/ui/range/`), by clicking its title on the map, in the breadcrumb or search, or
   from another panel. The map keeps it pointed out, and the URL records it (`block=E000`).

@@ -3,9 +3,10 @@
 Usage: build-fonts.py OUT_DIR FONT_PACKAGE...
 
 Picks one regular face per Noto family, extracts single faces from CJK .ttc
-collections (browsers can't load collections), and writes OUT_DIR/manifest.json:
+collections (browsers can't load collections), re-encodes each as WOFF2 (see woff2.py), and
+writes OUT_DIR/manifest.json:
 
-  {"fonts": [{"file": "NotoSans.ttf", "family": "Noto Sans", "ranges": [[32, 126], ...]}, ...]}
+  {"fonts": [{"file": "NotoSans.woff2", "family": "Noto Sans", "ranges": [[32, 126], ...]}, ...]}
 """
 
 import json
@@ -15,6 +16,9 @@ import shutil
 import sys
 
 from fontTools.ttLib import TTCollection, TTFont
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from woff2 import to_woff2  # noqa: E402
 
 out_dir = sys.argv[1]
 pkg_dirs = sys.argv[2:]
@@ -93,6 +97,9 @@ kept = [e for _, e in by_family.values()]
 for e in entries:
     if e not in kept:
         os.remove(os.path.join(out_dir, e["file"]))
+
+for e in kept:
+    e["file"] = os.path.basename(to_woff2(os.path.join(out_dir, e["file"])))
 
 with open(os.path.join(out_dir, "manifest.json"), "w") as f:
     json.dump({"fonts": kept}, f)

@@ -44,10 +44,10 @@ PUA_FONTS = env("PUA_FONTS_DIR")
 
 # Fonts in the order they're preferred: a script's own font, then outline fonts, then pixel glyphs.
 FONTS = [
-    ("nasin-nanpa", "nasin-nanpa.otf"),
-    ("Constructium", "Constructium.ttf"),
-    ("Fairfax HD", "FairfaxHD-PUA.ttf"),
-    ("Unifont CSUR", "unifont_csur.otf"),
+    ("nasin-nanpa", "nasin-nanpa.woff2"),
+    ("Constructium", "Constructium.woff2"),
+    ("Fairfax HD", "FairfaxHD-PUA.woff2"),
+    ("Unifont CSUR", "unifont_csur.woff2"),
 ]
 
 
