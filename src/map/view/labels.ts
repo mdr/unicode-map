@@ -109,5 +109,16 @@ export const renderPlaneFrame = (sc: Scene, p: Plane): void => {
   const tw = ctx.measureText(title).width
   ctx.font = `400 ${fs * 0.82}px ${UI_FONT}`
   ctx.fillStyle = "#8d96a8"
-  ctx.fillText(planeSubtitle(ctx, p, s - tw - fs), x + tw + fs * 0.5, ty)
+  const sub = planeSubtitle(ctx, p, s - tw - fs)
+  ctx.fillText(sub, x + tw + fs * 0.5, ty)
+  // The title is clickable, like block headers: it shows the whole plane.
+  const w = tw + (sub ? fs * 0.5 + ctx.measureText(sub).width : 0)
+  const [name] = planeName(p)
+  sc.st.headerHits.push({
+    r: { x, y: ty - fs, w, h: fs * 1.3 },
+    s: p << 16,
+    e: (p << 16) | 0xffff,
+    name: `Plane ${p}: ${name}`,
+    plane: p
+  })
 }

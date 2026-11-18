@@ -144,7 +144,6 @@ export const renderHeaders = (sc: Scene, fv: FrameView, sectionA: number, axisA:
     placed: [],
     blockHeaderEnd: new Map()
   }
-  sc.st.headerHits = []
   blockHeaders(sc, fv, lay)
   if (sectionA > 0.01) sectionHeaders(sc, fv, lay, sectionA)
   sc.ctx.globalAlpha = 1

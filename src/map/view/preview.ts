@@ -1,6 +1,6 @@
 import { rangeRect, type Rect } from "../layout"
 import { outlinePath } from "./geometry"
-import type { CodePoint } from "../../units"
+import type { CodePoint, Plane } from "../../units"
 
 /** A range pointed out on the map, as given by the caller. */
 export interface PreviewRange {
@@ -30,4 +30,6 @@ export interface HeaderHit {
   s: CodePoint
   e: CodePoint
   name: string
+  /** Set for a plane's title: clicking it shows the whole plane. */
+  plane?: Plane
 }

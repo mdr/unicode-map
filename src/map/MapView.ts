@@ -1,6 +1,6 @@
 import { type UnicodeData, uplus } from "../data/unicode"
 import type { ColorMode } from "./colorModes"
-import { cellToCp, cpToCell, type Rect, WORLD } from "./layout"
+import { cellToCp, cpToCell, planeRect, type Rect, WORLD } from "./layout"
 import { PlaneBitmaps } from "./view/bitmaps"
 import { type CameraMotion, flight, slide } from "./view/cameraMotion"
 import { AXIS_LEFT, clamp, READ_K } from "./view/constants"
@@ -420,7 +420,15 @@ export class MapView {
   private clickAt(x: number, y: number): void {
     if (this.st.pure) return
     const hit = this.headerAt(x, y)
-    // Clicking a block or section header takes you to it.
+    // Clicking a plane's title shows the whole plane; a block or section header takes you to it.
+    if (hit?.plane !== undefined) {
+      // The title's hover outline would be left behind, in the wrong place, as the view flies.
+      this.st.headerHover = false
+      this.setPreview(undefined)
+      this.clearPinned()
+      this.flyToRect(planeRect(hit.plane), { pad: 1.08 })
+      return
+    }
     if (hit) {
       this.showRange(hit.s, hit.e)
       return

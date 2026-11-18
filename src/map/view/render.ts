@@ -77,6 +77,8 @@ const renderCellLayers = (sc: Scene, fv: FrameView): number => {
 /** The normal view, with colour, outlines, labels and chrome. */
 const renderNormal = (sc: Scene, fv: FrameView): void => {
   const k = sc.vp.cam.k
+  // Clickable titles and headers, collected afresh as they're drawn.
+  sc.st.headerHits = []
   const cardT = renderCellLayers(sc, fv)
   // Section dividers and block outlines
   const sectionA = smooth(SECTION_START, SECTION_START * 1.15, k)
