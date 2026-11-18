@@ -89,8 +89,26 @@ export class GlyphTiles {
     if (!missing.length) return
     missing.sort((a, b) => a.d - b.d)
     // Pre-built tiles: fetch the nearest few at a time; the browser decodes them off-thread.
-    if (this.staticTiles && level.prebuilt) this.fetchTiles(this.staticTiles, level, missing)
-    else this.buildTiles(level, missing)
+    if (this.staticTiles && level.prebuilt) {
+      // An interpretation's tiles missing from the files (built before it was) are drawn here.
+      const live = this.fetchTiles(this.staticTiles, level, missing)
+      if (live.length) this.buildTiles(level, live)
+    } else this.buildTiles(level, missing)
+  }
+
+  /** A tile's file: the interpretation's own where it gives private-use code points glyphs. */
+  private tileFile(level: GlyphLevel, t: MissingTile): string {
+    const id = this.data.interpretation?.id
+    const dir = id && this.interpreted(t, level.span) ? `${id}/` : ""
+    return `${dir}${level.res}/${t.p}/${t.ty}-${t.tx}`
+  }
+
+  /** Whether a tile has rows with characters from the interpretation of the Private Use Areas in effect. */
+  private interpreted(t: MissingTile, span: number): boolean {
+    const rows = this.data.interpretedRows
+    if (!rows.size) return false
+    for (let y = t.ty * span; y < (t.ty + 1) * span; y++) if (rows.has((t.p << 8) | y)) return true
+    return false
   }
 
   private drawPlane(
@@ -195,17 +213,21 @@ export class GlyphTiles {
     return true
   }
 
-  private fetchTiles(staticTiles: Set<string>, level: GlyphLevel, missing: MissingTile[]): void {
+  /** Fetch tiles' files, nearest first; returns the interpretation's tiles that have none. */
+  private fetchTiles(staticTiles: Set<string>, level: GlyphLevel, missing: MissingTile[]): MissingTile[] {
+    const live: MissingTile[] = []
     for (const t of missing) {
       if (this.loads.has(t.key)) continue
-      if (!staticTiles.has(`${level.res}/${t.p}/${t.ty}-${t.tx}`)) {
-        this.store(t.key, undefined)
+      const file = this.tileFile(level, t)
+      if (!staticTiles.has(file)) {
+        if (this.interpreted(t, level.span)) live.push(t)
+        else this.store(t.key, undefined)
         continue
       }
       if (this.loads.size >= GLYPH_TILE_LOADS) break
       this.loads.add(t.key)
       const img = new Image()
-      img.src = `./tiles/${level.res}/${t.p}/${t.ty}-${t.tx}.webp?v=${this.staticTilesVersion}`
+      img.src = `./tiles/${file}.webp?v=${this.staticTilesVersion}`
       img
         .decode()
         .then(
@@ -217,6 +239,7 @@ export class GlyphTiles {
           this.invalidate()
         })
     }
+    return live
   }
 
   /** Draw missing tiles here, nearest the centre first, for a few milliseconds per frame. */

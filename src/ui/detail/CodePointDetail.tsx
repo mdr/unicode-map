@@ -10,6 +10,7 @@ import { WhereItLives } from "./WhereItLives"
 import { NamesNotes } from "./NamesNotes"
 import { RelatedCharacters } from "./RelatedCharacters"
 import { Properties } from "./Properties"
+import { PrivateUse } from "./PrivateUse"
 import type { DetailProps } from "./detailProps"
 import type { CodePoint } from "../../units"
 
@@ -21,7 +22,8 @@ export const CodePointDetail = ({
   onBlock,
   onPlane,
   onClose,
-  onChart
+  onChart,
+  onInterpretation
 }: DetailProps & { cp: CodePoint }) => {
   // Loaded for this code point; a code point can have no detail entry at all.
   const [loaded, setLoaded] = useState<{ cp: CodePoint; detail: Detail | undefined }>()
@@ -45,6 +47,7 @@ export const CodePointDetail = ({
     <div className="detail-scroll" key={cp}>
       <CharacterHero data={data} mode={mode} cp={cp} detail={d} onSelect={onSelect} onClose={onClose} />
       {!assigned && <Unassigned data={data} cp={cp} />}
+      {gc.code === "Co" && <PrivateUse data={data} cp={cp} onInterpretation={onInterpretation} />}
       {assigned && <CharAboutCard cp={cp} />}
       <WhereItLives data={data} cp={cp} detail={d} onPlane={onPlane} onBlock={onBlock} onChart={onChart} />
       {(assigned || block) && (

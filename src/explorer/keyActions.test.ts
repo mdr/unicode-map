@@ -23,6 +23,10 @@ describe("keyAction", () => {
     expect(keyAction("ArrowRight", true, chart)).toMatchObject({ assignedOnly: false })
   })
 
+  test("i cycles the interpretation of the Private Use Areas", () => {
+    expect(keyAction("i", false, map)).toEqual({ type: KeyActionType.NEXT_INTERPRETATION })
+  })
+
   test("number keys pick a colour mode", () => {
     expect(keyAction("2", false, map)).toEqual({ type: KeyActionType.MODE, index: 1 })
     expect(keyAction("6", false, map)).toBeUndefined()

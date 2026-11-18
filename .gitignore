@@ -6,6 +6,7 @@ result-*
 public/data/
 public/tiles/
 public/fonts
+public/fonts-pua
 .cache/
 # generated CSS module declarations
 *.module.css.d.ts

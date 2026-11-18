@@ -14,6 +14,8 @@ export interface UrlState {
   pure?: boolean
   /** Chart view: the start of the block shown as a code chart. */
   chart?: number
+  /** Interpretation of the Private Use Areas, e.g. "conscript", or "none"; left out for the default. */
+  pua?: string
 }
 
 // How each colour mode is written in the URL; region, the default, is left out.
@@ -51,6 +53,7 @@ const PARAMETERS: Record<string, (value: string) => Partial<UrlState>> = {
   prop: (value) => ({ prop: value }),
   asof: (value) => ({ asOf: value }),
   chart: (value) => (HEX.test(value) ? { chart: parseInt(value, 16) } : {}),
+  pua: (value) => ({ pua: value }),
   view: parseView
 }
 
@@ -77,6 +80,7 @@ export const formatHash = (s: UrlState): string => {
   if (s.asOf) parts.push(`asof=${s.asOf}`)
   if (s.pure) parts.push("pure")
   if (s.chart !== undefined) parts.push("chart=" + hex(s.chart))
+  if (s.pua) parts.push(`pua=${s.pua}`)
   if (s.view) parts.push(`view=${s.view.cx.toFixed(1)},${s.view.cy.toFixed(1)},${+s.view.k.toPrecision(3)}`)
   return parts.join("&")
 }

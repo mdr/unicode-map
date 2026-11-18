@@ -67,6 +67,15 @@ pure view draws them in the browser instead, which is slower to fill in.
     maps supplementary planes only through a format 13 subtable, which Firefox ignores, so
     Firefox drew its own hex boxes instead.
   - `coverage.json`: assigned characters that no Noto font covers.
+- **`scripts/build_pua.py`** (run by `pnpm data` too) builds interpretations of the Private Use
+  Areas, which Unicode leaves without meaning. For now there's one, ConScript: the
+  Under-ConScript Unicode Registry, where constructed and fictional scripts (Tengwar, Klingon,
+  Toki Pona's sitelen pona…) get agreed code points. Its names, categories and blocks come from
+  Kreative Software's PUA data (`PUA_DATA_DIR`), and its fonts (`PUA_FONTS_DIR`) are a separate
+  set, so they can't change how standard characters are drawn: nasin-nanpa for sitelen pona,
+  then Constructium, Fairfax HD and Unifont. Choosing it, from a private-use character's detail
+  panel, lays it over the data (`pua=conscript` in the URL): names, glyphs, search, and its
+  blocks as sections.
 - **`src/map/MapView.ts`** is the canvas renderer, with its drawing, labels, glyph tiles and
   input in `src/map/view/`. Each plane is a 256×256 bitmap, scaled
   up, at low zoom. Grid lines fade in as you zoom, then cards with glyphs, code points and
@@ -91,7 +100,8 @@ pure view draws them in the browser instead, which is slower to fill in.
   they're recoloured with each cell's ink, dark or light to suit its colour as on the cards,
   from a per-plane ink bitmap that also fades dimmed characters and hides ones newer than the
   timeline's version.
-- **`scripts/build_tiles.ts`** pre-builds those tiles.
+- **`scripts/build_tiles.ts`** pre-builds those tiles, plus each interpretation's own copies of
+  the few tiles with characters it gives glyphs to (`public/tiles/<id>/`).
 - **`scripts/build_about.ts`** fetches short descriptions of scripts and blocks from English
   Wikipedia into `src/data/about.json`, which is committed so builds never contact Wikipedia.
   Scripts are matched to articles through Wikidata (ISO 15924 code to article), blocks through

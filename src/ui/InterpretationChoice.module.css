@@ -1,0 +1,27 @@
+.choices {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  margin-bottom: 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+}
+
+.choices button {
+  flex: 1;
+  padding: 5px 8px;
+  border-radius: 6px;
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 12px;
+}
+
+.choices button:hover {
+  color: var(--text);
+  background: var(--hover);
+}
+
+.choices button:global(.on) {
+  background: rgba(124, 180, 255, 0.16);
+  color: var(--text);
+}

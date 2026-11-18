@@ -196,7 +196,7 @@ code {
   flex-direction: column;
   gap: 4px;
 }
-.map-controls button {
+.map-controls > button {
   width: 34px;
   height: 34px;
   border-radius: 8px;
@@ -205,16 +205,16 @@ code {
   font-size: 17px;
   color: var(--muted);
 }
-.map-controls button:hover {
+.map-controls > button:hover {
   color: var(--text);
   background: var(--panel-solid);
 }
-.map-controls button {
+.map-controls > button {
   display: flex;
   align-items: center;
   justify-content: center;
 }
-.map-controls button.on {
+.map-controls > button.on {
   color: var(--text);
   border-color: rgba(124, 180, 255, 0.55);
   background: rgba(40, 62, 98, 0.9);
@@ -227,7 +227,8 @@ code {
   transition: opacity 0.2s;
 }
 .map-controls:hover,
-.map-controls:focus-within {
+.map-controls:focus-within,
+.map-controls.settings-open {
   opacity: 1;
 }
 .map-area.moving .legend,

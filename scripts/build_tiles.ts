@@ -1,5 +1,6 @@
 // Pre-builds pure view's glyph tiles as WebP files in public/tiles, so the map can fetch them
-// instead of drawing every glyph in the browser.
+// instead of drawing every glyph in the browser. Each interpretation of the Private Use Areas
+// gets its own few tiles too, in public/tiles/<id>/: those with characters it interprets.
 //
 // The tiles are drawn by the app itself, in headless Chrome, with the same fonts and code as the
 // live rendering, so the two match exactly. Run after `pnpm data`:
@@ -40,13 +41,21 @@ interface DrawnTile {
   fontsTimedOut: boolean
 }
 
-/** Write a drawn tile to its file; returns its name ("res/plane/ty-tx") and contents. */
-const writeTile = (res: number, { p, ty, tx, b64, fontsTimedOut }: DrawnTile): { name: string; buf: Buffer } => {
-  if (fontsTimedOut) console.warn(`  fonts didn't load for ${res}/${p}/${ty}-${tx}; drawn anyway`)
+/**
+ * Write a drawn tile to its file; returns its name ("res/plane/ty-tx", or "id/res/plane/ty-tx"
+ * for an interpretation's) and contents.
+ */
+const writeTile = (
+  dir: string,
+  res: number,
+  { p, ty, tx, b64, fontsTimedOut }: DrawnTile
+): { name: string; buf: Buffer } => {
+  const name = `${dir}${res}/${p}/${ty}-${tx}`
+  if (fontsTimedOut) console.warn(`  fonts didn't load for ${name}; drawn anyway`)
   const buf = Buffer.from(b64, "base64")
-  mkdirSync(join(OUT, `${res}`, `${p}`), { recursive: true })
-  writeFileSync(join(OUT, `${res}`, `${p}`, `${ty}-${tx}.webp`), buf)
-  return { name: `${res}/${p}/${ty}-${tx}`, buf }
+  mkdirSync(join(OUT, `${dir}${res}`, `${p}`), { recursive: true })
+  writeFileSync(join(OUT, `${name}.webp`), buf)
+  return { name, buf }
 }
 
 // --- Serve the app and open it in headless Chrome -------------------------------------------
@@ -138,7 +147,8 @@ const cleanup = async (): Promise<void> => {
 }
 
 try {
-  await send("Page.navigate", { url: `${appUrl}#pure` })
+  // Without an interpretation: the standard tiles are drawn first, from the data as it is.
+  await send("Page.navigate", { url: `${appUrl}#pure&pua=none` })
   for (let i = 0; i < 300; i++) {
     if (await run("!!window.__view").catch(() => false)) break
     await sleep(100)
@@ -147,7 +157,12 @@ try {
   // Helpers in the page: list a level's non-empty tiles, and draw and encode a batch of them.
   await run(`(async () => {
     const { GLYPH_LEVELS } = await import("/src/map/view/glyphLevels.ts");
-    const v = window.__view, data = v.data;
+    const { buildGlyphTile } = await import("/src/map/view/glyphTileDraw.ts");
+    const { RowFonts } = await import("/src/map/view/fonts.ts");
+    const { INTERPRETATIONS, interpret } = await import("/src/data/interpretations.ts");
+    const v = window.__view, base = v.data;
+    // The data being drawn: as it is, or with an interpretation of the Private Use Areas.
+    let data = base, fonts = new RowFonts(base, () => {});
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const toB64 = (c) => new Promise((r) => c.toBlob((b) => {
       const fr = new FileReader();
@@ -156,10 +171,21 @@ try {
     }, "image/webp", 1));  // quality 1: lossless
     window.__tiles = {
       levels: () => GLYPH_LEVELS.filter((l) => l.prebuilt),
+      interpretations: () => INTERPRETATIONS.map((i) => i.id),
+      async use(id) {
+        data = await interpret(base, id);
+        fonts = new RowFonts(data, () => {});
+      },
       list(span) {
         const out = [], n = 256 / span;
         for (let p = 0; p < 17; p++) for (let ty = 0; ty < n; ty++) for (let tx = 0; tx < n; tx++) {
           let any = false;
+          // With an interpretation, only the tiles with rows it gives characters to.
+          if (data !== base) {
+            for (let y = 0; y < span; y++) if (data.interpretedRows.has((p << 8) | (ty * span + y))) any = true;
+            if (any) out.push([p, ty, tx]);
+            continue;
+          }
           for (let y = 0; y < span && !any; y++) for (let x = 0; x < span && !any; x++) {
             // Anything assigned draws something: a glyph, or a placeholder for one with none.
             if (data.isAssigned((p << 16) | ((ty * span + y) << 8) | (tx * span + x))) any = true;
@@ -172,8 +198,8 @@ try {
         const out = [];
         for (const [p, ty, tx] of batch) {
           let t = 0;
-          while (!v.tileFontsReady(p, ty * span, span) && t++ < 600) await sleep(25);
-          const c = v.buildGlyphTile(p, ty, tx, res, span);
+          while (!fonts.tilesReady(p, ty * span, span) && t++ < 600) await sleep(25);
+          const c = buildGlyphTile(data, p, ty, tx, res, span);
           if (c) out.push({ p, ty, tx, b64: await toB64(c), fontsTimedOut: t > 600 });
         }
         return out;
@@ -186,25 +212,34 @@ try {
   const hash = createHash("sha256")
   const names: string[] = []
   let bytes = 0
-  for (const { res, span } of (await run("window.__tiles.levels()")) as { res: number; span: number }[]) {
-    const tiles = (await run(`window.__tiles.list(${span})`)) as TilePosition[]
-    let levelBytes = 0
-    for (let i = 0; i < tiles.length; i += BATCH) {
-      const done = (await run(
-        `window.__tiles.render(${res}, ${span}, ${JSON.stringify(tiles.slice(i, i + BATCH))})`
-      )) as DrawnTile[]
-      for (const tile of done) {
-        const { name, buf } = writeTile(res, tile)
-        names.push(name)
-        hash.update(name).update(buf)
-        levelBytes += buf.length
+  const levels = (await run("window.__tiles.levels()")) as { res: number; span: number }[]
+  /** Draw and write every level's tiles, for the data as it is or with an interpretation (`dir` "id/"). */
+  const buildLevels = async (dir: string): Promise<void> => {
+    for (const { res, span } of levels) {
+      const tiles = (await run(`window.__tiles.list(${span})`)) as TilePosition[]
+      let levelBytes = 0
+      for (let i = 0; i < tiles.length; i += BATCH) {
+        const done = (await run(
+          `window.__tiles.render(${res}, ${span}, ${JSON.stringify(tiles.slice(i, i + BATCH))})`
+        )) as DrawnTile[]
+        for (const tile of done) {
+          const { name, buf } = writeTile(dir, res, tile)
+          names.push(name)
+          hash.update(name).update(buf)
+          levelBytes += buf.length
+        }
+        process.stdout.write(`\r  ${dir}${res}px: ${Math.min(i + BATCH, tiles.length)}/${tiles.length} tiles`)
       }
-      process.stdout.write(`\r  ${res}px: ${Math.min(i + BATCH, tiles.length)}/${tiles.length} tiles`)
+      bytes += levelBytes
+      console.log(
+        `\r  ${dir}${res}px (${span}×${span} code points per tile): ${tiles.length} tiles, ${(levelBytes / 1e6).toFixed(1)} MB`
+      )
     }
-    bytes += levelBytes
-    console.log(
-      `\r  ${res}px (${span}×${span} code points per tile): ${tiles.length} tiles, ${(levelBytes / 1e6).toFixed(1)} MB`
-    )
+  }
+  await buildLevels("")
+  for (const id of (await run("window.__tiles.interpretations()")) as string[]) {
+    await run(`window.__tiles.use(${JSON.stringify(id)})`)
+    await buildLevels(`${id}/`)
   }
   const version = hash.digest("hex").slice(0, 12)
   writeFileSync(join(OUT, "manifest.json"), JSON.stringify({ version, tiles: names }))

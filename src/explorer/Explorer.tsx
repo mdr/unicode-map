@@ -17,12 +17,20 @@ import { ChartView } from "../ui/chart/ChartView"
 import { loadProps, maskOf, type PropOption } from "../data/props"
 import { KeyActionType, type SimpleAction } from "./keyActions"
 import { MapControls } from "./MapControls"
+import { interpretationToUrl, nextInterpretation } from "../data/interpretations"
 import { neighbourBlock, stepCodePoint } from "./navigation"
 import { useKeyboard } from "./useKeyboard"
 import type { CodePoint, Plane, BlockIndex } from "../units"
 import styles from "./Explorer.module.css"
 
-export const Explorer = ({ data }: { data: UnicodeData }) => {
+export const Explorer = ({
+  data,
+  onInterpretation
+}: {
+  data: UnicodeData
+  /** Choose an interpretation of the Private Use Areas; the explorer restarts with it. */
+  onInterpretation: (id: string | undefined) => void
+}) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const viewRef = useRef<MapView>(undefined)
   const initial = useMemo(() => readHash(), [])
@@ -169,8 +177,15 @@ export const Explorer = ({ data }: { data: UnicodeData }) => {
     prop: prop?.key,
     asOf: asOf !== undefined ? data.meta.ages[asOf] : undefined,
     pure,
-    chart: chart ? data.blockAt(chart.block).s : undefined
+    chart: chart ? data.blockAt(chart.block).s : undefined,
+    pua: interpretationToUrl(data.interpretation?.id)
   })
+  /** Put the view in the URL with the new interpretation, for the explorer to restart from. */
+  const chooseInterpretation = (id: string | undefined): void => {
+    const pua = interpretationToUrl(id)
+    writeHash({ cp: selected, mode: modeId, view: viewRef.current?.camera, ...extras(), pua }, false)
+    onInterpretation(id)
+  }
   useEffect(() => {
     writeHash({ cp: selected, mode: modeId, view: camera, ...extras() }, false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -289,6 +304,7 @@ export const Explorer = ({ data }: { data: UnicodeData }) => {
     [KeyActionType.ENTER_PURE]: () => setPure(true),
     [KeyActionType.LEAVE_PURE]: () => setPure(false),
     [KeyActionType.TOGGLE_GLYPH_TEXTURE]: () => setGlyphTexture((g) => !g),
+    [KeyActionType.NEXT_INTERPRETATION]: () => chooseInterpretation(nextInterpretation(data.interpretation?.id)),
     [KeyActionType.OPEN_PROPERTIES]: () => document.querySelector<HTMLElement>(".pf-open")?.click(),
     [KeyActionType.FOCUS_SEARCH]: () => document.getElementById("search-input")?.focus()
   }
@@ -346,6 +362,10 @@ export const Explorer = ({ data }: { data: UnicodeData }) => {
           onTimeline={toggleTimeline}
           onPure={() => setPure(true)}
           onHelp={() => setHelp(true)}
+          interpretation={data.interpretation?.id}
+          onInterpretation={chooseInterpretation}
+          glyphTexture={glyphTexture}
+          onGlyphTexture={setGlyphTexture}
         />
         {asOf !== undefined && (
           <Timeline data={data} value={asOf} onChange={setAsOf} onClose={() => setAsOf(undefined)} />
@@ -386,6 +406,7 @@ export const Explorer = ({ data }: { data: UnicodeData }) => {
         onRange={flyToRange}
         onChart={openChart}
         chartBlock={chart?.block}
+        onInterpretation={chooseInterpretation}
         onClose={() => select(undefined)}
       />
     </div>

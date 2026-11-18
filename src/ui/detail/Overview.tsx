@@ -3,10 +3,21 @@ import { hex, MAX_CP, planeName } from "../../data/unicode"
 import { AboutCards, blockScript } from "../About"
 import { Section } from "./Rows"
 import { ChartIcon } from "./ChartIcon"
+import { PrivateUse } from "./PrivateUse"
 import type { DetailProps } from "./detailProps"
 import styles from "./detail.module.css"
 
-export const Overview = ({ data, here, onPlane, onBlock, onPreview, onRange, onChart, chartBlock }: DetailProps) => {
+export const Overview = ({
+  data,
+  here,
+  onPlane,
+  onBlock,
+  onPreview,
+  onRange,
+  onChart,
+  chartBlock,
+  onInterpretation
+}: DetailProps) => {
   const planeStats = useMemo(
     () =>
       Array.from({ length: 17 }, (_, p) => {
@@ -156,12 +167,20 @@ export const Overview = ({ data, here, onPlane, onBlock, onPreview, onRange, onC
                       <AboutCards data={data} script={blockScript(data, i)} block={i} />
                     </div>
                   ) : undefined
+                // The private-use block you're in offers a choice of how to show its characters.
+                const pua =
+                  i === currentBlock && data.gc(data.blockAt(i).s).code === "Co" ? (
+                    <div key={`p${i}`} className={styles.blockAbout}>
+                      <PrivateUse data={data} onInterpretation={onInterpretation} />
+                    </div>
+                  ) : undefined
                 // The block you're in opens up into its chart sections.
                 const secs = i === currentBlock ? sectionsByBlock.get(i) : undefined
-                if (!secs) return about ? [row, about] : [row]
+                if (!secs) return [row, ...(about ? [about] : []), ...(pua ? [pua] : [])]
                 return [
                   row,
                   ...(about ? [about] : []),
+                  ...(pua ? [pua] : []),
                   <div
                     key={`s${i}`}
                     className={styles.sectionList}

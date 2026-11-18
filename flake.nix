@@ -122,16 +122,19 @@
                 install -Dm644 $2 $out/share/doc/alari-xuwasun-jurchen/OFL.txt
               '';
             };
-          # Fairfax HD (OFL-1.1), by Kreative Software: the 51 Latin Extended-G letters added in
-          # Unicode 18. nixpkgs' release predates them. Cut down to that block, so it fills only
-          # that gap and browsers load a few kilobytes rather than 3 MB.
+          # Kreative Software's open-relay fonts (OFL-1.1), at a pinned commit: Fairfax HD and
+          # Constructium. nixpkgs' releases predate Unicode 18.
+          openRelay = "https://raw.githubusercontent.com/kreativekorp/open-relay/3fd892de31bb7903e736ba53ee2b5c3e923b2882";
+          fairfax-hd-ttf = pkgs.fetchurl {
+            url = "${openRelay}/FairfaxHD/FairfaxHD.ttf";
+            hash = "sha256-jtXIT6UP0C8UUCbaUiswUZsWNyIjctG0e3Ic0CH8ec4=";
+          };
+          # Fairfax HD 2026.09.21: the 51 Latin Extended-G letters added in Unicode 18. Cut down to
+          # that block, so it fills only that gap and browsers load a few kilobytes rather than 3 MB.
           fairfax-hd-latin-g = pkgs.stdenvNoCC.mkDerivation {
             pname = "fairfax-hd-latin-extended-g";
             version = "2026.09.21";
-            src = pkgs.fetchurl {
-              url = "https://raw.githubusercontent.com/kreativekorp/open-relay/3fd892de31bb7903e736ba53ee2b5c3e923b2882/FairfaxHD/FairfaxHD.ttf";
-              hash = "sha256-jtXIT6UP0C8UUCbaUiswUZsWNyIjctG0e3Ic0CH8ec4=";
-            };
+            src = fairfax-hd-ttf;
             dontUnpack = true;
             nativeBuildInputs = [ python ];
             buildPhase = ''
@@ -141,6 +144,47 @@
               install -Dm644 FairfaxHD.ttf $out/share/fonts/truetype/FairfaxHD.ttf
             '';
           };
+
+          # Private use: interpretations of the Private Use Areas, which the map can show in place of
+          # blank private-use cells (see scripts/build_pua.py).
+          # Kreative's PUA data: UnicodeData-style files for the Under-ConScript Unicode Registry
+          # (constructed and fictional scripts: Tengwar, Klingon, sitelen pona…) and others.
+          puadata = pkgs.fetchFromGitHub {
+            owner = "kreativekorp";
+            repo = "charset";
+            rev = "0b460f68b414d6dbf793ed4fe75d6d43c12d161b";
+            hash = "sha256-EW8mo/CNPmMlzWNxJ1IhoYJhLvkKRGpu8ix5SJcMM28=";
+          };
+          # Fonts for the ConScript interpretation, in the order they're preferred: sitelen pona's
+          # own font, then Kreative's Constructium and Fairfax HD (cut down to the Private Use
+          # Areas), then Unifont's pixel glyphs for the rest. Not part of the main font set, so
+          # they can't change how any standard character is drawn.
+          pua-fonts = pkgs.runCommand "unicode-map-pua-fonts" { nativeBuildInputs = [ python ]; } ''
+            mkdir -p $out
+            # nasin-nanpa (MIT), by ETBCOR: sitelen pona, Toki Pona's script
+            cp ${
+              pkgs.fetchurl {
+                url = "https://github.com/etbcor/nasin-nanpa/releases/download/n4.0.2/nasin-nanpa-4.0.2-UCSUR.otf";
+                hash = "sha256-9DkY7wbB22IFsIAAgyg8gYALpkfROKzzc5AhpYKt6oI=";
+              }
+            } $out/nasin-nanpa.otf
+            cp ${
+              pkgs.fetchurl {
+                url = "https://raw.githubusercontent.com/etbcor/nasin-nanpa/n4.0.2/LICENSE";
+                hash = "sha256-K7E6eV0df23wKI4ijynkJQ5qDpsR+QBEpzfMAkAC1qs=";
+              }
+            } $out/nasin-nanpa-LICENSE.txt
+            cp ${
+              pkgs.fetchurl {
+                url = "${openRelay}/Constructium/Constructium.ttf";
+                hash = "sha256-zjfa+ON18MwMaFhRYh89E5pusFRnN0zQ7bqhNkToJIU=";
+              }
+            } $out/Constructium.ttf
+            pyftsubset ${fairfax-hd-ttf} --unicodes=U+E000-F8FF,U+F0000-FFFFD,U+100000-10FFFD \
+              --layout-features='*' --output-file=$out/FairfaxHD-PUA.ttf
+            cp ${pkgs.unifont}/share/fonts/opentype/unifont/unifont_csur.otf $out/
+            chmod 644 $out/*
+          '';
           # Web-servable font set: one regular face per Noto family, single faces extracted
           # from the CJK collections, Noto Color Emoji, and Last Resort as the final fallback.
           # Also writes manifest.json with each font's cmap coverage.
@@ -219,6 +263,8 @@
               CONFUSABLES = p.confusables;
               CLDR_DIR = p.cldr;
               FONTS_DIR = p.fonts;
+              PUA_DATA_DIR = "${p.puadata}/puadata";
+              PUA_FONTS_DIR = p.pua-fonts;
               shellHook = ''
                 echo "unicode-map dev shell — Unicode ${unicodeVersion}"
                 echo "  task --list    # what can be run"

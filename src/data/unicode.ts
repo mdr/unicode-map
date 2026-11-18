@@ -48,6 +48,33 @@ interface Meta {
   fontsWithDottedCircle: number[]
 }
 
+/**
+ * An interpretation of the Private Use Areas (see scripts/build_pua.py): names, general categories
+ * and fonts for private-use code points, which Unicode itself leaves without meaning.
+ */
+export interface Interpretation {
+  id: string
+  name: string
+  /** The registry it comes from, and its web page. */
+  source: string
+  url: string
+  fonts: { family: string; file: string }[]
+  /** The registry's blocks, shown as sections within Unicode's private-use blocks. */
+  blocks: [number, number, string][]
+  /** [code point, name, general category, index into fonts or -1]. */
+  chars: [number, string, string, number][]
+}
+
+/** A private-use code point as an interpretation has it. */
+export interface InterpretedChar {
+  name: string
+  gc: string
+  font: number
+}
+
+/** The CSS font family for an interpretation's nth font. */
+export const interpretationFamily = (interp: Interpretation, n: number): string => `"UMapPua-${interp.id}-${n}"`
+
 export interface Detail {
   ccc?: number
   decomp?: { type: string; cps: number[] }
@@ -153,6 +180,11 @@ export class UnicodeData {
   readonly gcCn: number
   readonly gcCo: number
   readonly gcCs: number
+  /** The interpretation of the Private Use Areas in effect, if any (see withInterpretation). */
+  readonly interpretation: Interpretation | undefined = undefined
+  private readonly interpreted = new Map<number, InterpretedChar>()
+  /** Rows of 256 code points (cp >> 8) with interpreted characters. */
+  readonly interpretedRows = new Set<number>()
 
   constructor(meta: Meta, namesTxt: string) {
     this.meta = meta
@@ -186,6 +218,28 @@ export class UnicodeData {
     return new UnicodeData(meta, names)
   }
 
+  /**
+   * The same data, with an interpretation of the Private Use Areas laid over it: its characters'
+   * names, glyphs and search entries, and its blocks as sections. Shares everything else.
+   */
+  withInterpretation(interp: Interpretation): UnicodeData {
+    const interpreted = new Map(interp.chars.map(([cp, name, gc, font]) => [cp, { name, gc, font }]))
+    const sections = [...this.meta.sections, ...interp.blocks].sort((a, b) => a[0] - b[0])
+    const extra = interp.chars.map(([cp, name]) => ({ cp, text: name.toLowerCase() }))
+    return Object.assign(Object.create(UnicodeData.prototype) as UnicodeData, this, {
+      meta: { ...this.meta, sections },
+      searchEntries: [...this.searchEntries, ...extra],
+      interpretation: interp,
+      interpreted,
+      interpretedRows: new Set(interp.chars.map(([cp]) => cp >> 8))
+    })
+  }
+
+  /** A private-use code point as the interpretation in effect has it. */
+  interpretedChar(cp: CodePoint): InterpretedChar | undefined {
+    return this.interpreted.get(cp)
+  }
+
   isAssigned(cp: CodePoint): boolean {
     return this.gcIdx[cp] !== this.gcCn
   }
@@ -216,7 +270,7 @@ export class UnicodeData {
 
   /** Official character name, or a descriptive label for code points without one. */
   name(cp: CodePoint): string {
-    const n = this.names.get(cp)
+    const n = this.names.get(cp) ?? this.interpreted.get(cp)?.name
     if (n) return n
     for (const [a, b, prefix] of this.meta.nameRanges) {
       if (cp >= a && cp <= b) return prefix + hex(cp)
@@ -262,6 +316,9 @@ export class UnicodeData {
 
   /** CSS font-family list for drawing a code point. */
   glyphFamily(cp: CodePoint): string {
+    const ic = this.interpreted.get(cp)
+    if (this.interpretation && ic)
+      return ic.font < 0 ? LAST_RESORT : `${interpretationFamily(this.interpretation, ic.font)}, ${LAST_RESORT}`
     const f = this.fontOf(cp)
     return f === undefined ? LAST_RESORT : `"UMapF${f}", ${LAST_RESORT}`
   }
@@ -271,6 +328,7 @@ export class UnicodeData {
    * for the few fonts without one, a no-break space.
    */
   markBase(cp: CodePoint): string {
+    if (this.interpreted.has(cp)) return "\u00A0"
     const f = this.fontOf(cp)
     return f !== undefined && !this.hasDottedCircle.has(f) ? "\u00A0" : "\u25CC"
   }
@@ -304,7 +362,7 @@ export const uplus = (cp: CodePoint): string => "U+" + hex(cp)
 
 /** The string to draw for a code point (marks get a dotted-circle base). */
 export const displayString = (data: UnicodeData, cp: CodePoint): string | undefined => {
-  const gc = data.gc(cp).code
+  const gc = data.interpretedChar(cp)?.gc ?? data.gc(cp).code
   if (
     gc === "Cn" ||
     gc === "Cs" ||

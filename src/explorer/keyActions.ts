@@ -16,6 +16,7 @@ export enum KeyActionType {
   ENTER_PURE = "ENTER_PURE",
   LEAVE_PURE = "LEAVE_PURE",
   TOGGLE_GLYPH_TEXTURE = "TOGGLE_GLYPH_TEXTURE",
+  NEXT_INTERPRETATION = "NEXT_INTERPRETATION",
   OPEN_PROPERTIES = "OPEN_PROPERTIES",
   FOCUS_SEARCH = "FOCUS_SEARCH",
   MODE = "MODE"
@@ -55,6 +56,7 @@ const SIMPLE_KEYS: Record<string, SimpleAction["type"]> = {
   t: KeyActionType.TOGGLE_TIMELINE,
   z: KeyActionType.ENTER_PURE,
   g: KeyActionType.TOGGLE_GLYPH_TEXTURE,
+  i: KeyActionType.NEXT_INTERPRETATION,
   p: KeyActionType.OPEN_PROPERTIES,
   "/": KeyActionType.FOCUS_SEARCH
 }

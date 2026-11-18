@@ -17,6 +17,7 @@ const KEYS: [string, string][] = [
   ["p", "Highlight characters with a property"],
   ["z", "Pure view: just the characters"],
   ["g", "Glyph texture when zoomed out, on or off"],
+  ["i", "Private use: next interpretation (ConScript, none)"],
   ["/", "Search"],
   ["Esc", "Clear selection"]
 ]

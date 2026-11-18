@@ -434,3 +434,11 @@
   color: var(--text);
   background: rgba(124, 180, 255, 0.18);
 }
+
+/* Private use: what it means, and a choice of interpretation. */
+.puaNote {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+}

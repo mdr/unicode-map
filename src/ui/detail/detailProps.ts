@@ -20,4 +20,6 @@ export interface DetailProps {
   onChart: (block: BlockIndex) => void
   /** The block whose chart is open, if any. */
   chartBlock: number | undefined
+  /** Choose an interpretation of the Private Use Areas (undefined for none). */
+  onInterpretation: (id: string | undefined) => void
 }

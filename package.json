@@ -8,7 +8,7 @@
     "pnpm": "11.x"
   },
   "scripts": {
-    "data": "python3 scripts/build_data.py",
+    "data": "python3 scripts/build_data.py && python3 scripts/build_pua.py",
     "tiles": "node scripts/build_tiles.ts",
     "about": "node scripts/build_about.ts",
     "dev": "vp dev",
