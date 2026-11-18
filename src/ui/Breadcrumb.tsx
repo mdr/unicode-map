@@ -1,4 +1,5 @@
 import { planeName, uplus, type UnicodeData } from "../data/unicode"
+import { RangeKind, type RangeSelection } from "../data/ranges"
 import type { Here } from "../map/MapView"
 import type { CodePoint, Plane, BlockIndex } from "../units"
 import styles from "./Breadcrumb.module.css"
@@ -7,6 +8,7 @@ export const Breadcrumb = ({
   data,
   here,
   selected,
+  range,
   onPlane,
   onBlock,
   onOverview,
@@ -16,6 +18,8 @@ export const Breadcrumb = ({
   data: UnicodeData
   here: Here | undefined
   selected: CodePoint | undefined
+  /** A selected plane, block or section: the crumbs go down to it. */
+  range: RangeSelection | undefined
   onPlane: (p: Plane) => void
   onBlock: (i: BlockIndex) => void
   onOverview: () => void
@@ -23,14 +27,14 @@ export const Breadcrumb = ({
   onPreview: (r: { s: CodePoint; e: CodePoint; name: string } | undefined) => void
 }) => {
   // Where are we? The selection if there is one, otherwise the centre of the view (when zoomed in).
-  let cp: CodePoint | undefined = selected
+  let cp: CodePoint | undefined = selected ?? range?.s
   if (cp === undefined && here && here.k > 2.5 && here.cp >= 0) cp = here.cp
   const plane = cp !== undefined ? cp >> 16 : undefined
-  const bi = cp !== undefined ? (data.blockIdx[cp] ?? -1) : -1
+  const bi = cp !== undefined && range?.kind !== RangeKind.PLANE ? (data.blockIdx[cp] ?? -1) : -1
   const block = bi >= 0 ? data.blockAt(bi) : undefined
   // The chart section, once zoomed in far enough to see sections (or with a selection).
-  const section =
-    cp !== undefined && (selected !== undefined || (here?.k ?? 0) > 10) ? data.sectionRange(cp) : undefined
+  const showSection = range ? range.kind === RangeKind.SECTION : selected !== undefined || (here?.k ?? 0) > 10
+  const section = cp !== undefined && showSection ? data.sectionRange(cp) : undefined
   return (
     <nav className={styles.breadcrumb}>
       <button onClick={onOverview}>All planes</button>

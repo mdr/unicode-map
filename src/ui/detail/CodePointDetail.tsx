@@ -13,14 +13,14 @@ import { Properties } from "./Properties"
 import { PrivateUse } from "./PrivateUse"
 import type { DetailProps } from "./detailProps"
 import type { CodePoint } from "../../units"
+import { blockRange, planeRange } from "../../data/ranges"
 
 export const CodePointDetail = ({
   data,
   mode,
   cp,
   onSelect,
-  onBlock,
-  onPlane,
+  onSelectRange,
   onClose,
   onChart,
   onInterpretation
@@ -49,7 +49,14 @@ export const CodePointDetail = ({
       {!assigned && <Unassigned data={data} cp={cp} />}
       {gc.code === "Co" && <PrivateUse data={data} cp={cp} onInterpretation={onInterpretation} />}
       {assigned && <CharAboutCard cp={cp} />}
-      <WhereItLives data={data} cp={cp} detail={d} onPlane={onPlane} onBlock={onBlock} onChart={onChart} />
+      <WhereItLives
+        data={data}
+        cp={cp}
+        detail={d}
+        onPlane={(p) => onSelectRange(planeRange(p))}
+        onBlock={(i) => onSelectRange(blockRange(data, i))}
+        onChart={onChart}
+      />
       {(assigned || block) && (
         <Section title="About">
           <AboutCards
@@ -64,7 +71,7 @@ export const CodePointDetail = ({
       {d.unihan && <Unihan data={data} u={d.unihan} onSelect={onSelect} />}
       <RelatedCharacters data={data} cp={cp} detail={d} onSelect={onSelect} />
       {gc.code !== "Cs" && <Encodings cp={cp} />}
-      {assigned && <Properties data={data} detail={d} loading={loading} />}
+      {assigned && <Properties data={data} cp={cp} detail={d} loading={loading} />}
     </div>
   )
 }

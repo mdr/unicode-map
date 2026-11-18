@@ -18,6 +18,8 @@ import { loadProps, maskOf, type PropOption } from "../data/props"
 import { KeyActionType, type SimpleAction } from "./keyActions"
 import { MapControls } from "./MapControls"
 import { interpretationToUrl, nextInterpretation } from "../data/interpretations"
+import { blockRange, findRange, planeRange, RangeKind, type RangeSelection, sectionRange } from "../data/ranges"
+import { rangeToUrl, showRangeOnMap } from "./rangeSelection"
 import { neighbourBlock, stepCodePoint } from "./navigation"
 import { useKeyboard } from "./useKeyboard"
 import type { CodePoint, Plane, BlockIndex } from "../units"
@@ -36,6 +38,10 @@ export const Explorer = ({
   const initial = useMemo(() => readHash(), [])
   const [modeId, setModeId] = useState<ModeId>(initial.mode ?? ModeId.REGION)
   const [selected, setSelected] = useState<number | undefined>(initial.cp)
+  /** A selected plane, block or section, which the sidebar describes; never with a code point. */
+  const [range, setRange] = useState<RangeSelection | undefined>(() =>
+    initial.cp === undefined && initial.range ? findRange(data, initial.range.kind, initial.range.s) : undefined
+  )
   const [pinned, setPinned] = useState<string[]>([])
   const [preview, setPreview] = useState<string>()
   const [hover, setHover] = useState<{ cp: CodePoint; x: number; y: number }>()
@@ -72,6 +78,7 @@ export const Explorer = ({
     const view = new MapView(canvasRef.current!, data, {
       onHover: (cp, x, y) => setHover(cp >= 0 ? { cp, x, y } : undefined),
       onSelect: (cp) => select(cp, { focus: false }),
+      onSelectRange: (r) => selectRange(r, false),
       onCamera: () => {
         if (camTimer) return
         camTimer = window.setTimeout(() => {
@@ -93,6 +100,7 @@ export const Explorer = ({
       view.setSelected(initial.cp)
       if (!initial.view) view.focusCp(initial.cp, { animate: false })
     }
+    if (range) showRangeOnMap(view, range, !initial.view)
     return () => view.dispose()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data])
@@ -168,6 +176,7 @@ export const Explorer = ({
 
   const select = useCallback((cp: CodePoint | undefined, opts: { focus?: boolean; zoom?: boolean } = {}) => {
     setSelected(cp)
+    setRange(undefined)
     viewRef.current?.setSelected(cp)
     if (cp !== undefined && opts.focus !== false) viewRef.current?.focusCp(cp, { zoom: opts.zoom })
   }, [])
@@ -178,7 +187,8 @@ export const Explorer = ({
     asOf: asOf !== undefined ? data.meta.ages[asOf] : undefined,
     pure,
     chart: chart ? data.blockAt(chart.block).s : undefined,
-    pua: interpretationToUrl(data.interpretation?.id)
+    pua: interpretationToUrl(data.interpretation?.id),
+    range: rangeToUrl(range)
   })
   /** Put the view in the URL with the new interpretation, for the explorer to restart from. */
   const chooseInterpretation = (id: string | undefined): void => {
@@ -198,19 +208,24 @@ export const Explorer = ({
     writeHash({ cp: selected, mode: modeId, view: viewRef.current?.camera, ...extras() }, true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chart?.block])
-  const lastPushed = useRef<number | undefined>(initial.cp)
+  // Selecting is a history step too: a code point, or a plane, block or section.
+  const selection = selected !== undefined ? `U+${selected}` : range ? `${range.kind}:${range.s}` : ""
+  const lastPushed = useRef(selection)
   useEffect(() => {
-    if (lastPushed.current === selected) return
-    lastPushed.current = selected
+    if (lastPushed.current === selection) return
+    lastPushed.current = selection
     writeHash({ cp: selected, mode: modeId, view: viewRef.current?.camera, ...extras() }, true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected])
+  }, [selection])
   useEffect(() => {
     const onPop = () => {
       const s = readHash()
-      lastPushed.current = s.cp
+      const r = s.cp === undefined && s.range ? findRange(data, s.range.kind, s.range.s) : undefined
+      lastPushed.current = s.cp !== undefined ? `U+${s.cp}` : r ? `${r.kind}:${r.s}` : ""
       setSelected(s.cp)
+      setRange(r)
       viewRef.current?.setSelected(s.cp)
+      if (r) showRangeOnMap(viewRef.current, r, false)
       if (s.mode) setModeId(s.mode)
       const ci = s.chart !== undefined ? data.meta.blocks.findIndex((b) => b.s === s.chart) : -1
       lastChart.current = ci >= 0 ? ci : undefined
@@ -220,7 +235,7 @@ export const Explorer = ({
     }
     window.addEventListener("popstate", onPop)
     return () => window.removeEventListener("popstate", onPop)
-  }, [data.meta.blocks])
+  }, [data])
 
   const flyToBlock = useCallback(
     (index: BlockIndex) => {
@@ -235,6 +250,19 @@ export const Explorer = ({
     (a: number, b: number) => {
       if (chartRef.current) setChart({ block: data.blockIdx[a] ?? -1, focus: [a, b] })
       viewRef.current?.showRange(a, b)
+    },
+    [data]
+  )
+  /** Select a plane, block or section for the sidebar, and show it (`fly` false: the map already has). */
+  const selectRange = useCallback(
+    (r: RangeSelection, fly = true) => {
+      setSelected(undefined)
+      viewRef.current?.setSelected(undefined)
+      setRange(r)
+      // With a chart open, a block or section opens in the chart.
+      if (chartRef.current && r.kind !== RangeKind.PLANE)
+        setChart({ block: data.blockIdx[r.s] ?? -1, focus: r.kind === RangeKind.SECTION ? [r.s, r.e] : undefined })
+      if (fly) showRangeOnMap(viewRef.current, r)
     },
     [data]
   )
@@ -331,18 +359,19 @@ export const Explorer = ({
           <SearchBox
             data={data}
             onPickCp={(cp) => select(cp, { zoom: true })}
-            onPickBlock={(i) => flyToBlock(i)}
-            onPickSection={flyToRange}
+            onPickBlock={(i) => selectRange(blockRange(data, i))}
+            onPickSection={(a, b) => selectRange(sectionRange(a, b))}
           />
           <PropertyFilter value={prop} onChange={setProp} />
           <Breadcrumb
             data={data}
             here={here}
             selected={selected}
-            onPlane={flyToPlane}
-            onBlock={flyToBlock}
+            range={range}
+            onPlane={(p) => selectRange(planeRange(p))}
+            onBlock={(i) => selectRange(blockRange(data, i))}
             onOverview={() => viewRef.current?.overview()}
-            onRange={flyToRange}
+            onRange={(a, b) => selectRange(sectionRange(a, b))}
             onPreview={previewRange}
           />
         </div>
@@ -398,6 +427,8 @@ export const Explorer = ({
         data={data}
         mode={mode}
         cp={selected}
+        range={range}
+        onSelectRange={selectRange}
         here={chart ? { cp: chartAt ?? data.blockAt(chart.block).s, k: 60 } : here}
         onPreview={previewRange}
         onSelect={(cp) => select(cp, { zoom: true })}

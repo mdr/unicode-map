@@ -100,6 +100,9 @@ pure view draws them in the browser instead, which is slower to fill in.
   they're recoloured with each cell's ink, dark or light to suit its colour as on the cards,
   from a per-plane ink bitmap that also fades dimmed characters and hides ones newer than the
   timeline's version.
+- **Selecting** a code point describes it in the sidebar; so does selecting a plane, block or
+  section (`src/ui/range/`), by clicking its title on the map, in the breadcrumb or search, or
+  from another panel. The map keeps it pointed out, and the URL records it (`block=E000`).
 - **`scripts/build_tiles.ts`** pre-builds those tiles, plus each interpretation's own copies of
   the few tiles with characters it gives glyphs to (`public/tiles/<id>/`).
 - **`scripts/build_about.ts`** fetches short descriptions of scripts and blocks from English

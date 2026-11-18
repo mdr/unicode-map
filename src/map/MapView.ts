@@ -1,9 +1,9 @@
 import { type UnicodeData, uplus } from "../data/unicode"
 import type { ColorMode } from "./colorModes"
-import { cellToCp, cpToCell, planeRect, type Rect, WORLD } from "./layout"
+import { cellToCp, cpToCell, planeRect, rangeRect, type Rect, WORLD } from "./layout"
 import { PlaneBitmaps } from "./view/bitmaps"
-import { type CameraMotion, flight, slide } from "./view/cameraMotion"
-import { AXIS_LEFT, clamp, READ_K } from "./view/constants"
+import { type CameraMotion, flight, readingCamera, slide } from "./view/cameraMotion"
+import { clamp } from "./view/constants"
 import { RowFonts } from "./view/fonts"
 import { buildGeometry } from "./view/geometry"
 import { buildGlyphTile } from "./view/glyphTileDraw"
@@ -16,6 +16,7 @@ import { renderFrame } from "./view/render"
 import type { Scene, ViewState } from "./view/scene"
 import { type Insets, Viewport } from "./view/viewport"
 import type { CodePoint, Plane, Cells, Zoom, Px } from "../units"
+import { RangeKind, type RangeSelection } from "../data/ranges"
 
 /** Where the view is: the code point at the centre of the visible area (-1 if none), and zoom. */
 export interface Here {
@@ -32,6 +33,8 @@ export interface Camera {
 export interface MapCallbacks {
   onHover(cp: CodePoint, clientX: Px, clientY: Px): void
   onSelect(cp: CodePoint | undefined): void
+  /** A plane, block or section picked by clicking its title on the map. */
+  onSelectRange(r: RangeSelection): void
   onCamera(cam: Camera): void
 }
 
@@ -173,32 +176,26 @@ export class MapView {
    * whole at that size. Showing the same range again fits all of it.
    */
   showRange(s: CodePoint, e: CodePoint): void {
-    const vp = this.vp
     const again = this.st.pinned?.s === s && this.st.pinned.e === e
+    this.pin(s, e)
+    const r = rangeRect(s, e)
+    const cam = readingCamera(this.vp, r, 1.6, again)
+    if (cam) this.flyTo(cam)
+    else this.flyToRect(r, { pad: 1.6, maxK: 90 })
+  }
+
+  /** Point out a range and keep it pointed out (a selected plane, block or section), without moving. */
+  pin(s: CodePoint, e: CodePoint): void {
     this.st.preview = undefined
     this.st.headerHover = false
     this.st.pinned = makePreview({ s, e, name: this.rangeName(s, e) })
-    const r = this.st.pinned.rect
-    const pad = 1.6
-    const fit = clamp(Math.min(vp.availW() / (r.w * pad), vp.availH() / (r.h * pad)), 0, 90)
-    if (again || fit >= READ_K) {
-      this.flyToRect(r, { pad, maxK: 90 })
-      return
-    }
-    const k = clamp(vp.cam.k, READ_K, 72)
-    const m = 28 // screen margin around the range, in CSS pixels
-    const fitsW = r.w * k <= vp.availW() - 2 * m
-    const fitsH = r.h * k <= vp.availH() - 2 * m
-    const centre = vp.centreFor(r.x + r.w / 2, r.y + r.h / 2, k)
-    // A range that fits vertically sits in the upper part of the view, clear of the legend
-    // floating at the bottom.
-    const midY = vp.insets.t + Math.max(vp.availH() * 0.33, (r.h * k) / 2 + m)
-    this.flyTo({
-      k,
-      // Line the start up just right of the row numbers, which are showing at this zoom.
-      cx: fitsW ? centre.cx : r.x - (Math.max(vp.insets.l, AXIS_LEFT) + m - vp.w / 2) / k,
-      cy: fitsH ? r.y + r.h / 2 - (midY - vp.h / 2) / k : r.y - (vp.insets.t + m - vp.h / 2) / k
-    })
+    this.invalidate()
+  }
+
+  /** Show a whole plane, pointed out. */
+  showPlane(p: Plane): void {
+    this.pin(p << 16, (p << 16) | 0xffff)
+    this.flyToRect(planeRect(p), { pad: 1.08 })
   }
 
   /** Stop pointing out the clicked block or section. */
@@ -421,16 +418,11 @@ export class MapView {
     if (this.st.pure) return
     const hit = this.headerAt(x, y)
     // Clicking a plane's title shows the whole plane; a block or section header takes you to it.
-    if (hit?.plane !== undefined) {
-      // The title's hover outline would be left behind, in the wrong place, as the view flies.
-      this.st.headerHover = false
-      this.setPreview(undefined)
-      this.clearPinned()
-      this.flyToRect(planeRect(hit.plane), { pad: 1.08 })
-      return
-    }
+    // Either way it's selected, for the sidebar to describe.
     if (hit) {
-      this.showRange(hit.s, hit.e)
+      if (hit.kind === RangeKind.PLANE) this.showPlane(hit.s >> 16)
+      else this.showRange(hit.s, hit.e)
+      this.cb.onSelectRange({ kind: hit.kind, s: hit.s, e: hit.e })
       return
     }
     const w = this.toWorld(x, y)

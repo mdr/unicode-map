@@ -1,4 +1,4 @@
-// Fetches short descriptions of Unicode scripts and blocks from English Wikipedia into
+// Fetches short descriptions of Unicode scripts and blocks (and some private-use scripts) from English Wikipedia into
 // src/data/about.json, which is committed: builds and CI never contact Wikipedia. Re-run it after
 // a Unicode upgrade, or now and then for fresher text, and review the diff:
 //
@@ -176,6 +176,41 @@ for (const b of meta.blocks) {
 }
 console.log(`Blocks: ${Object.keys(blocks).length} of ${meta.blocks.length}`)
 
+// --- Scripts in the Private Use Areas, picked by hand -------------------------------------------
+// Articles for the better-known scripts an interpretation of the Private Use Areas names (see
+// scripts/build_pua.py), by its section name. Chosen by hand: the names alone often land on the
+// wrong article (Klingon on the species, Gargoyle on the sculpture), and most have none.
+const INTERPRETATION_ARTICLES: Record<string, Record<string, string>> = {
+  conscript: {
+    Tengwar: "Tengwar",
+    Cirth: "Cirth",
+    Engsvanyali: "Tékumel",
+    Verdurian: "Verdurian language",
+    "Seussian Latin Extensions": "On Beyond Zebra!",
+    Unifon: "Unifon",
+    "Unifon Extended": "Unifon",
+    Solresol: "Solresol",
+    "Visible Speech": "Visible Speech",
+    Aurebesh: "Languages in Star Wars",
+    "Cistercian Numerals": "Cistercian numerals",
+    Grawlixes: "Grawlix",
+    Klingon: "Klingon scripts",
+    "Sitelen Pona": "Sitelen Pona"
+  }
+}
+const interpretationIntros = await intros([
+  ...new Set(Object.values(INTERPRETATION_ARTICLES).flatMap((m) => Object.values(m)))
+])
+const interpretations: Record<string, Record<string, Article>> = {}
+for (const [id, articles] of Object.entries(INTERPRETATION_ARTICLES)) {
+  interpretations[id] = {}
+  for (const [section, title] of Object.entries(articles)) {
+    const p = interpretationIntros.get(title)
+    if (p) interpretations[id][section] = entry(p)
+    else console.warn(`  no article "${title}" for ${id} ${section}`)
+  }
+}
+
 // --- Characters with an article of their own --------------------------------------------------
 // Wikidata links characters to articles through "Unicode hex codepoint" (P4213) and "Unicode
 // character" (P487). Many of those links are to the thing a character depicts (🦦 → Otter) or
@@ -289,7 +324,8 @@ writeFileSync(
       source: "English Wikipedia, CC BY-SA 4.0",
       fetched: new Date().toISOString().slice(0, 10),
       scripts,
-      blocks
+      blocks,
+      interpretations
     },
     undefined,
     1

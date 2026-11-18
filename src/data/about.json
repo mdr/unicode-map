@@ -1,6 +1,6 @@
 {
  "source": "English Wikipedia, CC BY-SA 4.0",
- "fetched": "2026-11-17",
+ "fetched": "2026-11-18",
  "scripts": {
   "Adlm": {
    "title": "Adlam script",
@@ -3050,6 +3050,94 @@
    "url": "https://en.wikipedia.org/wiki/Variation_Selectors_Supplement",
    "description": "Unicode block containing additional Variation Selectors",
    "extract": "Variation Selectors Supplement is a Unicode block containing additional variation selectors beyond those found in the Variation Selectors block."
+  }
+ },
+ "interpretations": {
+  "conscript": {
+   "Tengwar": {
+    "title": "Tengwar",
+    "url": "https://en.wikipedia.org/wiki/Tengwar",
+    "description": "Fictional script in Tolkien's writings",
+    "extract": "The Tengwar () script is an artificial script, one of several scripts created by J. R. R. Tolkien, the author of The Lord of the Rings. Within the context of Tolkien's fictional world, the Tengwar were invented by the Elf Fëanor, and used first to write the Elvish languages Quenya and Telerin. Later a great number of Tolkien's constructed languages were written using the Tengwar, including Sindarin. Tolkien used Tengwar to write English: most of Tolkien's Tengwar samples are actually in English."
+   },
+   "Cirth": {
+    "title": "Cirth",
+    "url": "https://en.wikipedia.org/wiki/Cirth",
+    "description": "Artificial script in Tolkien's writings",
+    "extract": "The Cirth (Sindarin pronunciation: [ˈkirθ], meaning \"runes\"; sg. certh [ˈkɛrθ]) is a semi‑artificial script, based on real‑life runic alphabets, one of several scripts invented by J. R. R. Tolkien for the constructed languages he devised and used in his works. Cirth is written with a capital letter when referring to the writing system; the letters themselves can be called cirth."
+   },
+   "Engsvanyali": {
+    "title": "Tékumel",
+    "url": "https://en.wikipedia.org/wiki/T%C3%A9kumel",
+    "description": "Campaign setting and fictional universe",
+    "extract": "Tékumel is a fantasy world created by American linguist and writer M. A. R. Barker over the course of several decades from around 1940. In this imaginary world, huge, tradition-bound empires with medieval levels of technology vie for control using magic, large standing armies, and ancient technological devices. In time, Barker created the tabletop role-playing game Empire of the Petal Throne, set in the Tékumel universe, initially self publishing it in 1974. Later, Barker wrote a series of five novels set in Tékumel, beginning with The Man of Gold, first published by DAW Books in 1984."
+   },
+   "Verdurian": {
+    "title": "Verdurian language",
+    "url": "https://en.wikipedia.org/wiki/Verdurian_language",
+    "description": "Constructed language of fictional world",
+    "extract": "Verdurian (soa Sfahe, \"the Speech\") is a constructed language created by Mark Rosenfelder, first published in 1995 and hosted at his website, Zompist.com."
+   },
+   "Seussian Latin Extensions": {
+    "title": "On Beyond Zebra!",
+    "url": "https://en.wikipedia.org/wiki/On_Beyond_Zebra!",
+    "description": "1955 book by Dr. Seuss",
+    "extract": "On Beyond Zebra! is a 1955 illustrated children's book by Theodor Geisel, better known as Dr. Seuss. In this take on the genre of alphabet book, Seuss presents, instead of the twenty-six letters of the conventional English alphabet, twenty additional letters that purportedly follow them."
+   },
+   "Unifon": {
+    "title": "Unifon",
+    "url": "https://en.wikipedia.org/wiki/Unifon",
+    "description": "Latin-based phonemic orthography for American English",
+    "extract": "Unifon is a defunct Latin-based phonemic orthography for American English designed in the mid-1950s by John R. Malone, a Chicago economist and newspaper equipment consultant."
+   },
+   "Unifon Extended": {
+    "title": "Unifon",
+    "url": "https://en.wikipedia.org/wiki/Unifon",
+    "description": "Latin-based phonemic orthography for American English",
+    "extract": "Unifon is a defunct Latin-based phonemic orthography for American English designed in the mid-1950s by John R. Malone, a Chicago economist and newspaper equipment consultant."
+   },
+   "Solresol": {
+    "title": "Solresol",
+    "url": "https://en.wikipedia.org/wiki/Solresol",
+    "description": "Constructed language",
+    "extract": "Solresol (Solfège: Sol-Re-Sol), originally called Langue universelle (lit. 'Universal language') and then Langue musicale universelle ('Universal musical language'), is a musical constructed language devised by French music teacher and composer Jean-François Sudre (1787–1862), beginning in 1817. His book defining it, Langue Musicale Universelle, was published posthumously in 1866, though he had already been publicizing it for some years."
+   },
+   "Visible Speech": {
+    "title": "Visible Speech",
+    "url": "https://en.wikipedia.org/wiki/Visible_Speech",
+    "description": "Featural phonetic representation script",
+    "extract": "Visible Speech is a system of phonetic symbols developed by British linguist Alexander Melville Bell in 1867 to represent the position of the speech organs in articulating sounds. Bell was known internationally as a teacher of speech and proper elocution and an author of books on the subject. The system is composed of symbols that show the position and movement of the throat, tongue, and lips as they produce the sounds of language, and it is a type of phonetic notation. The system was used to aid the deaf in learning to speak."
+   },
+   "Aurebesh": {
+    "title": "Languages in Star Wars",
+    "url": "https://en.wikipedia.org/wiki/Languages_in_Star_Wars",
+    "description": "Fictional languages and scripts",
+    "extract": "Star Wars, a space opera franchise created by George Lucas, features various fictional languages throughout its setting. The lingua franca of the franchise is known in-universe as Galactic Basic, which refers to the language of the film or work itself, be it English or a language into which that work was dubbed or translated."
+   },
+   "Cistercian Numerals": {
+    "title": "Cistercian numerals",
+    "url": "https://en.wikipedia.org/wiki/Cistercian_numerals",
+    "description": "Numeral system developed by Cistercian monks",
+    "extract": "The medieval Cistercian numerals, or \"ciphers\" in nineteenth-century parlance, were developed by the Cistercian monastic order in the early thirteenth century at about the time that Arabic numerals were introduced to northwestern Europe. They are more compact than Arabic or Roman numerals, with a single glyph able to indicate any integer from 1 to 9,999."
+   },
+   "Grawlixes": {
+    "title": "Grawlix",
+    "url": "https://en.wikipedia.org/wiki/Grawlix",
+    "description": "Technique used to imply profanity",
+    "extract": "Grawlix () or obscenicon is the use of typographical symbols to replace profanity, typically using \"unpronounceable\" characters. Mainly used in cartoons and comics, it has been described as the graphical equivalent of a bleep censor. The first known grawlix appeared in the November 1, 1901 story of Gene Carr's comic strip Lady Bountiful."
+   },
+   "Klingon": {
+    "title": "Klingon scripts",
+    "url": "https://en.wikipedia.org/wiki/Klingon_scripts",
+    "description": "Fictional scripts for the Klingon language",
+    "extract": "The Klingon scripts are fictional alphabetic scripts used in the Star Trek movies and television shows to write the Klingon language."
+   },
+   "Sitelen Pona": {
+    "title": "Sitelen Pona",
+    "url": "https://en.wikipedia.org/wiki/Sitelen_Pona",
+    "description": "Constructed logography used for Toki Pona",
+    "extract": "Sitelen Pona , also known as Toki Pona hieroglyphs, is a constructed logography used for Toki Pona. It was originally designed circa 2013 and published in 2014 by Canadian translator Sonja Lang, the language's creator."
+   }
   }
  }
 }

@@ -1,9 +1,12 @@
 import { ModeId } from "./map/colorModes"
+import { RangeKind } from "./data/ranges"
 import type { Camera } from "./map/MapView"
 import type { CodePoint } from "./units"
 
 export interface UrlState {
   cp?: CodePoint
+  /** A selected plane (`plane=15`), block (`block=E000`) or section (`section=E080`), by its start. */
+  range?: { kind: RangeKind; s: number }
   mode?: ModeId
   view?: Camera
   /** Property highlight key, e.g. "b:Emoji" or "bc:R". */
@@ -54,6 +57,9 @@ const PARAMETERS: Record<string, (value: string) => Partial<UrlState>> = {
   asof: (value) => ({ asOf: value }),
   chart: (value) => (HEX.test(value) ? { chart: parseInt(value, 16) } : {}),
   pua: (value) => ({ pua: value }),
+  plane: (value) => (/^\d{1,2}$/.test(value) ? { range: { kind: RangeKind.PLANE, s: Number(value) } } : {}),
+  block: (value) => (HEX.test(value) ? { range: { kind: RangeKind.BLOCK, s: parseInt(value, 16) } } : {}),
+  section: (value) => (HEX.test(value) ? { range: { kind: RangeKind.SECTION, s: parseInt(value, 16) } } : {}),
   view: parseView
 }
 
@@ -75,6 +81,7 @@ export const parseHash = (hash: string): UrlState =>
 export const formatHash = (s: UrlState): string => {
   const parts: string[] = []
   if (s.cp !== undefined) parts.push("U+" + hex(s.cp))
+  if (s.range) parts.push(`${s.range.kind}=${s.range.kind === RangeKind.PLANE ? s.range.s : hex(s.range.s)}`)
   if (s.mode && s.mode !== ModeId.REGION) parts.push(`mode=${MODE_IN_URL[s.mode]}`)
   if (s.prop) parts.push(`prop=${s.prop}`)
   if (s.asOf) parts.push(`asof=${s.asOf}`)

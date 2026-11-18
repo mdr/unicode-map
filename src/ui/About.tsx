@@ -124,6 +124,25 @@ export const AboutCards = ({ data, script, block }: { data: UnicodeData; script?
   )
 }
 
+/** A Wikipedia summary for a section from an interpretation of the Private Use Areas, where it has one. */
+export const InterpretationAboutCard = ({ interpretation, section }: { interpretation: string; section: string }) => {
+  const about = useAbout()
+  const a = about?.interpretations[interpretation]?.[section]
+  if (!about || !a) return undefined
+  return (
+    <div className={styles.about}>
+      <div className={styles.aboutCard}>
+        <h3>{a.title}</h3>
+        {a.description && <div className={styles.aboutDesc}>{a.description}</div>}
+        <ArticleText a={a} />
+      </div>
+      <div className={`${styles.aboutCredit} muted small`}>
+        Summary from {about.source} (fetched {about.fetched}).
+      </div>
+    </div>
+  )
+}
+
 /** The main script of a block: the commonest real script among its assigned characters. */
 export const blockScript = (data: UnicodeData, block: BlockIndex): string | undefined => {
   const b = data.blockAt(block)

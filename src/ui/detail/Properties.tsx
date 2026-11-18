@@ -1,19 +1,24 @@
 import type { Detail, UnicodeData } from "../../data/unicode"
+import type { CodePoint } from "../../units"
 import { Section, Rows, Row } from "./Rows"
 import styles from "./detail.module.css"
 
 export const Properties = ({
   data,
+  cp,
   detail: d,
   loading
 }: {
   data: UnicodeData
+  cp: CodePoint
   detail: Detail
   /** The detail is still loading, so the font isn't known yet. */
   loading: boolean
 }) => {
   const vn = data.meta.valueNames
-  const font = d.font !== undefined ? data.meta.fonts[d.font] : undefined
+  // A private-use character an interpretation gives a glyph is drawn with that interpretation's font.
+  const ic = data.interpretedChar(cp)
+  const font = ic ? data.interpretation?.fonts[ic.font] : d.font !== undefined ? data.meta.fonts[d.font] : undefined
   return (
     <Section title="Properties">
       <Rows>
@@ -36,7 +41,13 @@ export const Properties = ({
         {d.num && <Row label="Numeric value">{d.num}</Row>}
         {d.mirrored && <Row label="Bidi mirrored">Yes</Row>}
         <Row label="Rendered with">
-          {font ? font.family : loading ? "…" : <span className="muted">No Noto glyph — Last Resort placeholder</span>}
+          {font ? (
+            font.family
+          ) : loading && !ic ? (
+            "…"
+          ) : (
+            <span className="muted">No font has a glyph — Last Resort placeholder</span>
+          )}
         </Row>
       </Rows>
       {d.props && (

@@ -1,4 +1,5 @@
 import { hex, planeName } from "../../data/unicode"
+import { RangeKind } from "../../data/ranges"
 import { labelRect, planeOrigin, PLANE_SIZE, type Rect } from "../layout"
 import { clamp, LANDMARK_END, smooth, UI_FONT } from "./constants"
 import { blockExists, type FrameView, type Scene } from "./scene"
@@ -119,6 +120,6 @@ export const renderPlaneFrame = (sc: Scene, p: Plane): void => {
     s: p << 16,
     e: (p << 16) | 0xffff,
     name: `Plane ${p}: ${name}`,
-    plane: p
+    kind: RangeKind.PLANE
   })
 }

@@ -1,0 +1,29 @@
+/* A section's characters, as a grid of small cells. */
+.glyphGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(36px, 1fr));
+  gap: 3px;
+  margin-bottom: 8px;
+}
+
+.glyphGrid button {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  font-size: 20px;
+  line-height: 1;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.glyphGrid button:hover {
+  background: var(--hover);
+}
+
+.about {
+  margin: 0 0 10px;
+  color: var(--muted);
+  line-height: 1.5;
+}

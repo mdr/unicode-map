@@ -1,4 +1,5 @@
 import { uplus } from "../../data/unicode"
+import { RangeKind } from "../../data/ranges"
 import { required } from "../../required"
 import { planeOrigin, type Rect } from "../layout"
 import { BLOCK_LABEL_FULL, BLOCK_LABEL_START, clamp, HEX_START, smooth } from "./constants"
@@ -75,7 +76,8 @@ const blockHeaders = (sc: Scene, { planes, vis }: FrameView, lay: HeaderLayout):
     const r = { x: at.x + 2, y: at.y + lay.drop - lay.h / 2, w, h: lay.h }
     if (!w || !free(lay, r)) continue
     lay.placed.push(r)
-    if (a > 0.5) sc.st.headerHits.push({ r, s: b.s, e: b.e, name: `Block: ${b.name} · ${uplus(b.s)}–${uplus(b.e)}` })
+    const name = `Block: ${b.name} · ${uplus(b.s)}–${uplus(b.e)}`
+    if (a > 0.5) sc.st.headerHits.push({ r, s: b.s, e: b.e, name, kind: RangeKind.BLOCK })
     ctx.globalAlpha = a * (blockLit && !blockLit[i] ? 0.45 : 1)
     pill(ctx, b.name, r.x, at.y + lay.drop, at.room - 2, style)
     lay.blockHeaderEnd.set(i, { x: r.x + w, y: at.y })
@@ -117,7 +119,7 @@ const sectionHeaders = (sc: Scene, fv: FrameView, lay: HeaderLayout, sectionA: n
     if (sectionA > 0.5) {
       const range = sec.s === sec.e ? uplus(sec.s) : `${uplus(sec.s)}–${uplus(sec.e)}`
       const name = `Section: ${sec.title} · in ${blocks[sec.block]?.name ?? "no block"} · ${range}`
-      sc.st.headerHits.push({ r, s: sec.s, e: sec.e, name })
+      sc.st.headerHits.push({ r, s: sec.s, e: sec.e, name, kind: RangeKind.SECTION })
     }
     ctx.globalAlpha = sectionA * (blockLit && !blockLit[sec.block] ? 0.45 : 1)
     pill(ctx, sec.title, x, at.y + lay.drop, room, style)

@@ -12,6 +12,8 @@ export interface AboutData {
   fetched: string
   scripts: Record<string, Article>
   blocks: Record<string, Article>
+  /** Articles for some of the scripts in an interpretation of the Private Use Areas: by its id, then section name. */
+  interpretations: Record<string, Record<string, Article>>
 }
 /** CLDR facts about a script. */
 export interface ScriptInfo {
