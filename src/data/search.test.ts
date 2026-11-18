@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vite-plus/test"
-import { matchNames, notationCodePoints } from "./search"
+import { matchNames, matchTitles, notationCodePoints } from "./search"
 
 describe("notationCodePoints", () => {
   test.each([
@@ -42,5 +42,46 @@ describe("matchNames", () => {
 
   test("an alias matches as well as a name", () => {
     expect(matchNames(entries, "alert")).toEqual([{ cp: 0x07, score: 1, length: 99 }])
+  })
+})
+
+describe("matchTitles", () => {
+  const titles = ["Greek and Coptic", "Greek Extended", "Ancient Greek Numbers", "Coptic", "Vowels"]
+  const match = (q: string): string[] => matchTitles(titles, (t) => t, q, 6)
+
+  test("every word must appear, in any order", () => {
+    expect(match("greek coptic")).toEqual(["Greek and Coptic"])
+    expect(match("coptic greek")).toEqual(["Greek and Coptic"])
+  })
+
+  test("the title itself first, then titles starting with the query, then shorter ones", () => {
+    expect(match("coptic")).toEqual(["Coptic", "Greek and Coptic"])
+    expect(match("greek")).toEqual(["Greek Extended", "Greek and Coptic", "Ancient Greek Numbers"])
+  })
+
+  test("words can also come from the context", () => {
+    const sections = [
+      ["Vowels", "Thai"],
+      ["Vowels", "Lao"]
+    ]
+    const found = matchTitles(
+      sections,
+      ([t = ""]) => t,
+      "lao vowels",
+      6,
+      ([, block = ""]) => block
+    )
+    expect(found).toEqual([["Vowels", "Lao"]])
+  })
+
+  test("whole words before parts of words", () => {
+    expect(matchTitles(["Independent vowels", "Dependent vowel signs"], (t) => t, "dependent vowel", 6)).toEqual([
+      "Dependent vowel signs",
+      "Independent vowels"
+    ])
+  })
+
+  test("at most the limit", () => {
+    expect(matchTitles(titles, (t) => t, "e", 2)).toHaveLength(2)
   })
 })

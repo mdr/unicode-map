@@ -312,7 +312,12 @@ export const Explorer = ({ data }: { data: UnicodeData }) => {
               <div className={styles.brandSub}>Unicode {data.meta.version}</div>
             </div>
           </div>
-          <SearchBox data={data} onPickCp={(cp) => select(cp, { zoom: true })} onPickBlock={(i) => flyToBlock(i)} />
+          <SearchBox
+            data={data}
+            onPickCp={(cp) => select(cp, { zoom: true })}
+            onPickBlock={(i) => flyToBlock(i)}
+            onPickSection={flyToRange}
+          />
           <PropertyFilter value={prop} onChange={setProp} />
           <Breadcrumb
             data={data}

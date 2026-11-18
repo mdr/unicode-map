@@ -8,11 +8,13 @@ import styles from "./SearchBox.module.css"
 export const SearchBox = ({
   data,
   onPickCp,
-  onPickBlock
+  onPickBlock,
+  onPickSection
 }: {
   data: UnicodeData
   onPickCp: (cp: CodePoint) => void
   onPickBlock: (index: BlockIndex) => void
+  onPickSection: (s: CodePoint, e: CodePoint) => void
 }) => {
   const [q, setQ] = useState("")
   const [open, setOpen] = useState(false)
@@ -33,7 +35,8 @@ export const SearchBox = ({
 
   const pick = (r: SearchResult) => {
     if (r.type === SearchResultType.CODE_POINT) onPickCp(r.cp)
-    else onPickBlock(r.index)
+    else if (r.type === SearchResultType.BLOCK) onPickBlock(r.index)
+    else onPickSection(r.s, r.e)
     setOpen(false)
     inputRef.current?.blur()
   }
@@ -87,7 +90,7 @@ export const SearchBox = ({
           {results.length === 0 && <div className={styles.searchEmpty}>No matches</div>}
           {results.map((r, i) => (
             <div
-              key={r.type === SearchResultType.CODE_POINT ? `c${r.cp}` : `b${r.index}`}
+              key={resultKey(r)}
               className={`${styles.searchResult} ${i === active ? "active" : ""}`}
               role="option"
               tabIndex={-1}
@@ -98,39 +101,54 @@ export const SearchBox = ({
               }}
               onMouseEnter={() => setActive(i)}
             >
-              {r.type === SearchResultType.CODE_POINT ? (
-                <>
-                  <span className={styles.srGlyph}>
-                    <Glyph data={data} cp={r.cp} />
-                  </span>
-                  <span className={styles.srMain}>
-                    <span className={styles.srName}>{data.name(r.cp)}</span>
-                    <span className={styles.srSub}>
-                      {uplus(r.cp)} · {data.block(r.cp)?.name ?? "No block"}
-                      {r.why ? ` · ${r.why}` : ""}
-                    </span>
-                  </span>
-                </>
-              ) : (
-                <>
-                  <span
-                    className={`${styles.srGlyph} ${styles.srBlock}`}
-                    style={{ background: data.regionOf(r.block).color }}
-                  >
-                    ▦
-                  </span>
-                  <span className={styles.srMain}>
-                    <span className={styles.srName}>{r.block.name}</span>
-                    <span className={styles.srSub}>
-                      Block · {uplus(r.block.s)}–{uplus(r.block.e)} · {r.block.assigned.toLocaleString()} assigned
-                    </span>
-                  </span>
-                </>
-              )}
+              <ResultBody data={data} result={r} />
             </div>
           ))}
         </div>
       )}
     </div>
+  )
+}
+
+const resultKey = (r: SearchResult): string => {
+  if (r.type === SearchResultType.CODE_POINT) return `c${r.cp}`
+  if (r.type === SearchResultType.BLOCK) return `b${r.index}`
+  return `s${r.s}`
+}
+
+/** A result's icon or glyph, its name, and what it is. */
+const ResultBody = ({ data, result: r }: { data: UnicodeData; result: SearchResult }) => {
+  if (r.type === SearchResultType.CODE_POINT) {
+    return (
+      <>
+        <span className={styles.srGlyph}>
+          <Glyph data={data} cp={r.cp} />
+        </span>
+        <span className={styles.srMain}>
+          <span className={styles.srName}>{data.name(r.cp)}</span>
+          <span className={styles.srSub}>
+            {uplus(r.cp)} · {data.block(r.cp)?.name ?? "No block"}
+            {r.why ? ` · ${r.why}` : ""}
+          </span>
+        </span>
+      </>
+    )
+  }
+  const block = r.block
+  const section = r.type === SearchResultType.SECTION
+  return (
+    <>
+      <span className={`${styles.srGlyph} ${styles.srBlock}`} style={{ background: data.regionOf(block).color }}>
+        {section ? "§" : "▦"}
+      </span>
+      <span className={styles.srMain}>
+        <span className={styles.srName}>{section ? r.title : block.name}</span>
+        <span className={styles.srSub}>
+          {section
+            ? `Section of ${block.name} · ${uplus(r.s)}–${uplus(r.e)}`
+            : `Block · ${uplus(block.s)}–${uplus(block.e)} · ${block.assigned.toLocaleString()} assigned`}
+        </span>
+      </span>
+    </>
   )
 }

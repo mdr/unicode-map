@@ -3,7 +3,8 @@ import type { CodePoint, BlockIndex } from "../units"
 
 export enum SearchResultType {
   CODE_POINT = "CODE_POINT",
-  BLOCK = "BLOCK"
+  BLOCK = "BLOCK",
+  SECTION = "SECTION"
 }
 interface CodePointResult {
   type: SearchResultType.CODE_POINT
@@ -15,7 +16,15 @@ interface BlockResult {
   block: Block
   index: BlockIndex
 }
-export type SearchResult = CodePointResult | BlockResult
+/** A code chart section (a NamesList "@" heading) within a block. */
+interface SectionResult {
+  type: SearchResultType.SECTION
+  s: CodePoint
+  e: CodePoint
+  title: string
+  block: Block
+}
+export type SearchResult = CodePointResult | BlockResult | SectionResult
 
 const CP_PATTERN = /^(?:u\+|0x|\\u\{?|\\x\{?|&#x|U\+)?([0-9a-f]{1,6})\}?;?$/i
 
@@ -60,12 +69,61 @@ export const notationCodePoints = (q: string): { cp: CodePoint; why: string }[] 
 
 const isPasted = (c: string): boolean => (c.codePointAt(0) ?? 0) > 0x7e
 
+/**
+ * The items whose title, or title and context, contain every word of the query, best first:
+ * the title itself, then titles starting with it, then those where every word starts a word
+ * ("dependent" before "Independent"), then shorter ones; ties in their original order.
+ */
+export const matchTitles = <T>(
+  items: T[],
+  title: (item: T) => string,
+  lower: string,
+  limit: number,
+  context: (item: T) => string = () => ""
+): T[] => {
+  const tokens = lower.split(/\s+/).filter(Boolean)
+  const rank = (t: string, all: string): number => {
+    if (t === lower) return 0
+    if (t.startsWith(lower)) return 1
+    return wordStart(all, tokens) ? 2 : 3
+  }
+  return items
+    .map((item, i) => {
+      const t = title(item).toLowerCase()
+      const all = `${t} ${context(item).toLowerCase()}`
+      return { item, i, t, all, r: rank(t, all) }
+    })
+    .filter(({ all }) => tokens.every((token) => all.includes(token)))
+    .sort((a, b) => a.r - b.r || a.t.length - b.t.length || a.i - b.i)
+    .slice(0, limit)
+    .map(({ item }) => item)
+}
+
 const matchingBlocks = (data: UnicodeData, lower: string): BlockResult[] =>
-  data.meta.blocks
-    .map((block, index): BlockResult => ({ type: SearchResultType.BLOCK, block, index }))
-    .filter(({ block }) => block.name.toLowerCase().includes(lower))
-    .sort((a, b) => a.block.name.length - b.block.name.length)
-    .slice(0, 6)
+  matchTitles(
+    data.meta.blocks.map((block, index): BlockResult => ({ type: SearchResultType.BLOCK, block, index })),
+    (r) => r.block.name,
+    lower,
+    6
+  )
+
+/**
+ * Sections, whose names often repeat across blocks ("Dependent vowels"): the block's name can
+ * narrow them. Leaves out the few outside any block (the noncharacters at the ends of planes).
+ */
+const matchingSections = (data: UnicodeData, lower: string): SectionResult[] => {
+  const inBlocks = data.meta.sections.flatMap(([s, e, title]): SectionResult[] => {
+    const block = data.block(s)
+    return block ? [{ type: SearchResultType.SECTION, s, e, title, block }] : []
+  })
+  return matchTitles(
+    inBlocks,
+    (r) => r.title,
+    lower,
+    8,
+    (r) => r.block.name
+  )
+}
 
 /** "CJK UNIFIED IDEOGRAPH-4E00" and the like, whose names aren't in the names list. */
 const algorithmicName = (data: UnicodeData, lower: string): number | undefined => {
@@ -96,15 +154,15 @@ export const search = (data: UnicodeData, raw: string, limit = 60): SearchResult
 
   for (const { cp, why } of notationCodePoints(q)) pushCp(cp, why)
   const lower = q.toLowerCase()
-  const blocks = matchingBlocks(data, lower)
+  const ranges = [...matchingBlocks(data, lower), ...matchingSections(data, lower)]
   const algorithmic = algorithmicName(data, lower)
   if (algorithmic !== undefined) pushCp(algorithmic, "name")
 
-  if (lower.replace(/\s+/g, "").length < 2) return [...out, ...blocks].slice(0, limit)
+  if (lower.replace(/\s+/g, "").length < 2) return [...out, ...ranges].slice(0, limit)
   const names = matchNames(data.searchEntries, lower)
-  // Exact name and alias hits come before blocks, the rest after.
+  // Exact name and alias hits come before blocks and sections, the rest after.
   for (const n of names.filter((n) => n.score <= 1)) pushCp(n.cp)
-  out.push(...blocks)
+  out.push(...ranges)
   for (const n of names) {
     if (out.length >= limit) break
     pushCp(n.cp)
