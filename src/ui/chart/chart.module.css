@@ -282,3 +282,31 @@
   text-overflow: ellipsis;
   color: var(--text);
 }
+
+/* Narrow screens: the block's name gets a line of its own, above the buttons. The official chart
+   is linked from the block's panel too. */
+@media (max-width: 700px) {
+  .chartHead {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 12px 8px;
+  }
+  .chartTitle {
+    flex: 1 0 100%;
+  }
+  .chartTitle h2 {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  /* The counts give way to the name. */
+  .chartTitle > :global(.small):last-child {
+    display: none;
+  }
+  .chartActions {
+    margin-left: auto;
+  }
+  .chartActions :global(.chart-pdf) {
+    display: none;
+  }
+}

@@ -38,10 +38,10 @@ export const MapControls = ({
           onClose={close}
         />
       )}
-      <button title="Zoom in (+)" onClick={() => onZoom(2)}>
+      <button className="zoom-button" title="Zoom in (+)" onClick={() => onZoom(2)}>
         +
       </button>
-      <button title="Zoom out (−)" onClick={() => onZoom(0.5)}>
+      <button className="zoom-button" title="Zoom out (−)" onClick={() => onZoom(0.5)}>
         −
       </button>
       <button title="Show everything (0)" onClick={onOverview}>
@@ -90,7 +90,7 @@ export const MapControls = ({
           <circle cx="5" cy="11.5" r="1.8" fill="none" stroke="currentColor" strokeWidth="1.4" />
         </svg>
       </button>
-      <button title="Keyboard shortcuts (?)" onClick={onHelp}>
+      <button className="help-button" title="Keyboard shortcuts (?)" onClick={onHelp}>
         ?
       </button>
     </div>

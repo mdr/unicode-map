@@ -64,10 +64,50 @@ const wheel = (host: InputHost, e: WheelEvent, p: Point): void => {
   zoomAbout(host, p, Math.exp(-dy * (e.ctrlKey ? 0.012 : 0.0025)))
 }
 
+/** Fly to zoom by `factor` about screen point p. */
+const flyZoomAbout = (host: InputHost, p: Point, factor: number): void => {
+  const vp = host.vp
+  const w = vp.toWorld(p.x, p.y)
+  const k = vp.cam.k * factor
+  host.flyTo({ k, cx: w.x - (p.x - vp.w / 2) / k, cy: w.y - (p.y - vp.h / 2) / k })
+}
+
+/** Two taps this close in time (ms) and space (px) are a double tap. */
+const DOUBLE_TAP_MS = 320
+const DOUBLE_TAP_PX = 30
+
+/**
+ * Taps on a touch screen: a tap clicks, and a second tap soon after, nearby, zooms in instead.
+ * Returns when the last double tap was, so the browser's own double click can be ignored.
+ */
+const tapper = (host: InputHost): { tap(e: PointerEvent, p: Point): void; lastZoom(): number } => {
+  let last: (Point & { t: number }) | undefined = undefined
+  let zoomedAt = -Infinity
+  return {
+    tap(e, p) {
+      const double =
+        e.pointerType === "touch" &&
+        last !== undefined &&
+        e.timeStamp - last.t < DOUBLE_TAP_MS &&
+        Math.hypot(p.x - last.x, p.y - last.y) < DOUBLE_TAP_PX
+      if (double) {
+        last = undefined
+        zoomedAt = e.timeStamp
+        flyZoomAbout(host, p, 2.5)
+        return
+      }
+      last = e.pointerType === "touch" ? { ...p, t: e.timeStamp } : undefined
+      host.clickAt(p.x, p.y)
+    },
+    lastZoom: () => zoomedAt
+  }
+}
+
 /** Listen for pointer, wheel and double-click input on the canvas; returns a function to stop. */
 export const bindInput = (el: HTMLCanvasElement, host: InputHost): (() => void) => {
   const vp = host.vp
   const noteMoving = movingNoter(el)
+  const taps = tapper(host)
   let drag: Drag | undefined = undefined
   const pointers = new Map<number, Point>()
   /** The two pointers of a pinch (only called while there are exactly two). */
@@ -125,10 +165,7 @@ export const bindInput = (el: HTMLCanvasElement, host: InputHost): (() => void) 
     pointers.delete(e.pointerId)
     if (pointers.size < 2) pinch = undefined
     if (drag?.id !== e.pointerId) return
-    if (!drag.moved) {
-      const p = local(e)
-      host.clickAt(p.x, p.y)
-    }
+    if (!drag.moved) taps.tap(e, local(e))
     drag = undefined
     el.style.cursor = ""
   }
@@ -142,10 +179,9 @@ export const bindInput = (el: HTMLCanvasElement, host: InputHost): (() => void) 
     host.hoverAt(p.x, p.y, e.clientX, e.clientY)
   }
   const onDbl = (e: MouseEvent): void => {
-    const p = local(e)
-    const w = vp.toWorld(p.x, p.y)
-    const k = vp.cam.k * (e.shiftKey ? 0.4 : 2.5)
-    host.flyTo({ k, cx: w.x - (p.x - vp.w / 2) / k, cy: w.y - (p.y - vp.h / 2) / k })
+    // A double tap has zoomed already, if the browser makes a double click of it too.
+    if (e.timeStamp - taps.lastZoom() < 600) return
+    flyZoomAbout(host, local(e), e.shiftKey ? 0.4 : 2.5)
   }
 
   el.addEventListener("pointerdown", onDown)

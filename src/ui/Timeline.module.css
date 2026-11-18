@@ -135,3 +135,12 @@
   text-overflow: ellipsis;
   min-width: 0;
 }
+
+/* Narrow screens: the line of figures wraps rather than running out of the panel. */
+@media (max-width: 700px) {
+  .tlInfo {
+    flex-wrap: wrap;
+    row-gap: 2px;
+    white-space: normal;
+  }
+}

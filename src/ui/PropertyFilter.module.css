@@ -132,3 +132,23 @@
   background: rgba(255, 255, 255, 0.12);
   border-radius: 4px;
 }
+
+/* Narrow screens: just the icon until a property is picked, and the list opens across the top bar. */
+@media (max-width: 700px) {
+  .pf {
+    position: static;
+    min-width: 0;
+    flex: 0 1 auto;
+  }
+  .pfButton {
+    max-width: 40vw;
+  }
+  .pfIdle {
+    display: none;
+  }
+  .pfPop {
+    left: 0;
+    right: 0;
+    width: auto;
+  }
+}

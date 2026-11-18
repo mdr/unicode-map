@@ -1,0 +1,33 @@
+/* Only on narrow screens, where the panel is a sheet (see the sheet rules in styles.css). */
+.handle {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  .handle {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 8px 16px 6px;
+    touch-action: none;
+  }
+}
+
+.grip {
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.label {
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--muted);
+  font-size: 13px;
+}

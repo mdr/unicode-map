@@ -86,7 +86,7 @@ export const PropertyFilter = ({
               <span className={styles.pfCount}>{value.count.toLocaleString()}</span>
             </span>
           ) : (
-            <span>Highlight</span>
+            <span className={styles.pfIdle}>Highlight</span>
           )}
         </button>
         {value && (

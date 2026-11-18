@@ -323,3 +323,81 @@ code {
     --detail-w: 340px;
   }
 }
+
+/* Narrow screens: the detail panel is a sheet over the bottom of the map --------------------
+   (see src/ui/detail/sheet.ts). The map ends where the sheet does when it's lowered or partway
+   up; raised fully, the sheet covers the map rather than shrinking it again. */
+@media (max-width: 700px) {
+  :root {
+    --sheet-lowered: 64px;
+    --sheet-part: 44dvh;
+  }
+  .app {
+    position: relative;
+    display: block;
+  }
+  .map-area {
+    position: absolute;
+    inset: 0 0 calc(var(--sheet-lowered) - 12px);
+  }
+  .app:has(.sheet-part) .map-area,
+  .app:has(.sheet-full) .map-area {
+    bottom: calc(var(--sheet-part) - 12px);
+  }
+  .app.pure .map-area {
+    bottom: 0;
+  }
+  .detail {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 5;
+    width: auto;
+    height: var(--sheet-lowered);
+    border-left: 0;
+    border-top: 1px solid var(--panel-border);
+    border-radius: 14px 14px 0 0;
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.4);
+    overflow: hidden;
+    transition: height 0.25s ease;
+  }
+  .detail.sheet-part {
+    height: var(--sheet-part);
+  }
+  .detail.sheet-full {
+    height: calc(100% - 48px);
+  }
+  .detail.sheet-lowered .detail-scroll {
+    visibility: hidden;
+  }
+
+  /* Things placed for a wide map, brought in. */
+  .timeline {
+    left: 8px;
+    right: 56px;
+    bottom: 64px;
+  }
+  .legend {
+    left: 8px;
+    right: 56px;
+    bottom: 12px;
+    width: auto;
+  }
+  .map-controls {
+    right: 8px;
+    bottom: 12px;
+  }
+}
+
+/* Touch screens: no hover, so the controls stay visible; pinching does what the zoom buttons do,
+   and there's no keyboard for the shortcuts. */
+@media (pointer: coarse) {
+  .map-controls {
+    opacity: 0.85;
+  }
+  .map-controls > .zoom-button,
+  .map-controls > .help-button {
+    display: none;
+  }
+}

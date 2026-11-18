@@ -98,3 +98,23 @@
     width: 280px;
   }
 }
+
+@media (max-width: 700px) {
+  .search {
+    width: auto;
+    flex: 1;
+    min-width: 0;
+  }
+  /* 16px or more, so that phones don't zoom the page in when it's focused. */
+  .search input {
+    font-size: 16px;
+    padding-top: 9px;
+    padding-bottom: 9px;
+  }
+}
+
+@media (pointer: coarse) {
+  .searchKbd {
+    display: none;
+  }
+}

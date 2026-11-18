@@ -8,6 +8,8 @@
   align-items: center;
   gap: 12px;
   pointer-events: none;
+  /* Above the legend and controls, so search results and the highlight list open over them. */
+  z-index: 2;
 }
 
 .topBar > * {
@@ -86,4 +88,20 @@
 :global(.app).charting :global(.map-controls),
 :global(.app).charting :global(.timeline) {
   display: none;
+}
+
+/* Narrow screens: the brand shrinks to its mark, and search takes the room left. */
+@media (max-width: 700px) {
+  .topBar {
+    left: 8px;
+    right: 8px;
+    top: 26px;
+    gap: 6px;
+  }
+  .brand {
+    padding: 5px;
+  }
+  .brand > div {
+    display: none;
+  }
 }
