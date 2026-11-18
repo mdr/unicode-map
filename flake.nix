@@ -23,6 +23,15 @@
         let
           base = "https://www.unicode.org/Public/${unicodeVersion}";
           # brotli, for fontTools to write WOFF2.
+          # Just the scripts the font builds run, so that editing anything else in nix/ doesn't
+          # rebuild (and recompress) every font.
+          fontScripts = pkgs.lib.fileset.toSource {
+            root = ./nix;
+            fileset = pkgs.lib.fileset.unions [
+              ./nix/build-fonts.py
+              ./nix/woff2.py
+            ];
+          };
           python = pkgs.python3.withPackages (ps: [
             ps.fonttools
             ps.brotli
@@ -188,7 +197,7 @@
               --layout-features='*' --output-file=$out/FairfaxHD-PUA.ttf
             cp ${pkgs.unifont}/share/fonts/opentype/unifont/unifont_csur.otf $out/
             chmod 644 $out/*
-            python3 ${./nix}/woff2.py $out/*.ttf $out/*.otf
+            python3 ${fontScripts}/woff2.py $out/*.ttf $out/*.otf
           '';
           # Web-servable font set: one regular face per Noto family, single faces extracted
           # from the CJK collections, Noto Color Emoji, and Last Resort as the final fallback.
@@ -213,7 +222,7 @@
                 ];
               }
               ''
-                python3 ${./nix}/build-fonts.py "$out" $fontDirs
+                python3 ${fontScripts}/build-fonts.py "$out" $fontDirs
                 # Interface fonts (not part of the glyph coverage set)
                 # Noto Color Emoji's vector (COLRv1) build, from the same source: Firefox and
                 # Chrome draw it, while the CBDT bitmaps above don't render in Firefox on macOS.
@@ -223,7 +232,7 @@
                 cp ${pkgs.inter}/share/fonts/truetype/InterVariable.ttf $out/ui/Inter.ttf
                 cp "${pkgs.jetbrains-mono}/share/fonts/truetype/JetBrainsMono[wght].ttf" $out/ui/JetBrainsMono.ttf
                 chmod 644 $out/emoji/* $out/ui/*
-                python3 ${./nix}/woff2.py $out/emoji/*.ttf $out/ui/*.ttf
+                python3 ${fontScripts}/woff2.py $out/emoji/*.ttf $out/ui/*.ttf
               '';
 
           # All the Unicode inputs in one place, for convenience.

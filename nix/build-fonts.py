@@ -18,7 +18,7 @@ import sys
 from fontTools.ttLib import TTCollection, TTFont
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from woff2 import to_woff2  # noqa: E402
+from woff2 import to_woff2_all  # noqa: E402
 
 out_dir = sys.argv[1]
 pkg_dirs = sys.argv[2:]
@@ -98,8 +98,11 @@ for e in entries:
     if e not in kept:
         os.remove(os.path.join(out_dir, e["file"]))
 
-for e in kept:
-    e["file"] = os.path.basename(to_woff2(os.path.join(out_dir, e["file"])))
+# Largest first, so the long ones start straight away rather than holding up the end. (The
+# manifest keeps its order.)
+by_size = sorted(kept, key=lambda e: -os.path.getsize(os.path.join(out_dir, e["file"])))
+for e, path in zip(by_size, to_woff2_all([os.path.join(out_dir, e["file"]) for e in by_size])):
+    e["file"] = os.path.basename(path)
 
 with open(os.path.join(out_dir, "manifest.json"), "w") as f:
     json.dump({"fonts": kept}, f)
