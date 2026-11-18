@@ -87,6 +87,14 @@ code {
   justify-content: center;
   gap: 8px;
 }
+.splash-reload {
+  margin-top: 4px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel-solid);
+  color: var(--text);
+}
 .spinner {
   width: 28px;
   height: 28px;
